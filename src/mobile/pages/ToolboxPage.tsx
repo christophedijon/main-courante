@@ -72,7 +72,7 @@ export default function ToolboxPage() {
   const tools = [
     { Icon: MapPin,    title: 'Rôle',           desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE',      route: () => navigate('/mobile/postes') },
     { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes',   accent: 'red',   cat: 'SSI',       route: () => navigate('/mobile/outils/documents/SSI') },
-    { Icon: FileText,  title: 'Info & Document', desc: 'Fiches',                accent: 'slate', cat: 'PROCEDURE', route: () => navigate('/mobile/outils/documents/PROCEDURE') },
+    { Icon: FileText,  title: 'Info & Doc',      desc: 'Fiches & procédures',   accent: 'slate', cat: 'PROCEDURE', route: () => navigate('/mobile/outils/documents/PROCEDURE') },
     { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',    accent: 'teal',  cat: 'RADIO',     route: () => navigate('/mobile/outils/documents/RADIO') },
   ] as const;
 

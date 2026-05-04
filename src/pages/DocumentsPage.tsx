@@ -43,9 +43,9 @@ type Msg = { type: 'success' | 'error'; text: string };
 const ROLES = ['Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur'];
 
 const CATEGORIES: { id: Categorie; label: string; icon: React.ComponentType<{ className?: string }>; accent: string; activeClass: string }[] = [
-  { id: 'RONDE',     label: 'Ronde',         icon: Shield,   accent: 'text-blue-400',  activeClass: 'border-blue-500 bg-blue-500/10 text-blue-300' },
+  { id: 'RONDE',     label: 'Rôle',          icon: Shield,   accent: 'text-blue-400',  activeClass: 'border-blue-500 bg-blue-500/10 text-blue-300' },
   { id: 'SSI',       label: 'Consignes SSI', icon: Flame,    accent: 'text-red-400',   activeClass: 'border-red-500 bg-red-500/10 text-red-300' },
-  { id: 'PROCEDURE', label: 'Procédure',     icon: FileText, accent: 'text-slate-300', activeClass: 'border-slate-400 bg-slate-700/50 text-slate-200' },
+  { id: 'PROCEDURE', label: 'Info & Doc',    icon: FileText, accent: 'text-slate-300', activeClass: 'border-slate-400 bg-slate-700/50 text-slate-200' },
   { id: 'RADIO',     label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  activeClass: 'border-teal-500 bg-teal-500/10 text-teal-300' },
 ];
 
