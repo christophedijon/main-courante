@@ -810,8 +810,8 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* ---- Carte professionnelle (Agent de Sécurité only) ---- */}
-            {fonction === 'Agent de Sécurité' && (
+            {/* ---- Carte professionnelle ---- */}
+            {(fonction === 'Agent de Sécurité' || fonction === 'Chef de poste') && (
               <CollapseSection
                 title="Carte professionnelle"
                 icon={<ShieldCheck className="w-4 h-4 shrink-0 text-blue-400" />}

@@ -336,7 +336,7 @@ export default function MobileProfilePage() {
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'info', label: 'Profil' },
-    ...(userFonction === 'Agent de Sécurité' ? [{ id: 'cartepro' as Tab, label: 'Carte pro' }] : []),
+    ...(userFonction === 'Agent de Sécurité' || userFonction === 'Chef de poste' ? [{ id: 'cartepro' as Tab, label: 'Carte pro' }] : []),
     { id: 'formations', label: 'Formations' },
     { id: 'password', label: 'Mot de passe' },
   ];

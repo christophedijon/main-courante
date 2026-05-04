@@ -638,7 +638,7 @@ export default function UserEditPage() {
             </Section>
 
             {/* Carte professionnelle */}
-            {user.fonction === 'Agent de Sécurité' && (
+            {(user.fonction === 'Agent de Sécurité' || user.fonction === 'Chef de poste') && (
               <Section title="Carte professionnelle" icon={<ShieldCheck className="w-4 h-4 text-blue-400" />} accent="from-blue-500 to-cyan-400">
                 {carteProMsg && <Feedback msg={carteProMsg} />}
                 <form onSubmit={handleSaveCartePro} className="space-y-4">
