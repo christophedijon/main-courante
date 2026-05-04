@@ -243,7 +243,11 @@ export default function UserEditPage() {
 
   async function handleSaveProfile(e: FormEvent) {
     e.preventDefault();
-    if (!user?.auth_user_id) return;
+    if (!user?.auth_user_id) {
+      setSaveMsg({ type: 'error', text: 'Impossible de sauvegarder : cet utilisateur n\'a pas encore de compte de connexion actif. Veuillez d\'abord lui créer un accès depuis la liste des utilisateurs.' });
+      setSaveLoading(false);
+      return;
+    }
     setSaveLoading(true);
     setSaveMsg(null);
 
@@ -301,7 +305,10 @@ export default function UserEditPage() {
 
   async function handleSaveCartePro(e: FormEvent) {
     e.preventDefault();
-    if (!user?.auth_user_id) return;
+    if (!user?.auth_user_id) {
+      setCarteProMsg({ type: 'error', text: 'Impossible de sauvegarder : cet utilisateur n\'a pas encore de compte de connexion actif.' });
+      return;
+    }
     if (!isValidCnaps(profile.carte_pro_numero)) {
       setCarteProMsg({ type: 'error', text: 'Numéro de carte professionnelle incomplet.' });
       return;
@@ -323,7 +330,10 @@ export default function UserEditPage() {
 
   async function handleSaveFormations(e: FormEvent) {
     e.preventDefault();
-    if (!user?.auth_user_id) return;
+    if (!user?.auth_user_id) {
+      setFormationsMsg({ type: 'error', text: 'Impossible de sauvegarder : cet utilisateur n\'a pas encore de compte de connexion actif.' });
+      return;
+    }
     const valid = drafts.filter((d) => d.type_formation && d.date_formation);
     if (valid.length === 0) {
       setFormationsMsg({ type: 'error', text: 'Veuillez renseigner au moins une formation avec une date.' });
@@ -444,6 +454,19 @@ export default function UserEditPage() {
           <div className="text-center py-32 text-slate-500">Utilisateur introuvable.</div>
         ) : (
           <>
+            {/* Warning: no auth account linked */}
+            {!user.auth_user_id && (
+              <div className="flex items-start gap-3 rounded-2xl p-4 border bg-amber-500/10 border-amber-500/20 text-amber-300">
+                <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-amber-400" />
+                <div>
+                  <p className="font-semibold text-sm">Compte de connexion non activé</p>
+                  <p className="text-xs mt-1 text-amber-400/80">
+                    Cet utilisateur n'a pas encore de compte de connexion actif. Les informations de profil, formations et carte professionnelle ne peuvent pas être sauvegardées tant qu'aucun accès n'est créé.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Identity card */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shrink-0 shadow-lg shadow-blue-900/40">
