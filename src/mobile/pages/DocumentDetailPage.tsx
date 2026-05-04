@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronDown, X } from 'lucide-react';
+import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronDown, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import ImageViewer from '../components/ImageViewer';
 
@@ -26,20 +26,27 @@ const META: Record<Categorie, {
   RADIO:     { label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  iconBg: 'bg-teal-500/15 border-teal-500/30' },
 };
 
-// Extract PDF links from HTML content
 function extractPdfLinks(html: string): { href: string; label: string }[] {
   const matches = [...html.matchAll(/<a[^>]+href="([^"]+\.pdf[^"]*)"[^>]*>([^<]*)<\/a>/gi)];
   return matches.map((m) => ({ href: m[1], label: m[2].replace(/📎\s*/g, '').trim() || 'Document PDF' }));
 }
 
-// Remove PDF anchor <p> wrappers from content (shown as dedicated cards instead)
+function extractImages(html: string): { src: string; alt: string }[] {
+  const matches = [...html.matchAll(/<img[^>]+src="([^"]+)"[^>]*(?:alt="([^"]*)")?[^>]*/gi)];
+  return matches.map((m) => ({ src: m[1], alt: m[2] || 'Image' }));
+}
+
 function stripPdfLinks(html: string): string {
   return html.replace(/<p><a[^>]+href="[^"]+\.pdf[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '');
 }
 
+// Strip img tags from content — they'll be shown in the dedicated images section
+function stripImages(html: string): string {
+  return html.replace(/<img[^>]*>/gi, '');
+}
+
 function PdfViewer({ href, label }: { href: string; label: string }) {
   const [open, setOpen] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   return (
     <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
@@ -56,14 +63,12 @@ function PdfViewer({ href, label }: { href: string; label: string }) {
       </button>
 
       {open && (
-        <div className="border-t border-slate-800">
-          {/* iOS/Android: iframe works for PDF viewing in-app via WKWebView / Chrome */}
+        <div className="border-t border-slate-800 overflow-hidden rounded-b-2xl" style={{ height: '75vh' }}>
           <iframe
-            ref={iframeRef}
-            src={href}
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(href)}&embedded=true`}
+            className="w-full h-full border-0"
             title={label}
-            className="w-full border-0"
-            style={{ height: '70vh' }}
+            allow="fullscreen"
           />
         </div>
       )}
@@ -77,6 +82,7 @@ export default function DocumentDetailPage() {
   const [doc, setDoc] = useState<Doc | null>(null);
   const [loading, setLoading] = useState(true);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [imagesOpen, setImagesOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const cat = (categorie?.toUpperCase() ?? '') as Categorie;
@@ -95,25 +101,6 @@ export default function DocumentDetailPage() {
       setLoading(false);
     })();
   }, [id]);
-
-  // Wire up image clicks in rendered HTML content for lightbox
-  useEffect(() => {
-    const container = contentRef.current;
-    if (!container) return;
-    const imgs = container.querySelectorAll('img');
-    function handleImgClick(e: Event) {
-      const img = e.currentTarget as HTMLImageElement;
-      e.stopPropagation();
-      setLightboxSrc(img.src);
-    }
-    imgs.forEach((img) => {
-      img.style.cursor = 'zoom-in';
-      img.addEventListener('click', handleImgClick);
-    });
-    return () => {
-      imgs.forEach((img) => img.removeEventListener('click', handleImgClick));
-    };
-  }, [doc]);
 
   if (loading) {
     return (
@@ -140,7 +127,8 @@ export default function DocumentDetailPage() {
 
   const Icon = meta.icon;
   const pdfLinks = extractPdfLinks(doc.contenu);
-  const cleanedContent = stripPdfLinks(doc.contenu);
+  const images = extractImages(doc.contenu);
+  const cleanedContent = stripImages(stripPdfLinks(doc.contenu));
 
   return (
     <div className="pb-12">
@@ -170,7 +158,7 @@ export default function DocumentDetailPage() {
           )}
         </div>
 
-        {/* Main content — images clickable for lightbox */}
+        {/* Main text content */}
         <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
           <div
             ref={contentRef}
@@ -179,7 +167,48 @@ export default function DocumentDetailPage() {
           />
         </div>
 
-        {/* PDF attachments — inline viewer, no external browser */}
+        {/* Images section — collapsible */}
+        {images.length > 0 && (
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setImagesOpen((v) => !v)}
+              className="w-full flex items-center gap-3 p-4 transition-all active:bg-slate-800"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                <ImageIcon className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-white font-medium text-[14px]">Documents visuels</p>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  {images.length} image{images.length > 1 ? 's' : ''}
+                </p>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${imagesOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {imagesOpen && (
+              <div className="border-t border-slate-800 p-4 space-y-3">
+                {images.map((img, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl overflow-hidden border border-slate-700 cursor-zoom-in"
+                    onClick={() => setLightboxSrc(img.src)}
+                  >
+                    <img
+                      src={img.src}
+                      alt={img.alt}
+                      className="w-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                ))}
+                <p className="text-slate-600 text-xs text-center">Appuyez sur une image pour l'agrandir</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PDF attachments — inline Google Docs viewer */}
         {pdfLinks.length > 0 && (
           <div className="space-y-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
