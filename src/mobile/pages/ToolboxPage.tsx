@@ -1,13 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
-const TOOLS = [
-  { Icon: MapPin,    title: 'Rôle',           desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE' },
-  { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes',   accent: 'red',   cat: 'SSI' },
-  { Icon: FileText,  title: 'Procédure',      desc: 'Fiches',                accent: 'slate', cat: 'PROCEDURE' },
-  { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',    accent: 'teal',  cat: 'RADIO' },
-] as const;
+type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
 const colorMap: Record<string, { wrap: string; icon: string }> = {
   blue:  { wrap: 'bg-blue-500/15 border-blue-500/30',   icon: 'text-blue-400' },
@@ -16,10 +13,68 @@ const colorMap: Record<string, { wrap: string; icon: string }> = {
   teal:  { wrap: 'bg-teal-500/15 border-teal-500/30',   icon: 'text-teal-400' },
 };
 
+const CAT_TO_ROUTE: Record<string, Categorie> = {
+  ROLE:      'RONDE',
+  SSI:       'SSI',
+  PROCEDURE: 'PROCEDURE',
+  RADIO:     'RADIO',
+};
+
 export default function ToolboxPage() {
   const navigate = useNavigate();
-  const { isSuperAdmin, userFonction } = useAuth();
+  const { isSuperAdmin, userFonction, session } = useAuth();
   const canAssign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
+
+  const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!session?.user || !userFonction) return;
+    (async () => {
+      const { data: docs } = await supabase
+        .from('toolbox_documents')
+        .select('id, categorie, content_version, destinataires')
+        .eq('actif', true)
+        .eq('signature_requise', true);
+
+      if (!docs || docs.length === 0) return;
+
+      const relevant = docs.filter((d: { destinataires: string[] }) =>
+        !d.destinataires || d.destinataires.length === 0 || d.destinataires.includes(userFonction)
+      );
+      if (relevant.length === 0) return;
+
+      const { data: sigs } = await supabase
+        .from('signatures')
+        .select('document_id, content_version')
+        .eq('agent_id', session.user.id);
+
+      const signedSet = new Set((sigs ?? []).map((s: { document_id: string; content_version: number }) => `${s.document_id}:${s.content_version}`));
+
+      const counts: Record<string, number> = {};
+      for (const doc of relevant) {
+        if (!signedSet.has(`${doc.id}:${doc.content_version}`)) {
+          counts[doc.categorie] = (counts[doc.categorie] ?? 0) + 1;
+        }
+      }
+      setUnsignedByCat(counts);
+    })();
+  }, [session?.user?.id, userFonction]);
+
+  function Badge({ count }: { count: number }) {
+    if (count === 0) return null;
+    return (
+      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-red-900/50 z-10">
+        {count > 9 ? '9+' : count}
+      </span>
+    );
+  }
+
+  const tools = [
+    { Icon: MapPin,    title: 'Rôle',           desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE',      route: () => navigate('/mobile/postes') },
+    { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes',   accent: 'red',   cat: 'SSI',       route: () => navigate('/mobile/outils/documents/SSI') },
+    { Icon: FileText,  title: 'Procédure',      desc: 'Fiches',                accent: 'slate', cat: 'PROCEDURE', route: () => navigate('/mobile/outils/documents/PROCEDURE') },
+    { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',    accent: 'teal',  cat: 'RADIO',     route: () => navigate('/mobile/outils/documents/RADIO') },
+  ] as const;
 
   return (
     <div>
@@ -40,17 +95,21 @@ export default function ToolboxPage() {
       </div>
 
       <div className="px-5 py-5 grid grid-cols-2 gap-3">
-        {TOOLS.map(({ Icon, title, desc, accent, cat }) => {
+        {tools.map(({ Icon, title, desc, accent, cat, route }) => {
           const c = colorMap[accent];
+          const badgeCount = cat === 'ROLE' ? 0 : (unsignedByCat[CAT_TO_ROUTE[cat]] ?? 0);
           return (
             <button
               key={title}
               type="button"
-              onClick={() => cat === 'ROLE' ? navigate('/mobile/postes') : navigate(`/mobile/outils/documents/${cat}`)}
+              onClick={route}
               className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
             >
-              <div className={`w-11 h-11 rounded-xl border flex items-center justify-center mb-3 ${c.wrap}`}>
-                <Icon className={`w-5 h-5 ${c.icon}`} strokeWidth={2.3} />
+              <div className="relative w-fit mb-3">
+                <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${c.wrap}`}>
+                  <Icon className={`w-5 h-5 ${c.icon}`} strokeWidth={2.3} />
+                </div>
+                <Badge count={badgeCount} />
               </div>
               <p className="text-white font-semibold text-[14px] leading-tight">{title}</p>
               <p className="text-slate-500 text-[11px] mt-0.5">{desc}</p>

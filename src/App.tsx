@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { supabase } from './lib/supabase';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
@@ -10,6 +12,7 @@ import IAPage from './pages/IAPage';
 import MotifsPage from './pages/MotifsPage';
 import DocumentsPage from './pages/DocumentsPage';
 import PostesPage from './pages/PostesPage';
+import DashboardSignaturesPage from './pages/DashboardSignaturesPage';
 
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
@@ -35,6 +38,22 @@ import StepLocalisation from './mobile/saisie/StepLocalisation';
 import StepDescription from './mobile/saisie/StepDescription';
 import StepSsiZone from './mobile/saisie/StepSsiZone';
 import StepSsiMotifs from './mobile/saisie/StepSsiMotifs';
+
+function OfflineSignatureSync() {
+  useEffect(() => {
+    async function syncPending() {
+      const pending = JSON.parse(localStorage.getItem('mc_pending_signatures') ?? '[]');
+      if (pending.length === 0) return;
+      for (const sig of pending) {
+        await supabase.from('signatures').upsert({ ...sig, synced: true });
+      }
+      localStorage.removeItem('mc_pending_signatures');
+    }
+    window.addEventListener('online', syncPending);
+    return () => window.removeEventListener('online', syncPending);
+  }, []);
+  return null;
+}
 
 function Spinner() {
   return (
@@ -81,6 +100,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <SaisieProvider>
+          <OfflineSignatureSync />
           <Routes>
             <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
 
@@ -94,6 +114,7 @@ export default function App() {
             <Route path="/motifs" element={<AdminRoute><MotifsPage /></AdminRoute>} />
             <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
             <Route path="/postes" element={<AdminRoute><PostesPage /></AdminRoute>} />
+            <Route path="/dashboard-signatures" element={<AdminRoute><DashboardSignaturesPage /></AdminRoute>} />
 
             {/* Mobile app */}
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>

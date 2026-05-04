@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronRight, FileX } from 'lucide-react';
+import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronRight, FileX, PenLine } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -10,6 +11,8 @@ type Doc = {
   titre: string;
   description: string;
   ordre: number;
+  destinataires: string[];
+  signature_requise: boolean;
 };
 
 const META: Record<Categorie, {
@@ -27,6 +30,7 @@ const META: Record<Categorie, {
 export default function DocumentListPage() {
   const { categorie } = useParams<{ categorie: string }>();
   const navigate = useNavigate();
+  const { userFonction } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,14 +42,20 @@ export default function DocumentListPage() {
     (async () => {
       const { data } = await supabase
         .from('toolbox_documents')
-        .select('id, titre, description, ordre')
+        .select('id, titre, description, ordre, destinataires, signature_requise')
         .eq('categorie', cat)
         .eq('actif', true)
         .order('ordre', { ascending: true });
-      setDocs((data ?? []) as Doc[]);
+
+      const all = (data ?? []) as Doc[];
+      // Filtrer selon les destinataires : si vide → visible par tous
+      const visible = all.filter((doc) =>
+        !doc.destinataires || doc.destinataires.length === 0 || (userFonction && doc.destinataires.includes(userFonction))
+      );
+      setDocs(visible);
       setLoading(false);
     })();
-  }, [cat]);
+  }, [cat, userFonction]);
 
   if (!meta) {
     return (
@@ -114,7 +124,15 @@ export default function DocumentListPage() {
                   <Icon className={`w-4 h-4 ${meta.accent}`} strokeWidth={2.3} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-[14px] leading-tight">{doc.titre}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-white font-semibold text-[14px] leading-tight">{doc.titre}</p>
+                    {doc.signature_requise && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 font-semibold shrink-0">
+                        <PenLine className="w-2.5 h-2.5" />
+                        Signature
+                      </span>
+                    )}
+                  </div>
                   {doc.description && (
                     <p className="text-slate-500 text-[12px] mt-0.5 truncate">{doc.description}</p>
                   )}
