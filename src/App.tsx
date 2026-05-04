@@ -9,6 +9,7 @@ import EspacesZonesPage from './pages/EspacesZonesPage';
 import IAPage from './pages/IAPage';
 import MotifsPage from './pages/MotifsPage';
 import DocumentsPage from './pages/DocumentsPage';
+import PostesPage from './pages/PostesPage';
 
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
@@ -18,6 +19,7 @@ import HistoryPage from './mobile/pages/HistoryPage';
 import SearchPage from './mobile/pages/SearchPage';
 import MobileProfilePage from './mobile/pages/MobileProfilePage';
 import MobileAdminPage from './mobile/pages/MobileAdminPage';
+import PostesMobilePage from './mobile/pages/PostesMobilePage';
 import EventDetailPage from './mobile/pages/EventDetailPage';
 import DocumentListPage from './mobile/pages/DocumentListPage';
 import DocumentDetailPage from './mobile/pages/DocumentDetailPage';
@@ -90,6 +92,7 @@ export default function App() {
             <Route path="/ia" element={<AdminRoute><IAPage /></AdminRoute>} />
             <Route path="/motifs" element={<AdminRoute><MotifsPage /></AdminRoute>} />
             <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
+            <Route path="/postes" element={<AdminRoute><PostesPage /></AdminRoute>} />
 
             {/* Mobile app */}
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
@@ -99,6 +102,7 @@ export default function App() {
               <Route path="recherche" element={<SearchPage />} />
               <Route path="profil" element={<MobileProfilePage />} />
               <Route path="admin" element={<MobileAdminPage />} />
+              <Route path="postes" element={<PostesMobilePage />} />
               <Route path="evenement/:id" element={<EventDetailPage />} />
               <Route path="outils/documents/:categorie" element={<DocumentListPage />} />
               <Route path="outils/documents/:categorie/:id" element={<DocumentDetailPage />} />

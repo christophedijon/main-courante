@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, Shield, FileText } from 'lucide-react';
+import { Flame, Radio, Sparkles, MapPin, FileText } from 'lucide-react';
 
 const TOOLS = [
-  { Icon: Shield,    title: 'Ronde',          desc: 'Suivi de ronde',      accent: 'blue',  cat: 'RONDE' },
-  { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes', accent: 'red',   cat: 'SSI' },
-  { Icon: FileText,  title: 'Procédure',      desc: 'Fiches',              accent: 'slate', cat: 'PROCEDURE' },
-  { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',  accent: 'teal',  cat: 'RADIO' },
+  { Icon: MapPin,    title: 'Rôle',           desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE' },
+  { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes',   accent: 'red',   cat: 'SSI' },
+  { Icon: FileText,  title: 'Procédure',      desc: 'Fiches',                accent: 'slate', cat: 'PROCEDURE' },
+  { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',    accent: 'teal',  cat: 'RADIO' },
 ] as const;
 
 const colorMap: Record<string, { wrap: string; icon: string }> = {
@@ -43,7 +43,7 @@ export default function ToolboxPage() {
             <button
               key={title}
               type="button"
-              onClick={() => navigate(`/mobile/outils/documents/${cat}`)}
+              onClick={() => cat === 'ROLE' ? navigate('/mobile/postes') : navigate(`/mobile/outils/documents/${cat}`)}
               className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
             >
               <div className={`w-11 h-11 rounded-xl border flex items-center justify-center mb-3 ${c.wrap}`}>

@@ -11,19 +11,24 @@ export default function AppHeader({ onSignOut }: Props) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { nom, logo_url } = useEntreprise();
-  const { isSuperAdmin, isDirection } = useAuth();
+  const { isSuperAdmin, isDirection, hasAdminAccess } = useAuth();
 
   const allTabs = [
-    { path: '/dashboard',     label: 'Utilisateurs',   icon: LayoutDashboard, adminOnly: true },
-    { path: '/profile',       label: 'Mon Profil',     icon: User,             adminOnly: false },
-    { path: '/entreprise',    label: 'Entreprise',     icon: Building2,        adminOnly: true },
-    { path: '/espaces-zones', label: 'Espaces & Zones', icon: MapPin,           adminOnly: true },
-    { path: '/ia',            label: 'IA',              icon: Bot,              adminOnly: true },
-    { path: '/motifs',        label: 'Motifs',          icon: ShieldAlert,      adminOnly: true },
-    { path: '/documents',     label: 'Documents',       icon: FileText,         adminOnly: true },
+    { path: '/dashboard',     label: 'Utilisateurs',    icon: LayoutDashboard, superOnly: true,  adminOnly: false },
+    { path: '/profile',       label: 'Mon Profil',      icon: User,            superOnly: false, adminOnly: false },
+    { path: '/postes',        label: 'Postes',          icon: MapPin,          superOnly: false, adminOnly: true  },
+    { path: '/entreprise',    label: 'Entreprise',      icon: Building2,       superOnly: true,  adminOnly: false },
+    { path: '/espaces-zones', label: 'Espaces & Zones', icon: MapPin,          superOnly: true,  adminOnly: false },
+    { path: '/ia',            label: 'IA',              icon: Bot,             superOnly: true,  adminOnly: false },
+    { path: '/motifs',        label: 'Motifs',          icon: ShieldAlert,     superOnly: true,  adminOnly: false },
+    { path: '/documents',     label: 'Documents',       icon: FileText,        superOnly: true,  adminOnly: false },
   ];
 
-  const tabs = allTabs.filter((t) => !t.adminOnly || isSuperAdmin);
+  const tabs = allTabs.filter((t) => {
+    if (t.superOnly && !isSuperAdmin) return false;
+    if (t.adminOnly && !hasAdminAccess) return false;
+    return true;
+  });
 
   const isImageLogo = logo_url && logo_url.match(/\.(png|jpe?g|gif|webp)$/i);
 
@@ -58,7 +63,7 @@ export default function AppHeader({ onSignOut }: Props) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {isDirection && (
+          {hasAdminAccess && (
             <button
               onClick={() => navigate('/mobile')}
               className="flex items-center gap-2 text-slate-400 hover:text-blue-400 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-all"
