@@ -1,17 +1,20 @@
 import { NavLink } from 'react-router-dom';
 import { Home, ShieldAlert, Clock, Search, User, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useUnsignedDocs } from '../hooks/useUnsignedDocs';
 
 const baseTabs = [
-  { to: '/mobile',            label: 'Accueil',       Icon: Home,         end: true  },
+  { to: '/mobile',            label: 'Accueil',        Icon: Home,        end: true  },
   { to: '/mobile/outils',     label: 'Boite à Outils', Icon: ShieldAlert, end: false },
-  { to: '/mobile/historique', label: 'Historique',    Icon: Clock,        end: false },
-  { to: '/mobile/recherche',  label: 'Recherche',     Icon: Search,       end: false },
-  { to: '/mobile/profil',     label: 'Profil',        Icon: User,         end: false },
+  { to: '/mobile/historique', label: 'Historique',     Icon: Clock,       end: false },
+  { to: '/mobile/recherche',  label: 'Recherche',      Icon: Search,      end: false },
+  { to: '/mobile/profil',     label: 'Profil',         Icon: User,        end: false },
 ];
 
 export default function MobileBottomNav() {
   const { hasAdminAccess } = useAuth();
+  const { unsignedCount } = useUnsignedDocs();
+
   const tabs = hasAdminAccess
     ? [...baseTabs, { to: '/mobile/admin', label: 'Admin', Icon: Settings, end: false }]
     : baseTabs;
@@ -22,29 +25,39 @@ export default function MobileBottomNav() {
         border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
     >
       <div className="max-w-xl mx-auto grid" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
-        {tabs.map(({ to, label, Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              `relative flex flex-col items-center justify-center gap-1 py-2.5 px-1 transition-colors
-               ${isActive ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-0.5 rounded-full bg-blue-400" />
-                )}
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.2]' : ''}`} />
-                <span className={`text-[10.5px] leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
-                  {label}
-                </span>
-              </>
-            )}
-          </NavLink>
-        ))}
+        {tabs.map(({ to, label, Icon, end }) => {
+          const isOutils = to === '/mobile/outils';
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                `relative flex flex-col items-center justify-center gap-1 py-2.5 px-1 transition-colors
+                 ${isActive ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-0.5 rounded-full bg-blue-400" />
+                  )}
+                  <span className="relative">
+                    <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.2]' : ''}`} />
+                    {isOutils && unsignedCount > 0 && (
+                      <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow-lg shadow-red-900/50 leading-none">
+                        {unsignedCount > 9 ? '9+' : unsignedCount}
+                      </span>
+                    )}
+                  </span>
+                  <span className={`text-[10.5px] leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                    {label}
+                  </span>
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </div>
     </nav>
   );
