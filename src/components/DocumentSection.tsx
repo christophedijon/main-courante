@@ -396,8 +396,6 @@ export default function DocumentSection({
                       <div className="flex items-center gap-1 shrink-0">
                         <a
                           href={item.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
                           className="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800
                             flex items-center justify-center transition-all"
                           title="Ouvrir le PDF"

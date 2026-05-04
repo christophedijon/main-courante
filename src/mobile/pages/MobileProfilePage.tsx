@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import RoleBadge from '../components/RoleBadge';
+import ImageViewer from '../components/ImageViewer';
 import CnapsInput, { isValidCnaps } from '../../components/CnapsInput';
 import {
   NATIONALITIES, EXEMPT_NATIONALITIES, TYPES_FORMATION,
@@ -84,6 +85,9 @@ export default function MobileProfilePage() {
 
   // Formations drafts
   const [drafts, setDrafts] = useState<FormationDraft[]>([{ type_formation: TYPES_FORMATION[0], date_formation: '' }]);
+
+  // Lightbox for carte de séjour
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   // Password
   const [currentPwd, setCurrentPwd] = useState('');
@@ -390,6 +394,13 @@ export default function MobileProfilePage() {
         </button>
       </div>
 
+      {/* Lightbox — z-[70] to float above the drawer (z-50) */}
+      <ImageViewer
+        src={lightboxSrc ?? ''}
+        isOpen={!!lightboxSrc}
+        onClose={() => setLightboxSrc(null)}
+      />
+
       {/* ════════════════ EDIT DRAWER ════════════════ */}
       {editOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -555,8 +566,19 @@ export default function MobileProfilePage() {
                                       </div>
                                       <div onClick={() => inputRef.current?.click()} className="cursor-pointer">
                                         {src ? (
-                                          <img src={src} alt="" className="w-full h-20 object-cover"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                          <div className="relative">
+                                            <img src={src} alt="" className="w-full h-20 object-cover"
+                                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                            <button
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); setLightboxSrc(src); }}
+                                              className="absolute inset-0 flex items-center justify-center bg-black/0 active:bg-black/30 transition-all"
+                                            >
+                                              <span className="opacity-0 active:opacity-100 transition-opacity text-white text-xs font-medium bg-black/60 px-2 py-1 rounded-lg">
+                                                Voir
+                                              </span>
+                                            </button>
+                                          </div>
                                         ) : (
                                           <div className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-slate-700 m-1.5 rounded-lg">
                                             {photoLoading[side]

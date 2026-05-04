@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Flame, FileText, Radio, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronDown, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import ImageViewer from '../components/ImageViewer';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -25,11 +26,58 @@ const META: Record<Categorie, {
   RADIO:     { label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  iconBg: 'bg-teal-500/15 border-teal-500/30' },
 };
 
+// Extract PDF links from HTML content
+function extractPdfLinks(html: string): { href: string; label: string }[] {
+  const matches = [...html.matchAll(/<a[^>]+href="([^"]+\.pdf[^"]*)"[^>]*>([^<]*)<\/a>/gi)];
+  return matches.map((m) => ({ href: m[1], label: m[2].replace(/📎\s*/g, '').trim() || 'Document PDF' }));
+}
+
+// Remove PDF anchor <p> wrappers from content (shown as dedicated cards instead)
+function stripPdfLinks(html: string): string {
+  return html.replace(/<p><a[^>]+href="[^"]+\.pdf[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '');
+}
+
+function PdfViewer({ href, label }: { href: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  return (
+    <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 p-4 transition-all active:bg-slate-800"
+      >
+        <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+          <FileText className="w-5 h-5 text-slate-400" />
+        </div>
+        <p className="flex-1 text-white font-medium text-[14px] truncate text-left">{label}</p>
+        <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-800">
+          {/* iOS/Android: iframe works for PDF viewing in-app via WKWebView / Chrome */}
+          <iframe
+            ref={iframeRef}
+            src={href}
+            title={label}
+            className="w-full border-0"
+            style={{ height: '70vh' }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DocumentDetailPage() {
   const { categorie, id } = useParams<{ categorie: string; id: string }>();
   const navigate = useNavigate();
   const [doc, setDoc] = useState<Doc | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const cat = (categorie?.toUpperCase() ?? '') as Categorie;
   const meta = META[cat];
@@ -48,6 +96,25 @@ export default function DocumentDetailPage() {
     })();
   }, [id]);
 
+  // Wire up image clicks in rendered HTML content for lightbox
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!container) return;
+    const imgs = container.querySelectorAll('img');
+    function handleImgClick(e: Event) {
+      const img = e.currentTarget as HTMLImageElement;
+      e.stopPropagation();
+      setLightboxSrc(img.src);
+    }
+    imgs.forEach((img) => {
+      img.style.cursor = 'zoom-in';
+      img.addEventListener('click', handleImgClick);
+    });
+    return () => {
+      imgs.forEach((img) => img.removeEventListener('click', handleImgClick));
+    };
+  }, [doc]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
@@ -64,10 +131,7 @@ export default function DocumentDetailPage() {
     return (
       <div className="px-5 py-10 text-center">
         <p className="text-slate-400 text-sm mb-4">Document introuvable.</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-blue-400 text-sm font-semibold"
-        >
+        <button onClick={() => navigate(-1)} className="text-blue-400 text-sm font-semibold">
           Retour
         </button>
       </div>
@@ -75,17 +139,8 @@ export default function DocumentDetailPage() {
   }
 
   const Icon = meta.icon;
-
-  // Extract PDF links from HTML content
-  function extractPdfLinks(html: string): { href: string; label: string }[] {
-    const matches = [...html.matchAll(/<a[^>]+href="([^"]+\.pdf[^"]*)"[^>]*>([^<]*)<\/a>/gi)];
-    return matches.map((m) => ({ href: m[1], label: m[2].replace(/📎\s*/g, '').trim() || 'Ouvrir le document' }));
-  }
-
   const pdfLinks = extractPdfLinks(doc.contenu);
-
-  // Strip PDF anchor tags from content (they'll be shown as buttons below)
-  const cleanedContent = doc.contenu.replace(/<p><a[^>]+href="[^"]+\.pdf[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '');
+  const cleanedContent = stripPdfLinks(doc.contenu);
 
   return (
     <div className="pb-12">
@@ -109,44 +164,40 @@ export default function DocumentDetailPage() {
       <div className="px-4 pt-5 space-y-4">
         {/* Title + description card */}
         <div className={`rounded-2xl border p-4 ${meta.iconBg}`}>
-          <p className={`font-bold text-[17px] leading-snug text-white`}>{doc.titre}</p>
+          <p className="font-bold text-[17px] leading-snug text-white">{doc.titre}</p>
           {doc.description && (
             <p className="text-slate-400 text-sm mt-1">{doc.description}</p>
           )}
         </div>
 
-        {/* Main content */}
+        {/* Main content — images clickable for lightbox */}
         <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
           <div
+            ref={contentRef}
             className="mobile-doc-content"
             dangerouslySetInnerHTML={{ __html: cleanedContent }}
           />
         </div>
 
-        {/* PDF attachments */}
+        {/* PDF attachments — inline viewer, no external browser */}
         {pdfLinks.length > 0 && (
           <div className="space-y-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
               Pièces jointes
             </p>
             {pdfLinks.map((pdf, i) => (
-              <a
-                key={i}
-                href={pdf.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-2xl bg-slate-900 border border-slate-800 active:border-slate-700 p-4 transition-all"
-              >
-                <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5 text-slate-400" />
-                </div>
-                <p className="flex-1 text-white font-medium text-[14px] truncate">{pdf.label}</p>
-                <ExternalLink className="w-4 h-4 text-slate-500 shrink-0" />
-              </a>
+              <PdfViewer key={i} href={pdf.href} label={pdf.label} />
             ))}
           </div>
         )}
       </div>
+
+      {/* Lightbox for images */}
+      <ImageViewer
+        src={lightboxSrc ?? ''}
+        isOpen={!!lightboxSrc}
+        onClose={() => setLightboxSrc(null)}
+      />
     </div>
   );
 }

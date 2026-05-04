@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Save, KeyRound, CheckCircle, AlertCircle, Eye, EyeOff,
-  Phone, Mail, Globe, X, CreditCard, Upload, Calendar,
+  Phone, Mail, Globe, X, CreditCard, Upload, Calendar, ZoomIn,
   Image as ImageIcon, ChevronDown, GraduationCap, Plus, Trash2, ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -189,6 +189,9 @@ export default function ProfilePage() {
   const [drafts, setDrafts] = useState<FormationDraft[]>([{ ...EMPTY_DRAFT }]);
   const [formationsLoading, setFormationsLoading] = useState(false);
   const [formationsMsg, setFormationsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Lightbox for carte de séjour photos
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   // Password modal
   const [showPwdModal, setShowPwdModal] = useState(false);
@@ -737,15 +740,22 @@ export default function ProfilePage() {
                                     className="relative cursor-pointer group"
                                   >
                                     {displaySrc ? (
-                                      <div className="relative">
+                                      <div className="relative group/photo">
                                         <img
                                           src={displaySrc}
                                           alt={`Carte de séjour ${label}`}
                                           className="w-full h-28 object-cover"
                                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                         />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
-                                          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium bg-black/60 px-2 py-1 rounded-lg">
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setLightboxSrc(displaySrc); }}
+                                            className="opacity-0 group-hover/photo:opacity-100 transition-opacity text-white text-xs font-medium bg-black/70 px-2 py-1 rounded-lg flex items-center gap-1"
+                                          >
+                                            <ZoomIn className="w-3 h-3" /> Voir
+                                          </button>
+                                          <span className="opacity-0 group-hover/photo:opacity-100 transition-opacity text-white text-xs font-medium bg-black/70 px-2 py-1 rounded-lg">
                                             Changer
                                           </span>
                                         </div>
@@ -1016,6 +1026,27 @@ export default function ProfilePage() {
           </>
         )}
       </main>
+
+      {/* Lightbox for carte de séjour */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            onClick={() => setLightboxSrc(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt="Carte de séjour"
+            className="max-w-full max-h-[85vh] object-contain rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Password modal */}
       {showPwdModal && (

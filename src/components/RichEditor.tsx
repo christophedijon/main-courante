@@ -80,7 +80,7 @@ export default function RichEditor({ value, onChange, placeholder = 'Rédigez le
       setUploading(false);
       if (url) {
         editor.chain().focus().insertContent(
-          `<p><a href="${url}" target="_blank" rel="noopener noreferrer">📎 ${file.name}</a></p>`
+          `<p><a href="${url}">📎 ${file.name}</a></p>`
         ).run();
       }
     }

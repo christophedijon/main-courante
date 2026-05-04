@@ -58,10 +58,8 @@ function MediaItem({ media, onDelete, canDelete }: { media: Media; onDelete: () 
   return (
     <div className="relative rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
       {isImage && media.url && (
-        <a href={media.url} target="_blank" rel="noopener noreferrer">
-          <img src={media.url} alt={media.original_name}
-            className="w-full h-32 object-cover" />
-        </a>
+        <img src={media.url} alt={media.original_name}
+          className="w-full h-32 object-cover" />
       )}
       {isAudio && (
         <div className="flex items-center gap-3 px-4 py-3">
