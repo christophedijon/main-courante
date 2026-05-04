@@ -8,6 +8,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
+import RichEditor from '../components/RichEditor';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -156,7 +157,7 @@ export default function DocumentsPage() {
     const payload = {
       titre: draft.titre.trim(),
       description: draft.description.trim(),
-      contenu: draft.contenu.trim(),
+      contenu: draft.contenu,
       categorie: draft.categorie,
       ordre: draft.ordre,
       actif: draft.actif,
@@ -461,14 +462,14 @@ export default function DocumentsPage() {
 
               {/* Contenu */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">Contenu <span className="text-red-400">*</span></label>
-                <textarea
-                  required
-                  rows={8}
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Contenu <span className="text-red-400">*</span>
+                  <span className="ml-2 text-[11px] font-normal text-slate-500">Glissez une image ou un PDF directement dans l'éditeur</span>
+                </label>
+                <RichEditor
                   value={draft.contenu}
-                  onChange={(e) => setDraft((d) => ({ ...d, contenu: e.target.value }))}
+                  onChange={(html) => setDraft((d) => ({ ...d, contenu: html }))}
                   placeholder="Rédigez le contenu du document ici…"
-                  className={`${inputCls} resize-y`}
                 />
               </div>
 
