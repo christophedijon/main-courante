@@ -4,7 +4,7 @@ import {
   Mail, Phone, User as UserIcon, Briefcase, GraduationCap,
   LogOut, Shield, ChevronRight, Pencil, X, Globe, CreditCard,
   Calendar, Upload, Image as ImageIcon, Plus, Trash2, KeyRound,
-  Eye, EyeOff, AlertCircle, CheckCircle, ShieldCheck, Save,
+  Eye, EyeOff, AlertCircle, CheckCircle, ShieldCheck, Save, ChevronDown,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -16,6 +16,13 @@ import {
   NATIONALITIES, EXEMPT_NATIONALITIES, TYPES_FORMATION,
   normalizeStr, isExpired, formatDateFR,
 } from '../../lib/profileConstants';
+
+type CarteSejour = {
+  carte_sejour_numero: string;
+  carte_sejour_validite: string;
+  carte_sejour_recto_url: string | null;
+  carte_sejour_verso_url: string | null;
+};
 
 type Formation = { id: string; type_formation: string; date_formation: string };
 type FormationDraft = { type_formation: string; date_formation: string };
@@ -55,6 +62,8 @@ export default function MobileProfilePage() {
   const navigate = useNavigate();
   const { profile: basicProfile } = useCurrentProfile();
   const [formations, setFormations] = useState<Formation[]>([]);
+  const [carteSejour, setCarteSejour] = useState<CarteSejour | null>(null);
+  const [photosOpen, setPhotosOpen] = useState(false);
 
   // Drawer
   const [editOpen, setEditOpen] = useState(false);
@@ -101,6 +110,14 @@ export default function MobileProfilePage() {
     const uid = session?.user.id;
     if (!uid) return;
     fetchFormations(uid);
+    supabase
+      .from('user_profiles')
+      .select('carte_sejour_numero, carte_sejour_validite, carte_sejour_recto_url, carte_sejour_verso_url')
+      .eq('id', uid)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setCarteSejour(data as CarteSejour);
+      });
   }, [session?.user.id]);
 
   function fetchFormations(uid: string) {
@@ -356,6 +373,89 @@ export default function MobileProfilePage() {
           <InfoRow icon={Briefcase} label="Fonction" value={userFonction || '—'} />
         </div>
       </div>
+
+      {/* Carte de séjour — visible uniquement si nationalité hors UE */}
+      {carteSejour && !EXEMPT_NATIONALITIES.has(basicProfile.nationalite) && basicProfile.nationalite.trim() !== '' && (
+        <div className="px-5 mt-4">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.18em] mb-2">Carte de séjour</p>
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 divide-y divide-slate-800">
+            {/* Numéro */}
+            <div className="flex items-center gap-3 px-4 py-3">
+              <CreditCard className="w-4 h-4 text-slate-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Numéro</p>
+                <p className="text-white text-sm font-medium truncate">
+                  {carteSejour.carte_sejour_numero || '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Validité */}
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Validité</p>
+                {carteSejour.carte_sejour_validite ? (
+                  <p className={`text-sm font-medium flex items-center gap-1.5 ${isExpired(carteSejour.carte_sejour_validite) ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+                    {formatDateFR(carteSejour.carte_sejour_validite)}
+                    {isExpired(carteSejour.carte_sejour_validite) && <span className="text-xs font-bold">· Expirée</span>}
+                  </p>
+                ) : (
+                  <p className="text-white text-sm font-medium">—</p>
+                )}
+              </div>
+            </div>
+
+            {/* Photos recto / verso — repliables */}
+            {(carteSejour.carte_sejour_recto_url || carteSejour.carte_sejour_verso_url) && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setPhotosOpen((v) => !v)}
+                  className="w-full flex items-center gap-3 px-4 py-3 transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4 text-slate-500 shrink-0" />
+                  <p className="flex-1 text-[11px] uppercase tracking-wider font-semibold text-slate-500 text-left">
+                    Photos de la carte
+                  </p>
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${photosOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {photosOpen && (
+                  <div className="px-4 pb-4 grid grid-cols-2 gap-3">
+                    {(['recto', 'verso'] as const).map((side) => {
+                      const url = side === 'recto' ? carteSejour.carte_sejour_recto_url : carteSejour.carte_sejour_verso_url;
+                      return (
+                        <div key={side} className="rounded-xl overflow-hidden border border-slate-700">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1 bg-slate-800">
+                            {side === 'recto' ? 'Recto' : 'Verso'}
+                          </p>
+                          {url ? (
+                            <div
+                              className="cursor-zoom-in"
+                              onClick={() => setLightboxSrc(url)}
+                            >
+                              <img
+                                src={url}
+                                alt={`Carte de séjour ${side}`}
+                                className="w-full h-24 object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-24 flex items-center justify-center bg-slate-800/50">
+                              <p className="text-slate-600 text-xs">Non fourni</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Formations */}
       <div className="px-5 mt-4">
