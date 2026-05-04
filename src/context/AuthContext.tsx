@@ -10,7 +10,9 @@ type AuthContextType = {
   isDirection: boolean;
   isSecurite: boolean;
   isServeur: boolean;
+  isChefDePoste: boolean;
   hasAdminAccess: boolean;
+  hasChefDePosteAccess: boolean;
   hasMobileAccess: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
@@ -71,15 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isDirection = userFonction === 'Direction';
   const isSecurite = userFonction === 'Agent de Sécurité' || userFonction === 'Sécurité';
   const isServeur = userFonction === 'Serveur';
-  const hasAdminAccess = isSuperAdmin || isDirection;
+  const isChefDePoste = userFonction === 'Chef de poste';
+  const hasAdminAccess = isSuperAdmin || isDirection || isChefDePoste;
+  const hasChefDePosteAccess = isChefDePoste;
   const hasMobileAccess = !!session;
 
   return (
     <AuthContext.Provider
       value={{
         session, loading, isSuperAdmin, userFonction,
-        isDirection, isSecurite, isServeur,
-        hasAdminAccess, hasMobileAccess,
+        isDirection, isSecurite, isServeur, isChefDePoste,
+        hasAdminAccess, hasChefDePosteAccess, hasMobileAccess,
         signIn, signOut,
       }}
     >

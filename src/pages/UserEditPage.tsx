@@ -92,6 +92,7 @@ const FONCTION_STYLES: Record<string, string> = {
   'Agent de Sécurité': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   'Serveur': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
   'Direction': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  'Chef de poste': 'bg-violet-500/10 text-violet-400 border-violet-500/20',
 };
 
 const STATUS_STYLES: Record<string, string> = {

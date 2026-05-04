@@ -8,7 +8,7 @@ type Props = {
   onCreated: (user: ManagedUser) => void;
 };
 
-const FONCTIONS = ['Agent de Sécurité', 'Serveur', 'Direction'];
+const FONCTIONS = ['Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur'];
 
 export default function CreateUserModal({ onClose, onCreated }: Props) {
   const [email, setEmail] = useState('');
@@ -161,9 +161,11 @@ export default function CreateUserModal({ onClose, onCreated }: Props) {
               </div>
             </div>
 
-            {fonction === 'Direction' && (
+            {(fonction === 'Direction' || fonction === 'Chef de poste') && (
               <p className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-                La fonction Direction accorde des droits d'accès étendus à l'application.
+                {fonction === 'Direction'
+                  ? 'La fonction Direction accorde des droits d\'accès étendus à l\'application.'
+                  : 'La fonction Chef de poste accorde un accès partiel au back-office.'}
               </p>
             )}
 

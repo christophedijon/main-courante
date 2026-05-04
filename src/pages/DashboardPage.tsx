@@ -27,6 +27,7 @@ const FONCTION_STYLES: Record<string, string> = {
   'Agent de Sécurité': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   'Serveur':           'bg-cyan-500/10  text-cyan-400  border-cyan-500/20',
   'Direction':         'bg-rose-500/10  text-rose-400  border-rose-500/20',
+  'Chef de poste':     'bg-violet-500/10 text-violet-400 border-violet-500/20',
 };
 
 function formatDate(iso: string) {
@@ -225,8 +226,8 @@ export default function DashboardPage() {
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${fonctionOpen ? 'rotate-180' : ''}`} />
           </button>
           {fonctionOpen && (
-            <div className="px-5 pb-5 grid grid-cols-3 gap-3">
-              {(['Agent de Sécurité', 'Serveur', 'Direction'] as const).map((f) => (
+            <div className="px-5 pb-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {(['Agent de Sécurité', 'Serveur', 'Chef de poste', 'Direction'] as const).map((f) => (
                 <div key={f} className={`rounded-xl p-4 border ${FONCTION_STYLES[f]}`}>
                   <p className="text-xs opacity-70 mb-1">{f}</p>
                   <p className="text-2xl font-bold">{users.filter((u) => u.fonction === f).length}</p>
