@@ -38,7 +38,6 @@ type ManagedUser = {
 
 type UserProfile = { id: string; first_name: string; last_name: string };
 
-const FONCTIONS_POSTE = ['Tous', 'Agent de Sécurité', 'Serveur', 'Chef de poste', 'Direction'];
 
 const FONCTION_BADGE: Record<string, string> = {
   'Agent de Sécurité': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -48,7 +47,7 @@ const FONCTION_BADGE: Record<string, string> = {
   'Tous':              'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
-const EMPTY_FORM = { nom: '', fonction: 'Tous', description: '', ordre: 0 };
+const EMPTY_FORM = { nom: '', fonction: '', description: '', ordre: 0 };
 
 export default function PostesPage() {
   const { signOut } = useAuth();
@@ -145,6 +144,7 @@ export default function PostesPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!form.nom.trim()) { setFormMsg({ type: 'error', text: 'Le nom du poste est requis.' }); return; }
+    if (!form.fonction.trim()) { setFormMsg({ type: 'error', text: 'La fonction est requise.' }); return; }
     setFormLoading(true);
     setFormMsg(null);
 
@@ -162,9 +162,10 @@ export default function PostesPage() {
     } else {
       const { data, error } = await supabase.from('postes').insert({
         nom: form.nom.trim(),
-        fonction: form.fonction,
+        fonction: form.fonction.trim(),
         description: form.description.trim(),
-        ordre: form.ordre,
+        actif: true,
+        ordre: 0,
       }).select().maybeSingle();
       if (error || !data) { setFormMsg({ type: 'error', text: 'Erreur lors de la création.' }); setFormLoading(false); return; }
       setPostes((prev) => [...prev, data as Poste].sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom)));
@@ -467,41 +468,30 @@ export default function PostesPage() {
                     required
                     value={form.nom}
                     onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
-                    placeholder="Ex : Entrée principale, Parking B2…"
+                    placeholder="Ex : Entrée principale, Bar VIP"
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Fonction</label>
-                    <select
-                      value={form.fonction}
-                      onChange={(e) => setForm((f) => ({ ...f, fonction: e.target.value }))}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
-                    >
-                      {FONCTIONS_POSTE.map((fn) => <option key={fn} value={fn}>{fn}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Ordre</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={form.ordre}
-                      onChange={(e) => setForm((f) => ({ ...f, ordre: parseInt(e.target.value) || 0 }))}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Fonction *</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.fonction}
+                    onChange={(e) => setForm((f) => ({ ...f, fonction: e.target.value }))}
+                    placeholder="Ex : Filtre les entrées, Surveillance périmètre"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Description</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Description / consigne</label>
                   <textarea
                     rows={2}
                     value={form.description}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="Instructions, localisation…"
+                    placeholder="Ex : Contrôler les sacs, refuser les mineurs"
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
                   />
                 </div>
