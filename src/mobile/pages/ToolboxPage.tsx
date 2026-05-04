@@ -1,10 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import { Flame, Radio, Sparkles, Shield, FileText } from 'lucide-react';
 
 const TOOLS = [
-  { Icon: Shield,    title: 'Ronde',          desc: 'Suivi de ronde',      accent: 'blue' },
-  { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes', accent: 'red' },
-  { Icon: FileText,  title: 'Procédure',      desc: 'Fiches',              accent: 'slate' },
-  { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',  accent: 'teal' },
+  { Icon: Shield,    title: 'Ronde',          desc: 'Suivi de ronde',      accent: 'blue',  cat: 'RONDE' },
+  { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes', accent: 'red',   cat: 'SSI' },
+  { Icon: FileText,  title: 'Procédure',      desc: 'Fiches',              accent: 'slate', cat: 'PROCEDURE' },
+  { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',  accent: 'teal',  cat: 'RADIO' },
 ] as const;
 
 const colorMap: Record<string, { wrap: string; icon: string }> = {
@@ -15,6 +16,8 @@ const colorMap: Record<string, { wrap: string; icon: string }> = {
 };
 
 export default function ToolboxPage() {
+  const navigate = useNavigate();
+
   return (
     <div>
       <div className="px-5 pt-6 pb-4">
@@ -34,12 +37,13 @@ export default function ToolboxPage() {
       </div>
 
       <div className="px-5 py-5 grid grid-cols-2 gap-3">
-        {TOOLS.map(({ Icon, title, desc, accent }) => {
+        {TOOLS.map(({ Icon, title, desc, accent, cat }) => {
           const c = colorMap[accent];
           return (
             <button
               key={title}
               type="button"
+              onClick={() => navigate(`/mobile/outils/documents/${cat}`)}
               className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
             >
               <div className={`w-11 h-11 rounded-xl border flex items-center justify-center mb-3 ${c.wrap}`}>
