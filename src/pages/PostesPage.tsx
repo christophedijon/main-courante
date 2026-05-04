@@ -156,7 +156,7 @@ export default function PostesPage() {
         ordre: form.ordre,
         updated_at: new Date().toISOString(),
       }).eq('id', editingPoste.id);
-      if (error) { setFormMsg({ type: 'error', text: 'Erreur lors de la modification.' }); setFormLoading(false); return; }
+      if (error) { setFormMsg({ type: 'error', text: `Erreur : ${error.message}` }); setFormLoading(false); return; }
       setPostes((prev) => prev.map((p) => p.id === editingPoste.id ? { ...p, ...form, nom: form.nom.trim(), description: form.description.trim(), updated_at: new Date().toISOString() } : p));
       setToast({ message: 'Poste modifié avec succès.', type: 'success' });
     } else {
@@ -167,7 +167,8 @@ export default function PostesPage() {
         actif: true,
         ordre: 0,
       }).select().maybeSingle();
-      if (error || !data) { setFormMsg({ type: 'error', text: 'Erreur lors de la création.' }); setFormLoading(false); return; }
+      if (error) { setFormMsg({ type: 'error', text: `Erreur : ${error.message}` }); setFormLoading(false); return; }
+      if (!data) { setFormMsg({ type: 'error', text: 'Erreur : aucune donnée retournée.' }); setFormLoading(false); return; }
       setPostes((prev) => [...prev, data as Poste].sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom)));
       setToast({ message: 'Poste créé avec succès.', type: 'success' });
     }
