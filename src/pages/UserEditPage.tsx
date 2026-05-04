@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, User, Mail, Phone, Globe, Briefcase, KeyRound,
   Save, AlertCircle, CheckCircle, Eye, EyeOff, CreditCard,
@@ -105,7 +105,10 @@ const STATUS_LABELS: Record<string, string> = { active: 'Actif', inactive: 'Inac
 export default function UserEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { signOut } = useAuth();
+  const fromMobile = (location.state as { from?: string } | null)?.from === 'mobile'
+    || document.referrer.includes('/mobile/profil');
 
   const [user, setUser] = useState<ManagedUserRow | null>(null);
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
@@ -301,6 +304,7 @@ export default function UserEditPage() {
     }));
     setPhotoFiles({ recto: null, verso: null });
     setSaveMsg({ type: 'success', text: 'Profil mis à jour avec succès.' });
+    setTimeout(() => navigate(fromMobile ? '/mobile' : '/dashboard'), 1200);
   }
 
   async function handleSaveCartePro(e: FormEvent) {
@@ -322,10 +326,12 @@ export default function UserEditPage() {
       updated_at: new Date().toISOString(),
     });
     setCarteProSaving(false);
-    setCarteProMsg(error
-      ? { type: 'error', text: 'Erreur lors de la sauvegarde.' }
-      : { type: 'success', text: 'Carte professionnelle enregistrée.' }
-    );
+    if (error) {
+      setCarteProMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' });
+    } else {
+      setCarteProMsg({ type: 'success', text: 'Carte professionnelle enregistrée.' });
+      setTimeout(() => navigate(fromMobile ? '/mobile' : '/dashboard'), 1200);
+    }
   }
 
   async function handleSaveFormations(e: FormEvent) {

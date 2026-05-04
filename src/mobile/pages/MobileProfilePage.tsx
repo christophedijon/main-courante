@@ -64,6 +64,7 @@ export default function MobileProfilePage() {
   const [formations, setFormations] = useState<Formation[]>([]);
   const [carteSejour, setCarteSejour] = useState<CarteSejour | null>(null);
   const [photosOpen, setPhotosOpen] = useState(false);
+  const [managedUserId, setManagedUserId] = useState<string | null>(null);
 
   // Drawer
   const [editOpen, setEditOpen] = useState(false);
@@ -118,6 +119,12 @@ export default function MobileProfilePage() {
       .then(({ data }) => {
         if (data) setCarteSejour(data as CarteSejour);
       });
+    supabase
+      .from('managed_users')
+      .select('id')
+      .eq('auth_user_id', uid)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setManagedUserId(data.id); });
   }, [session?.user.id]);
 
   function fetchFormations(uid: string) {
@@ -480,7 +487,11 @@ export default function MobileProfilePage() {
       {/* Actions */}
       <div className="px-5 mt-4 space-y-2.5">
         {hasAdminAccess && (
-          <button onClick={() => navigate('/profile')}
+          <button
+            onClick={() => managedUserId
+              ? navigate(`/dashboard/users/${managedUserId}`, { state: { from: 'mobile' } })
+              : navigate('/profile')
+            }
             className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors">
             <Shield className="w-5 h-5 text-blue-400" />
             <span className="flex-1 text-left text-white font-semibold text-sm">Modifier mon profil (desktop)</span>
