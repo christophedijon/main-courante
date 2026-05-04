@@ -2,7 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin, Plus, Pencil, Trash2, Save, X, AlertCircle, CheckCircle,
-  Users, ChevronDown, GripVertical, Eye, EyeOff,
+  Users, GripVertical, Eye, EyeOff,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -284,12 +284,12 @@ export default function PostesPage() {
             {displayed.map((poste) => {
               const posteAssigns = assignations.filter((a) => a.poste_id === poste.id);
               const isAssignOpen = assignOpen === poste.id;
+              const assignedAgentIds = new Set(assignations.map((a) => a.agent_id));
               const availableAgents = agents.filter((ag) => {
                 if (!ag.auth_user_id) return false;
-                const alreadyHere = posteAssigns.some((a) => a.agent_id === ag.auth_user_id);
-                if (alreadyHere) return false;
-                if (poste.fonction !== 'Tous' && ag.fonction !== poste.fonction) return false;
-                return true;
+                if (ag.fonction !== 'Agent de Sécurité' && ag.fonction !== 'Chef de poste') return false;
+                const alreadyAssigned = assignedAgentIds.has(ag.auth_user_id);
+                return !alreadyAssigned;
               });
 
               return (
@@ -324,24 +324,32 @@ export default function PostesPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-slate-500 flex items-center gap-1 mr-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
                         <Users className="w-3.5 h-3.5" />
                         {posteAssigns.length}
                       </span>
+
+                      {/* Toggle actif/inactif pill */}
+                      <button
+                        onClick={() => toggleActif(poste)}
+                        title={poste.actif ? 'Désactiver' : 'Activer'}
+                        className={`relative inline-flex items-center gap-1.5 pl-2 pr-3 py-1 rounded-full text-[11px] font-semibold border transition-all
+                          ${poste.actif
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
+                            : 'bg-slate-700/40 border-slate-600/40 text-slate-500 hover:bg-slate-700/60'
+                          }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${poste.actif ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                        {poste.actif ? 'Actif' : 'Inactif'}
+                      </button>
+
                       <button
                         onClick={() => openEdit(poste)}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
                         title="Modifier"
                       >
                         <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => toggleActif(poste)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
-                        title={poste.actif ? 'Désactiver' : 'Activer'}
-                      >
-                        {poste.actif ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                       <button
                         onClick={() => deletePoste(poste)}

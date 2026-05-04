@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, MapPin, FileText } from 'lucide-react';
+import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const TOOLS = [
   { Icon: MapPin,    title: 'Rôle',           desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE' },
@@ -17,6 +18,8 @@ const colorMap: Record<string, { wrap: string; icon: string }> = {
 
 export default function ToolboxPage() {
   const navigate = useNavigate();
+  const { isSuperAdmin, userFonction } = useAuth();
+  const canAssign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
 
   return (
     <div>
@@ -54,6 +57,20 @@ export default function ToolboxPage() {
             </button>
           );
         })}
+
+        {canAssign && (
+          <button
+            type="button"
+            onClick={() => navigate('/mobile/assignation')}
+            className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
+          >
+            <div className="w-11 h-11 rounded-xl border flex items-center justify-center mb-3 bg-emerald-500/15 border-emerald-500/30">
+              <UserCheck className="w-5 h-5 text-emerald-400" strokeWidth={2.3} />
+            </div>
+            <p className="text-white font-semibold text-[14px] leading-tight">Assignation</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Postes ce soir</p>
+          </button>
+        )}
       </div>
     </div>
   );
