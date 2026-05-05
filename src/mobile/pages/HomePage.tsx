@@ -4,24 +4,20 @@ import { Shield, Clock, Flame, Users, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useEntreprise } from '../../hooks/useEntreprise';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
-import { useRecentEvents, useTodayEventsCount } from '../hooks/useEvenements';
+import { useTodayEventsCount } from '../hooks/useEvenements';
 import { useSaisie } from '../saisie/SaisieContext';
 import RoleBadge from '../components/RoleBadge';
 import SectionLabel from '../components/SectionLabel';
 import QuickActionCard from '../components/QuickActionCard';
-import EmptyState from '../components/EmptyState';
-import EventCard from '../components/EventCard';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { userFonction, isSuperAdmin } = useAuth();
   const { profile } = useCurrentProfile();
-  const { nom: entrepriseNom } = useEntreprise();
-  const { events } = useRecentEvents(4);
+  const { nom: entrepriseNom, logo_url } = useEntreprise();
   const todayCount = useTodayEventsCount();
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
-  const [recentsOpen, setRecentsOpen] = useState(true);
 
   const fullName =
     [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
@@ -53,17 +49,33 @@ export default function HomePage() {
           <RoleBadge fonction={userFonction} isSuperAdmin={isSuperAdmin} />
         </div>
 
-        {entrepriseNom && (
-          <p className="text-slate-500 text-xs mt-3 pl-[60px]">{entrepriseNom}</p>
-        )}
-
-        {/* Stat card */}
-        <div className="mt-5 rounded-2xl bg-slate-900 border border-slate-800 p-4">
-          <div className="flex items-center gap-2 text-slate-400 text-sm">
-            <Clock className="w-4 h-4" />
-            <span>Événements aujourd'hui</span>
+        {/* Logo/nom entreprise + stat card côte à côte */}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          {/* Logo ou nom entreprise */}
+          <div className="flex-1 flex items-center justify-start">
+            {logo_url ? (
+              <img
+                src={logo_url}
+                alt={entrepriseNom ?? 'Logo'}
+                className="h-14 w-auto max-w-[130px] object-contain rounded-xl"
+              />
+            ) : entrepriseNom ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 flex items-center justify-center min-h-[72px]">
+                <p className="text-slate-300 text-sm font-semibold text-center leading-tight">
+                  {entrepriseNom}
+                </p>
+              </div>
+            ) : null}
           </div>
-          <p className="text-white font-extrabold text-4xl mt-1.5 leading-none">{todayCount}</p>
+
+          {/* Stat card réduite */}
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 p-3 min-w-[130px] min-h-[72px] flex flex-col justify-center">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <Clock className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Aujourd'hui</span>
+            </div>
+            <p className="text-white font-extrabold text-3xl mt-1 leading-none">{todayCount}</p>
+          </div>
         </div>
       </div>
 
@@ -94,41 +106,6 @@ export default function HomePage() {
               onClick={() => start('securite_personnes')}
             />
           </div>
-        )}
-      </div>
-
-      {/* Récents */}
-      <div className="px-5 pb-8">
-        <button
-          type="button"
-          onClick={() => setRecentsOpen((v) => !v)}
-          className="w-full flex items-center justify-between mb-3"
-        >
-          <SectionLabel
-            action={
-              recentsOpen ? (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); navigate('/mobile/historique'); }}
-                  className="text-blue-400 text-[13px] font-semibold hover:text-blue-300"
-                >
-                  Tout voir
-                </button>
-              ) : undefined
-            }
-          >
-            Récents
-          </SectionLabel>
-          <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ml-2 ${recentsOpen ? 'rotate-180' : ''}`} />
-        </button>
-        {recentsOpen && (
-          events.length === 0 ? (
-            <EmptyState text="Aucun événement pour le moment" />
-          ) : (
-            <div className="space-y-2.5">
-              {events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
-            </div>
-          )
         )}
       </div>
     </div>
