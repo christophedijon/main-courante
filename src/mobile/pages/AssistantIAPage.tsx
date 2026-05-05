@@ -474,6 +474,3 @@ export default function AssistantIAPage() {
     </div>
   );
 }
-
-
-export default AssistantIAPage
