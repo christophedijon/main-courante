@@ -8,7 +8,6 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
 import { invalidateEntrepriseCache } from '../hooks/useEntreprise';
-import DocumentSection from '../components/DocumentSection';
 
 type EntrepriseData = {
   id?: string;
@@ -434,31 +433,7 @@ export default function EntreprisePage() {
               </form>
             </CollapseCard>
 
-            {/* ---- Plans d'évacuation ---- */}
-            <DocumentSection
-              title="Plans d'évacuation"
-              addLabel="Plan évacuation"
-              tableName="evacuation_plans"
-              storagePath="evacuation"
-              maxItems={10}
-              accentFrom="from-amber-500"
-              accentTo="to-orange-400"
-              iconColor="text-amber-400"
-              pdfIconColor="text-red-400"
-            />
 
-            {/* ---- Documents ---- */}
-            <DocumentSection
-              title="Documents"
-              addLabel="Documents"
-              tableName="company_documents"
-              storagePath="company-docs"
-              maxItems={10}
-              accentFrom="from-cyan-500"
-              accentTo="to-blue-500"
-              iconColor="text-cyan-400"
-              pdfIconColor="text-cyan-400"
-            />
           </div>
         )}
       </main>
