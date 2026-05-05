@@ -1,19 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Mic, MicOff, Send, Sparkles, RotateCcw,
-  AlertCircle, Pencil, History, X, Clock,
+  AlertCircle, Pencil,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 type Section = { title: string; content: string };
-
-type HistoryEntry = {
-  id: string;
-  question: string;
-  sections: Section[];
-  created_at: string;
-};
 
 const CARD_COLORS = [
   { bg: 'bg-blue-500/10 border-blue-500/25',   title: 'text-blue-400',  num: 'bg-blue-500/20 text-blue-300' },
@@ -36,13 +29,6 @@ function parseResponse(text: string): Section[] {
   return [{ title: 'Réponse', content: text.trim() }];
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    day: '2-digit', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
-
 declare global {
   interface Window {
     SpeechRecognition: new () => SpeechRecognition;
@@ -61,40 +47,11 @@ export default function AssistantIAPage() {
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
 
-  const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const speechAvailable = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-
-  useEffect(() => {
-    if (showHistory) fetchHistory();
-  }, [showHistory]);
-
-  async function fetchHistory() {
-    setHistoryLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setHistoryLoading(false); return; }
-    const { data } = await supabase
-      .from('ia_historique')
-      .select('id, question, sections, created_at')
-      .eq('agent_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    setHistory((data ?? []) as HistoryEntry[]);
-    setHistoryLoading(false);
-  }
-
-  async function clearHistory() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    await supabase.from('ia_historique').delete().eq('agent_id', session.user.id);
-    setHistory([]);
-  }
 
   function stopRecording() {
     recognitionRef.current?.stop();
@@ -229,14 +186,6 @@ export default function AssistantIAPage() {
     setEditMode(false);
   }
 
-  function loadFromHistory(entry: HistoryEntry) {
-    setSections(entry.sections);
-    setMessage(entry.question);
-    setEditMode(false);
-    setError(null);
-    setShowHistory(false);
-  }
-
   const showInput = !sections || editMode;
 
   return (
@@ -256,12 +205,6 @@ export default function AssistantIAPage() {
           <p className="text-white font-semibold text-[15px]">Assistant IA</p>
           <p className="text-slate-500 text-xs">Gestion sécurité personnes & incendie</p>
         </div>
-        <button
-          onClick={() => setShowHistory(true)}
-          className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0"
-        >
-          <History className="w-4 h-4 text-slate-300" />
-        </button>
       </div>
 
       <div className="px-4 pt-5 space-y-4">
@@ -394,83 +337,6 @@ export default function AssistantIAPage() {
         )}
       </div>
 
-      {/* ── History drawer ── */}
-      {showHistory && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/70 animate-fade-in"
-          onClick={() => setShowHistory(false)}
-        >
-          <div
-            className="w-full max-w-xl mx-auto bg-slate-900 border-t border-slate-800 rounded-t-3xl flex flex-col animate-slide-up"
-            style={{ maxHeight: '80vh' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drawer header */}
-            <div className="flex-shrink-0 px-5 pt-4 pb-3 flex items-center justify-between border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <History className="w-4 h-4 text-blue-400" />
-                <p className="text-white font-bold text-[15px]">Historique des consultations</p>
-              </div>
-              <button
-                onClick={() => setShowHistory(false)}
-                className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Drawer content */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-              {historyLoading && (
-                <div className="flex items-center justify-center py-12 text-slate-500 gap-2">
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Chargement…
-                </div>
-              )}
-
-              {!historyLoading && history.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-                  <History className="w-10 h-10 text-slate-700" />
-                  <p className="text-slate-500 text-sm">Aucune consultation enregistrée.</p>
-                </div>
-              )}
-
-              {!historyLoading && history.map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  onClick={() => loadFromHistory(entry)}
-                  className="w-full text-left rounded-2xl bg-slate-800 border border-slate-700 hover:border-slate-600 p-4 transition-all active:scale-[0.99]"
-                >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Clock className="w-3 h-3 text-slate-500 shrink-0" />
-                    <span className="text-slate-500 text-[11px]">{fmtDate(entry.created_at)}</span>
-                  </div>
-                  <p className="text-slate-200 text-[13px] font-medium leading-snug line-clamp-2">
-                    {entry.question.length > 80 ? entry.question.slice(0, 80) + '…' : entry.question}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            {/* Drawer footer */}
-            {!historyLoading && history.length > 0 && (
-              <div className="flex-shrink-0 px-4 py-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={clearHistory}
-                  className="w-full py-3 rounded-2xl bg-red-950/40 border border-red-700/30 text-red-400 text-[13px] font-semibold transition-colors hover:bg-red-950/60"
-                >
-                  Effacer mon historique
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
