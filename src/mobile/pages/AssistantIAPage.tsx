@@ -1,9 +1,19 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mic, MicOff, Send, Sparkles, RotateCcw, AlertCircle } from 'lucide-react';
+import {
+  ArrowLeft, Mic, MicOff, Send, Sparkles, RotateCcw,
+  AlertCircle, Pencil, History, X, Clock,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-type Section = { title: string; content: string; color: string };
+type Section = { title: string; content: string };
+
+type HistoryEntry = {
+  id: string;
+  question: string;
+  sections: Section[];
+  created_at: string;
+};
 
 const CARD_COLORS = [
   { bg: 'bg-blue-500/10 border-blue-500/25',   title: 'text-blue-400',  num: 'bg-blue-500/20 text-blue-300' },
@@ -13,21 +23,24 @@ const CARD_COLORS = [
 ];
 
 function parseResponse(text: string): Section[] {
-  // Split on numbered sections like "1.", "2.", "3.", "4." at start of line
   const parts = text.split(/(?=^[1-4]\.\s)/m).filter((p) => p.trim() !== '');
-
   if (parts.length >= 2) {
     return parts.slice(0, 4).map((part, i) => {
       const firstLine = part.split('\n')[0].trim();
       const titleMatch = firstLine.match(/^[1-4]\.\s*\*?\*?([^*\n]+)\*?\*?/);
       const title = titleMatch ? titleMatch[1].replace(/\*/g, '').trim() : `Section ${i + 1}`;
       const content = part.replace(/^[1-4]\.\s*\*?\*?[^*\n]+\*?\*?\n?/, '').trim();
-      return { title, content, color: '' };
+      return { title, content };
     });
   }
+  return [{ title: 'Réponse', content: text.trim() }];
+}
 
-  // Fallback: treat entire response as one section
-  return [{ title: 'Réponse', content: text.trim(), color: '' }];
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', {
+    day: '2-digit', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 declare global {
@@ -39,19 +52,61 @@ declare global {
 
 export default function AssistantIAPage() {
   const navigate = useNavigate();
+
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [sections, setSections] = useState<Section[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const speechAvailable = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
+  useEffect(() => {
+    if (showHistory) fetchHistory();
+  }, [showHistory]);
+
+  async function fetchHistory() {
+    setHistoryLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setHistoryLoading(false); return; }
+    const { data } = await supabase
+      .from('ia_historique')
+      .select('id, question, sections, created_at')
+      .eq('agent_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    setHistory((data ?? []) as HistoryEntry[]);
+    setHistoryLoading(false);
+  }
+
+  async function clearHistory() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from('ia_historique').delete().eq('agent_id', session.user.id);
+    setHistory([]);
+  }
+
+  function stopRecording() {
+    recognitionRef.current?.stop();
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    setRecording(false);
+    setElapsed(0);
+  }
+
   function handleRecord() {
     if (recording) {
-      recognitionRef.current?.stop();
-      setRecording(false);
+      stopRecording();
       return;
     }
 
@@ -60,20 +115,46 @@ export default function AssistantIAPage() {
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'fr-FR';
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = false;
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+        if (i < event.results.length - 1) transcript += ' ';
+      }
       setMessage(transcript);
-      setRecording(false);
     };
-    recognition.onerror = () => setRecording(false);
-    recognition.onend = () => setRecording(false);
+
+    recognition.onerror = () => stopRecording();
+
+    recognition.onend = () => {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      setRecording(false);
+      setElapsed(0);
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
     setRecording(true);
+    setElapsed(0);
+
+    timerRef.current = setTimeout(() => {
+      recognition.stop();
+      setRecording(false);
+    }, 90000);
+
+    intervalRef.current = setInterval(() => {
+      setElapsed((e) => {
+        if (e >= 90) {
+          if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+          return 90;
+        }
+        return e + 1;
+      });
+    }, 1000);
   }
 
   async function handleSend() {
@@ -111,9 +192,31 @@ export default function AssistantIAPage() {
         return;
       }
 
-      setSections(parseResponse(data.response));
+      const parsedSections = parseResponse(data.response);
+      setSections(parsedSections);
+      setEditMode(false);
+
+      // Sauvegarder dans l'historique
+      if (session) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        const agentNom = profile
+          ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()
+          : session.user.email ?? 'Agent';
+
+        await supabase.from('ia_historique').insert({
+          agent_id: session.user.id,
+          agent_nom: agentNom,
+          question: trimmed,
+          reponse_complete: data.response,
+          sections: parsedSections,
+        });
+      }
     } catch {
-      setError('Impossible de joindre l\'assistant. Vérifiez votre connexion.');
+      setError("Impossible de joindre l'assistant. Vérifiez votre connexion.");
     } finally {
       setLoading(false);
     }
@@ -123,7 +226,18 @@ export default function AssistantIAPage() {
     setMessage('');
     setSections(null);
     setError(null);
+    setEditMode(false);
   }
+
+  function loadFromHistory(entry: HistoryEntry) {
+    setSections(entry.sections);
+    setMessage(entry.question);
+    setEditMode(false);
+    setError(null);
+    setShowHistory(false);
+  }
+
+  const showInput = !sections || editMode;
 
   return (
     <div className="pb-12">
@@ -142,12 +256,18 @@ export default function AssistantIAPage() {
           <p className="text-white font-semibold text-[15px]">Assistant IA</p>
           <p className="text-slate-500 text-xs">Gestion sécurité personnes & incendie</p>
         </div>
+        <button
+          onClick={() => setShowHistory(true)}
+          className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0"
+        >
+          <History className="w-4 h-4 text-slate-300" />
+        </button>
       </div>
 
       <div className="px-4 pt-5 space-y-4">
 
         {/* Mic button */}
-        {speechAvailable && !sections && (
+        {speechAvailable && showInput && (
           <div className="flex flex-col items-center gap-3 py-2">
             <button
               type="button"
@@ -162,22 +282,21 @@ export default function AssistantIAPage() {
               {recording && (
                 <span className="absolute inset-0 rounded-full animate-ping bg-red-500/20" />
               )}
-              {recording
-                ? <MicOff className="w-8 h-8" />
-                : <Mic className="w-8 h-8" />
-              }
+              {recording ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
               <span className="text-[10px] font-semibold leading-none">
                 {recording ? 'Arrêter' : 'Parler'}
               </span>
             </button>
-            <p className="text-slate-500 text-xs text-center">
-              {recording ? 'Enregistrement en cours…' : 'Appuyez pour dicter votre question'}
-            </p>
+            {recording ? (
+              <p className="text-red-400 text-xs font-mono font-semibold">{elapsed}s / 90s</p>
+            ) : (
+              <p className="text-slate-500 text-xs text-center">Appuyez pour dicter votre question</p>
+            )}
           </div>
         )}
 
-        {/* Textarea */}
-        {!sections && (
+        {/* Textarea + send */}
+        {showInput && (
           <div className="space-y-3">
             <textarea
               value={message}
@@ -233,8 +352,17 @@ export default function AssistantIAPage() {
         )}
 
         {/* Response cards */}
-        {sections && !loading && (
+        {sections && !editMode && !loading && (
           <>
+            <button
+              type="button"
+              onClick={() => setEditMode(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-[13px] font-medium transition-all active:scale-[0.98]"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Modifier ou compléter la situation
+            </button>
+
             <div className="space-y-3">
               {sections.map((section, i) => {
                 const c = CARD_COLORS[i % CARD_COLORS.length];
@@ -265,6 +393,87 @@ export default function AssistantIAPage() {
           </>
         )}
       </div>
+
+      {/* ── History drawer ── */}
+      {showHistory && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/70 animate-fade-in"
+          onClick={() => setShowHistory(false)}
+        >
+          <div
+            className="w-full max-w-xl mx-auto bg-slate-900 border-t border-slate-800 rounded-t-3xl flex flex-col animate-slide-up"
+            style={{ maxHeight: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer header */}
+            <div className="flex-shrink-0 px-5 pt-4 pb-3 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <History className="w-4 h-4 text-blue-400" />
+                <p className="text-white font-bold text-[15px]">Historique des consultations</p>
+              </div>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Drawer content */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {historyLoading && (
+                <div className="flex items-center justify-center py-12 text-slate-500 gap-2">
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Chargement…
+                </div>
+              )}
+
+              {!historyLoading && history.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                  <History className="w-10 h-10 text-slate-700" />
+                  <p className="text-slate-500 text-sm">Aucune consultation enregistrée.</p>
+                </div>
+              )}
+
+              {!historyLoading && history.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => loadFromHistory(entry)}
+                  className="w-full text-left rounded-2xl bg-slate-800 border border-slate-700 hover:border-slate-600 p-4 transition-all active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Clock className="w-3 h-3 text-slate-500 shrink-0" />
+                    <span className="text-slate-500 text-[11px]">{fmtDate(entry.created_at)}</span>
+                  </div>
+                  <p className="text-slate-200 text-[13px] font-medium leading-snug line-clamp-2">
+                    {entry.question.length > 80 ? entry.question.slice(0, 80) + '…' : entry.question}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            {/* Drawer footer */}
+            {!historyLoading && history.length > 0 && (
+              <div className="flex-shrink-0 px-4 py-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={clearHistory}
+                  className="w-full py-3 rounded-2xl bg-red-950/40 border border-red-700/30 text-red-400 text-[13px] font-semibold transition-colors hover:bg-red-950/60"
+                >
+                  Effacer mon historique
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
+export default AssistantIAPage
