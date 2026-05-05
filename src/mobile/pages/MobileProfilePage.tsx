@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import EntrepriseBadge from '../components/EntrepriseBadge';
 import {
   Mail, Phone, User as UserIcon, Briefcase, GraduationCap,
   LogOut, Shield, ChevronRight, Pencil, X, Globe, CreditCard,
@@ -344,8 +345,11 @@ export default function MobileProfilePage() {
   return (
     <div className="pb-24">
       {/* Header */}
-      <div className="px-5 pt-6 pb-5 flex items-center justify-between">
-        <h1 className="text-white text-2xl font-bold">Mon profil</h1>
+      <div className="px-5 pt-6 pb-5 flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-white text-2xl font-bold truncate">Mon profil</h1>
+        </div>
+        <EntrepriseBadge />
         <button onClick={openEdit}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-white text-sm font-semibold">
           <Pencil className="w-3.5 h-3.5" />

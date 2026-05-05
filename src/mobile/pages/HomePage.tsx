@@ -51,21 +51,23 @@ export default function HomePage() {
 
         {/* Logo/nom entreprise + stat card côte à côte */}
         <div className="mt-4 flex items-center justify-between gap-3">
-          {/* Logo ou nom entreprise */}
+          {/* Logo + nom entreprise */}
           <div className="flex-1 flex items-center justify-start">
-            {logo_url ? (
-              <img
-                src={logo_url}
-                alt={entrepriseNom ?? 'Logo'}
-                className="h-14 w-auto max-w-[130px] object-contain rounded-xl"
-              />
-            ) : entrepriseNom ? (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 flex items-center justify-center min-h-[72px]">
-                <p className="text-slate-300 text-sm font-semibold text-center leading-tight">
-                  {entrepriseNom}
-                </p>
-              </div>
-            ) : null}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 min-h-[72px]">
+              {logo_url && (
+                <img
+                  src={logo_url}
+                  alt={entrepriseNom ?? 'Logo'}
+                  className="h-12 w-auto max-w-[60px] object-contain rounded-lg shrink-0"
+                />
+              )}
+              {entrepriseNom && (
+                <p className="text-slate-200 text-sm font-bold leading-tight">{entrepriseNom}</p>
+              )}
+              {!logo_url && !entrepriseNom && (
+                <Shield className="w-8 h-8 text-slate-600" />
+              )}
+            </div>
           </div>
 
           {/* Stat card réduite */}

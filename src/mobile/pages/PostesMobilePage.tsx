@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MapPin, Users, X, Plus, ChevronRight, Check, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import EntrepriseBadge from '../components/EntrepriseBadge';
 
 type Poste = {
   id: string;
@@ -201,10 +202,15 @@ export default function PostesMobilePage() {
     <div className="pb-4">
       {/* Header */}
       <div className="px-5 pt-6 pb-4">
-        <h1 className="text-white text-2xl font-bold">Postes</h1>
-        <p className="text-slate-500 text-sm mt-0.5">
-          {assignations.length} agent{assignations.length !== 1 ? 's' : ''} en poste
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-white text-2xl font-bold truncate">Postes</h1>
+            <p className="text-slate-500 text-sm mt-0.5">
+              {assignations.length} agent{assignations.length !== 1 ? 's' : ''} en poste
+            </p>
+          </div>
+          <EntrepriseBadge />
+        </div>
       </div>
 
       {/* Mon poste (si assigné) */}

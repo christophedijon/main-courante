@@ -3,6 +3,7 @@ import { Filter, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import EventCard, { EventItem } from '../components/EventCard';
 import EmptyState from '../components/EmptyState';
+import EntrepriseBadge from '../components/EntrepriseBadge';
 
 type Filters = {
   type: 'all' | 'ssi' | 'securite_personnes';
@@ -45,11 +46,12 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <div className="px-5 pt-6 pb-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-white text-2xl font-bold">Historique</h1>
+      <div className="px-5 pt-6 pb-3 flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-white text-2xl font-bold truncate">Historique</h1>
           <p className="text-slate-500 text-sm">Tous les événements enregistrés</p>
         </div>
+        <EntrepriseBadge />
         <button
           type="button"
           onClick={() => setSheetOpen(true)}

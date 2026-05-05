@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import EntrepriseBadge from '../components/EntrepriseBadge';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -79,8 +80,13 @@ export default function ToolboxPage() {
   return (
     <div>
       <div className="px-5 pt-6 pb-4">
-        <h1 className="text-white text-2xl font-bold">Boîte à outils</h1>
-        <p className="text-slate-500 text-sm">Procédures & aide IA terrain</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-white text-2xl font-bold truncate">Boîte à outils</h1>
+            <p className="text-slate-500 text-sm">Procédures & aide IA terrain</p>
+          </div>
+          <EntrepriseBadge />
+        </div>
       </div>
 
       {/* IA banner */}

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import EntrepriseBadge from '../components/EntrepriseBadge';
 
 const SHORTCUTS = [
   { to: '/dashboard',    label: 'Utilisateurs',  Icon: Users,           accent: 'blue' },
@@ -55,8 +56,13 @@ export default function MobileAdminPage() {
   return (
     <div>
       <div className="px-5 pt-6 pb-4">
-        <h1 className="text-white text-2xl font-bold">Admin</h1>
-        <p className="text-slate-500 text-sm">Accès rapide back-office</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-white text-2xl font-bold truncate">Administration</h1>
+            <p className="text-slate-500 text-sm">Accès rapide back-office</p>
+          </div>
+          <EntrepriseBadge />
+        </div>
       </div>
 
       {/* KPIs */}

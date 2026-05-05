@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import EventCard, { EventItem } from '../components/EventCard';
+import EntrepriseBadge from '../components/EntrepriseBadge';
 
 export default function SearchPage() {
   const [q, setQ] = useState('');
@@ -33,8 +34,13 @@ export default function SearchPage() {
   return (
     <div>
       <div className="px-5 pt-6 pb-3">
-        <h1 className="text-white text-2xl font-bold">Recherche</h1>
-        <p className="text-slate-500 text-sm">Numéro, utilisateur, mot-clé, espace…</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-white text-2xl font-bold truncate">Recherche</h1>
+            <p className="text-slate-500 text-sm">Numéro, utilisateur, mot-clé, espace…</p>
+          </div>
+          <EntrepriseBadge />
+        </div>
       </div>
 
       <div className="px-5">
