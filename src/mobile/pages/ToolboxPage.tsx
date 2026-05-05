@@ -90,15 +90,19 @@ export default function ToolboxPage() {
       </div>
 
       {/* IA banner */}
-      <div className="mx-5 rounded-2xl bg-gradient-to-br from-blue-600/30 to-cyan-600/20 border border-blue-500/30 p-4 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-blue-500/30 flex items-center justify-center">
+      <button
+        type="button"
+        onClick={() => navigate('/mobile/assistant-ia')}
+        className="mx-5 w-[calc(100%-2.5rem)] rounded-2xl bg-gradient-to-br from-blue-600/30 to-cyan-600/20 border border-blue-500/30 p-4 flex items-center gap-3 hover:from-blue-600/40 hover:to-cyan-600/30 active:scale-[0.99] transition-all"
+      >
+        <div className="w-11 h-11 rounded-xl bg-blue-500/30 flex items-center justify-center shrink-0">
           <Sparkles className="w-5 h-5 text-blue-300" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 text-left">
           <p className="text-white font-bold text-[15px]">Assistant IA</p>
-          <p className="text-blue-200/80 text-xs">Bientôt disponible : posez vos questions terrain</p>
+          <p className="text-blue-200/80 text-xs">Gestion sécurité personnes & incendie</p>
         </div>
-      </div>
+      </button>
 
       <div className="px-5 py-5 grid grid-cols-2 gap-3">
         {tools.map(({ Icon, title, desc, accent, cat, route }) => {

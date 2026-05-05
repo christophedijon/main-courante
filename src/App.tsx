@@ -27,6 +27,7 @@ import AssignationPage from './mobile/pages/AssignationPage';
 import EventDetailPage from './mobile/pages/EventDetailPage';
 import DocumentListPage from './mobile/pages/DocumentListPage';
 import DocumentDetailPage from './mobile/pages/DocumentDetailPage';
+import AssistantIAPage from './mobile/pages/AssistantIAPage';
 import StepEtablissement from './mobile/saisie/StepEtablissement';
 import StepEspace from './mobile/saisie/StepEspace';
 import StepZone from './mobile/saisie/StepZone';
@@ -127,6 +128,7 @@ export default function App() {
               <Route path="postes" element={<PostesMobilePage />} />
               <Route path="assignation" element={<AssignationPage />} />
               <Route path="evenement/:id" element={<EventDetailPage />} />
+              <Route path="assistant-ia" element={<AssistantIAPage />} />
               <Route path="outils/documents/:categorie" element={<DocumentListPage />} />
               <Route path="outils/documents/:categorie/:id" element={<DocumentDetailPage />} />
               {/* SSI flow (unchanged) */}
