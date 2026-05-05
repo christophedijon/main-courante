@@ -40,6 +40,32 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const { data: ssiDocs } = await supabase
+      .from("toolbox_documents")
+      .select("titre, contenu, categorie")
+      .in("categorie", ["SSI", "PROCEDURE"])
+      .eq("actif", true)
+      .order("ordre", { ascending: true });
+
+    let documentContext = "";
+    if (ssiDocs && ssiDocs.length > 0) {
+      documentContext = `
+
+═══════════════════════════════════════
+DOCUMENTS DE RÉFÉRENCE SSI ET PROCÉDURES
+═══════════════════════════════════════
+Les documents suivants sont les procédures
+officielles de l'établissement.
+Tu DOIS les consulter pour construire
+ta réponse et t'y référer explicitement
+quand c'est pertinent.
+
+${ssiDocs.map((doc) => `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`).join("\n\n")}
+═══════════════════════════════════════`;
+    }
+
+    const systemPrompt = (iaSettings.prompt || "") + documentContext;
+
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -49,10 +75,10 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: iaSettings.gpt_model || "gpt-4o",
         messages: [
-          { role: "system", content: iaSettings.prompt || "" },
+          { role: "system", content: systemPrompt },
           { role: "user", content: message },
         ],
-        max_tokens: 1000,
+        max_tokens: 1500,
         temperature: 0.3,
       }),
     });
