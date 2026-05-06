@@ -423,17 +423,19 @@ export default function DocumentsPage() {
 
               {/* Contenu */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Contenu <span className="text-red-400">*</span>
-                  <span className="ml-2 text-[11px] font-normal text-slate-500">HTML accepté — balises &lt;style&gt; et &lt;script&gt; conservées</span>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Contenu
                 </label>
                 <textarea
-                  value={draft.contenu}
+                  value={draft.contenu ?? ''}
                   onChange={(e) => setDraft((d) => ({ ...d, contenu: e.target.value }))}
                   rows={12}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                  placeholder="Contenu HTML ou texte…"
+                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-mono leading-relaxed placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all resize-y"
+                  placeholder="Collez votre contenu HTML ici…"
                 />
+                <p className="text-slate-500 text-xs mt-1">
+                  Accepte du texte simple ou du HTML.
+                </p>
               </div>
 
               {/* Destinataires */}
