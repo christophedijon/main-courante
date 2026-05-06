@@ -16,15 +16,18 @@ interface RichEditorProps {
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
-async function uploadFile(file: File): Promise<string | null> {
+async function uploadFile(file: File): Promise<{ url: string | null; errorMessage: string | null }> {
   const ext = file.name.split('.').pop() ?? 'bin';
   const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { error } = await supabase.storage
     .from('documents-médias')
     .upload(path, file, { contentType: file.type });
-  if (error) return null;
+  if (error) {
+    console.error('UPLOAD ERROR:', JSON.stringify(error));
+    return { url: null, errorMessage: error.message };
+  }
   const { data } = supabase.storage.from('documents-médias').getPublicUrl(path);
-  return data.publicUrl;
+  return { url: data.publicUrl, errorMessage: null };
 }
 
 // Mini-modal for PDF URL insertion
@@ -126,12 +129,12 @@ export default function RichEditor({ value, onChange, placeholder = 'Rédigez le
     if (file.size > MAX_SIZE) { setUploadError('Fichier trop lourd (5 MB max)'); return; }
     setUploading(true);
     setUploadError(null);
-    const url = await uploadFile(file);
+    const { url, errorMessage } = await uploadFile(file);
     setUploading(false);
     if (url) {
       editor.chain().focus().setImage({ src: url, alt: file.name }).run();
     } else {
-      setUploadError("Échec de l'upload de l'image. Vérifiez votre connexion et réessayez.");
+      setUploadError(`Erreur: ${errorMessage}`);
     }
     // Reset input so the same file can be re-selected
     if (imageInputRef.current) imageInputRef.current.value = '';
@@ -143,12 +146,12 @@ export default function RichEditor({ value, onChange, placeholder = 'Rédigez le
     if (file.size > MAX_SIZE) { setUploadError('Fichier trop lourd (5 MB max)'); return; }
     setUploading(true);
     setUploadError(null);
-    const url = await uploadFile(file);
+    const { url, errorMessage } = await uploadFile(file);
     setUploading(false);
     if (url) {
       editor.chain().focus().insertContent(`<p><a href="${url}">📎 ${file.name}</a></p>`).run();
     } else {
-      setUploadError("Échec de l'upload du PDF. Vérifiez votre connexion et réessayez.");
+      setUploadError(`Erreur: ${errorMessage}`);
     }
     if (pdfInputRef.current) pdfInputRef.current.value = '';
   }
