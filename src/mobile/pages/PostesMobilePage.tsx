@@ -239,7 +239,13 @@ export default function PostesMobilePage() {
         </div>
       ) : (
         <div className="px-5 space-y-3">
-          {postes.map((poste) => {
+          {[...postes].sort((a, b) => {
+            const aIsMyPoste = assignations.some(aff => aff.poste_id === a.id && aff.agent_id === myAuthId && aff.actif !== false);
+            const bIsMyPoste = assignations.some(aff => aff.poste_id === b.id && aff.agent_id === myAuthId && aff.actif !== false);
+            if (aIsMyPoste) return -1;
+            if (bIsMyPoste) return 1;
+            return a.ordre - b.ordre;
+          }).map((poste) => {
             const posteAssigns = assignations.filter((a) => a.poste_id === poste.id);
             const amIHere = posteAssigns.some((a) => a.agent_id === myAuthId);
             const b = badge(poste.fonction);
@@ -251,19 +257,27 @@ export default function PostesMobilePage() {
               >
                 {/* Poste info */}
                 <div className="px-4 pt-4 pb-3">
+                  {/* Badge Mon poste */}
+                  {amIHere && (
+                    <span className="inline-block mb-2 text-[10px] font-bold text-blue-300 bg-blue-500/20 border border-blue-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Mon poste
+                    </span>
+                  )}
+
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                        <p className="text-white font-semibold text-[15px]">{poste.nom}</p>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${b.bg} ${b.text}`}>
-                          {poste.fonction}
-                        </span>
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      {/* Nom du poste */}
+                      <p className="text-white font-bold text-lg leading-snug">{poste.nom}</p>
+                      {/* Badge fonction */}
+                      <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-medium border ${b.bg} ${b.text}`}>
+                        {poste.fonction}
+                      </span>
+                      {/* Description */}
                       {poste.description && (
-                        <p className="text-slate-500 text-xs">{poste.description}</p>
+                        <p className="text-slate-200 text-sm leading-relaxed mt-2">{poste.description}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 text-slate-500 text-xs">
+                    <div className="flex items-center gap-1 shrink-0 text-slate-300 text-sm">
                       <Users className="w-3.5 h-3.5" />
                       {posteAssigns.length}
                     </div>
@@ -277,14 +291,14 @@ export default function PostesMobilePage() {
                           <div className="w-4 h-4 rounded-full bg-slate-600 flex items-center justify-center shrink-0">
                             <span className="text-[8px] font-bold text-white">{a.agent_nom.charAt(0).toUpperCase()}</span>
                           </div>
-                          <span className="text-xs text-white">{a.agent_nom}</span>
+                          <span className="text-sm text-white">{a.agent_nom}</span>
                           {a.agent_id === myAuthId && (
                             <span className="text-[9px] text-blue-400 font-bold">(moi)</span>
                           )}
                           {hasAdminAccess && (
                             <button
                               onClick={() => handleAdminUnassign(a)}
-                              className="w-3.5 h-3.5 flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors ml-0.5"
+                              className="w-3.5 h-3.5 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors ml-0.5"
                             >
                               <X className="w-3 h-3" />
                             </button>
