@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Flame, FileText, Radio } from 'lucide-react';
+import { ArrowLeft, Shield, Flame, FileText, Radio, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -11,6 +12,15 @@ type Doc = {
   description: string;
   contenu: string;
   categorie: Categorie;
+  destinataires: string[];
+  signature_requise: boolean;
+  content_version: number;
+};
+
+type Signature = {
+  id: string;
+  signed_at: string;
+  content_version: number;
 };
 
 const META: Record<Categorie, {
@@ -36,36 +46,165 @@ function isRichHtml(content: string): boolean {
 export default function DocumentDetailPage() {
   const { categorie, id } = useParams<{ categorie: string; id: string }>();
   const navigate = useNavigate();
+  const { session, userFonction } = useAuth();
+
   const [doc, setDoc] = useState<Doc | null>(null);
   const [loading, setLoading] = useState(true);
   const [iframeHeight, setIframeHeight] = useState(600);
+  const [signature, setSignature] = useState<Signature | null>(null);
+
+  const [hasRead, setHasRead] = useState(false);
+  const [readProgress, setReadProgress] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const [password, setPassword] = useState('');
+  const [signing, setSigning] = useState(false);
+  const [signError, setSignError] = useState<string | null>(null);
 
   const cat = (categorie?.toUpperCase() ?? '') as Categorie;
   const meta = META[cat];
 
+  const markAsRead = useCallback(() => {
+    if (!doc || !session) return;
+    const storageKey = `doc_read_${doc.id}_${session.user.id}`;
+    localStorage.setItem(storageKey, 'true');
+    setHasRead(true);
+    setReadProgress(100);
+  }, [doc, session]);
+
+  // Load doc + existing signature
+  useEffect(() => {
+    if (!id || !session) return;
+    (async () => {
+      const [docRes, sigRes] = await Promise.all([
+        supabase
+          .from('toolbox_documents')
+          .select('id, titre, description, contenu, categorie, destinataires, signature_requise, content_version')
+          .eq('id', id)
+          .eq('actif', true)
+          .maybeSingle(),
+        supabase
+          .from('signatures')
+          .select('id, signed_at, content_version')
+          .eq('document_id', id)
+          .eq('agent_id', session.user.id)
+          .maybeSingle(),
+      ]);
+      setDoc(docRes.data as Doc | null);
+      setSignature(sigRes.data as Signature | null);
+      setLoading(false);
+    })();
+  }, [id, session]);
+
+  // Check localStorage read state once doc is loaded
+  useEffect(() => {
+    if (!doc || !session) return;
+
+    const storageKey = `doc_read_${doc.id}_${session.user.id}`;
+    const alreadyRead = localStorage.getItem(storageKey) === 'true';
+
+    if (alreadyRead) {
+      setHasRead(true);
+      setReadProgress(100);
+      return;
+    }
+
+    // For short documents that don't need scrolling
+    setTimeout(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      if (el.scrollHeight <= el.clientHeight + 50) {
+        markAsRead();
+      }
+    }, 500);
+  }, [doc, session, markAsRead]);
+
+  // Scroll detection for plain HTML content (window scroll)
+  useEffect(() => {
+    if (hasRead) return;
+
+    function handleScroll() {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight;
+      const winHeight = window.innerHeight;
+      const scrollable = docHeight - winHeight;
+      if (scrollable <= 0) return;
+      const progress = (scrollTop / scrollable) * 100;
+      setReadProgress(Math.min(progress, 100));
+      if (progress >= 90) {
+        markAsRead();
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasRead, markAsRead]);
+
+  // postMessage handler for iframe height + scroll progress
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === 'iframeHeight') {
         setIframeHeight(e.data.height + 48);
       }
+      if (e.data?.type === 'iframeScroll') {
+        if (hasRead) return;
+        const progress = e.data.progress as number;
+        setReadProgress(Math.min(progress, 100));
+        if (progress >= 90) {
+          markAsRead();
+        }
+      }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, []);
+  }, [hasRead, markAsRead]);
 
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
-      const { data } = await supabase
-        .from('toolbox_documents')
-        .select('id, titre, description, contenu, categorie')
-        .eq('id', id)
-        .eq('actif', true)
-        .maybeSingle();
-      setDoc(data as Doc | null);
-      setLoading(false);
-    })();
-  }, [id]);
+  async function handleSign() {
+    if (!doc || !session || !password) return;
+    setSigning(true);
+    setSignError(null);
+
+    // Verify password by re-authenticating
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: session.user.email!,
+      password,
+    });
+
+    if (authError) {
+      setSigning(false);
+      setSignError('Mot de passe incorrect.');
+      return;
+    }
+
+    const { data: managed } = await supabase
+      .from('managed_users')
+      .select('fonction, email')
+      .eq('auth_user_id', session.user.id)
+      .maybeSingle();
+
+    const agentNom = session.user.email ?? '';
+    const agentRole = managed?.fonction ?? userFonction ?? '';
+
+    const { data: newSig, error: insertError } = await supabase
+      .from('signatures')
+      .insert({
+        document_id: doc.id,
+        agent_id: session.user.id,
+        agent_nom: agentNom,
+        agent_role: agentRole,
+        content_version: doc.content_version,
+      })
+      .select('id, signed_at, content_version')
+      .maybeSingle();
+
+    setSigning(false);
+    if (insertError) {
+      setSignError('Erreur lors de la signature. Veuillez réessayer.');
+      return;
+    }
+    setSignature(newSig as Signature);
+    setPassword('');
+  }
 
   if (loading) {
     return (
@@ -83,10 +222,7 @@ export default function DocumentDetailPage() {
     return (
       <div className="px-5 py-10 text-center">
         <p className="text-slate-400 text-sm mb-4">Document introuvable.</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-blue-400 text-sm font-semibold"
-        >
+        <button onClick={() => navigate(-1)} className="text-blue-400 text-sm font-semibold">
           Retour
         </button>
       </div>
@@ -94,6 +230,10 @@ export default function DocumentDetailPage() {
   }
 
   const Icon = meta.icon;
+  const showSignatureBlock =
+    doc.signature_requise &&
+    userFonction &&
+    (!doc.destinataires || doc.destinataires.length === 0 || doc.destinataires.includes(userFonction));
 
   const iframeTemplate = `<!DOCTYPE html>
 <html lang="fr">
@@ -121,9 +261,30 @@ function notifyHeight() {
     '*'
   );
 }
-window.addEventListener('load', notifyHeight);
+function notifyScroll() {
+  var scrollTop = window.scrollY || document.documentElement.scrollTop;
+  var docHeight = document.documentElement.scrollHeight;
+  var winHeight = window.innerHeight;
+  var scrollable = docHeight - winHeight;
+  var progress = 0;
+  if (scrollable <= 0) {
+    progress = 100;
+  } else {
+    progress = (scrollTop / scrollable) * 100;
+  }
+  window.parent.postMessage(
+    { type: 'iframeScroll', progress: Math.min(progress, 100) },
+    '*'
+  );
+}
+window.addEventListener('load', function() {
+  notifyHeight();
+  notifyScroll();
+});
+window.addEventListener('scroll', notifyScroll);
 window.addEventListener('click', function() {
   setTimeout(notifyHeight, 150);
+  setTimeout(notifyScroll, 150);
 });
 new ResizeObserver(notifyHeight).observe(document.body);
 <\/script>
@@ -134,7 +295,7 @@ new ResizeObserver(notifyHeight).observe(document.body);
     .replace(/<p><a[^>]+href="[^"]+\.pdf[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '');
 
   return (
-    <div className="pb-12">
+    <div ref={contentRef} className="pb-12">
       {/* Sticky header */}
       <div className="sticky top-0 z-30 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center gap-3">
         <button
@@ -181,6 +342,99 @@ new ResizeObserver(notifyHeight).observe(document.body);
           )}
         </div>
       </div>
+
+      {/* ── Signature block ── */}
+      {showSignatureBlock && !signature && (
+        <div className="px-4 pb-6 mt-4 space-y-3">
+
+          {/* Read progress bar */}
+          {!hasRead && (
+            <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-slate-400 text-xs font-semibold">Progression de lecture</p>
+                <p className="text-slate-400 text-xs font-mono">{Math.round(readProgress)}%</p>
+              </div>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                  style={{ width: `${readProgress}%` }}
+                />
+              </div>
+              <p className="text-slate-500 text-xs mt-2 text-center">
+                Lisez le document jusqu'à la fin pour pouvoir signer
+              </p>
+            </div>
+          )}
+
+          {/* Password + sign button */}
+          <div className={`rounded-2xl border p-4 space-y-3 transition-all
+            ${hasRead
+              ? 'bg-slate-900 border-slate-700'
+              : 'bg-slate-900/50 border-slate-800 opacity-50 pointer-events-none'
+            }`}>
+            <p className="text-white font-semibold text-sm">Signature requise</p>
+            <p className="text-slate-400 text-xs">
+              {hasRead
+                ? 'Saisissez votre mot de passe pour confirmer que vous avez lu ce document.'
+                : 'Terminez la lecture du document pour signer.'
+              }
+            </p>
+
+            {signError && (
+              <p className="text-red-400 text-xs font-medium">{signError}</p>
+            )}
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Votre mot de passe"
+              disabled={!hasRead}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+            <button
+              type="button"
+              disabled={!hasRead || !password || signing}
+              onClick={handleSign}
+              className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all
+                ${hasRead && password
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white active:scale-[0.98]'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                }`}
+            >
+              {signing
+                ? 'Signature en cours…'
+                : hasRead
+                  ? "J'ai lu et j'approuve ce document"
+                  : 'Terminez la lecture pour signer'
+              }
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Already signed */}
+      {signature && (
+        <div className="px-4 pb-6 mt-4">
+          <div className="rounded-2xl bg-emerald-950/40 border border-emerald-800/40 p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+              <CheckCircle className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-emerald-300 font-semibold text-sm">Lu et signé</p>
+              <p className="text-emerald-400/70 text-xs mt-0.5">
+                {new Date(signature.signed_at).toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
