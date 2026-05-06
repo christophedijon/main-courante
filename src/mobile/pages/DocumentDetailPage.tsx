@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Flame, FileText, Radio, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Shield, Flame, FileText, Radio, CheckCircle, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -60,6 +60,7 @@ export default function DocumentDetailPage() {
   const [password, setPassword] = useState('');
   const [signing, setSigning] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
+  const [openPdfHref, setOpenPdfHref] = useState<string | null>(null);
 
   const cat = (categorie?.toUpperCase() ?? '') as Categorie;
   const meta = META[cat];
@@ -362,20 +363,32 @@ new ResizeObserver(notifyHeight).observe(document.body);
         {/* PDF attachments */}
         {pdfLinks.length > 0 && (
           <div className="space-y-2">
-            {pdfLinks.map((link, i) => (
-              <a
-                key={i}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 active:opacity-70 transition-opacity"
-              >
-                <div className="w-9 h-9 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4 text-red-400" />
-                </div>
-                <span className="text-slate-200 text-sm font-medium flex-1 truncate">{link.label}</span>
-                <ArrowLeft className="w-4 h-4 text-slate-500 rotate-180 shrink-0" />
-              </a>
+            {pdfLinks.map((pdf, i) => (
+              <div key={i} className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenPdfHref(openPdfHref === pdf.href ? null : pdf.href)}
+                  className="w-full flex items-center gap-3 p-4 active:border-slate-700 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <p className="flex-1 text-white font-medium text-[14px] truncate text-left">
+                    {pdf.label}
+                  </p>
+                  <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${openPdfHref === pdf.href ? 'rotate-180' : ''}`} />
+                </button>
+                {openPdfHref === pdf.href && (
+                  <div className="border-t border-slate-800 overflow-hidden" style={{ height: '75vh' }}>
+                    <iframe
+                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdf.href)}&embedded=true`}
+                      className="w-full h-full border-0"
+                      title={pdf.label}
+                      allow="fullscreen"
+                    />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
