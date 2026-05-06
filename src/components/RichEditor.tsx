@@ -30,6 +30,7 @@ async function uploadFile(file: File): Promise<string | null> {
 export default function RichEditor({ value, onChange, placeholder = 'Rédigez le contenu du document ici…' }: RichEditorProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -71,17 +72,25 @@ export default function RichEditor({ value, onChange, placeholder = 'Rédigez le
 
     if (ALLOWED_IMAGE.includes(file.type)) {
       setUploading(true);
+      setUploadError(null);
       const url = await uploadFile(file);
       setUploading(false);
-      if (url) editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+      if (url) {
+        editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+      } else {
+        setUploadError("Échec de l'upload de l'image. Vérifiez votre connexion et réessayez.");
+      }
     } else if (ALLOWED_PDF.includes(file.type)) {
       setUploading(true);
+      setUploadError(null);
       const url = await uploadFile(file);
       setUploading(false);
       if (url) {
         editor.chain().focus().insertContent(
           `<p><a href="${url}">📎 ${file.name}</a></p>`
         ).run();
+      } else {
+        setUploadError("Échec de l'upload du PDF. Vérifiez votre connexion et réessayez.");
       }
     }
   }, [editor]);
@@ -202,6 +211,12 @@ export default function RichEditor({ value, onChange, placeholder = 'Rédigez le
 
         <EditorContent editor={editor} className="rich-editor-content" />
       </div>
+
+      {uploadError && (
+        <p className="text-red-400 text-xs px-3 py-2 bg-red-500/10 border-t border-red-500/20">
+          {uploadError}
+        </p>
+      )}
     </div>
   );
 }
