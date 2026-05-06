@@ -291,8 +291,25 @@ new ResizeObserver(notifyHeight).observe(document.body);
 </body>
 </html>`;
 
+  function extractPdfLinks(html: string): { href: string; label: string }[] {
+    const matches = [...html.matchAll(/<a[^>]+href="([^"]*)"[^>]*>([^<]*)<\/a>/gi)];
+    return matches
+      .filter(m =>
+        m[1].includes('.pdf') ||
+        m[1].includes('documents-media') ||
+        m[2].includes('📎')
+      )
+      .map((m) => ({
+        href: m[1],
+        label: m[2].replace(/📎\s*/g, '').trim() || 'Ouvrir le document',
+      }));
+  }
+
+  const pdfLinks = extractPdfLinks(doc.contenu);
+
   const cleanedContent = doc.contenu
-    .replace(/<p><a[^>]+href="[^"]+\.pdf[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '');
+    .replace(/<p><a[^>]+href="[^"]*(?:\.pdf|documents-media)[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '')
+    .replace(/<p><a[^>]+href="[^"]*"[^>]*>📎[^<]*<\/a><\/p>/gi, '');
 
   return (
     <div ref={contentRef} className="pb-12">
@@ -341,6 +358,27 @@ new ResizeObserver(notifyHeight).observe(document.body);
             </div>
           )}
         </div>
+
+        {/* PDF attachments */}
+        {pdfLinks.length > 0 && (
+          <div className="space-y-2">
+            {pdfLinks.map((link, i) => (
+              <a
+                key={i}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 active:opacity-70 transition-opacity"
+              >
+                <div className="w-9 h-9 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-red-400" />
+                </div>
+                <span className="text-slate-200 text-sm font-medium flex-1 truncate">{link.label}</span>
+                <ArrowLeft className="w-4 h-4 text-slate-500 rotate-180 shrink-0" />
+              </a>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Signature block ── */}
