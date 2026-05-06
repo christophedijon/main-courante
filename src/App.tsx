@@ -13,6 +13,7 @@ import MotifsPage from './pages/MotifsPage';
 import DocumentsPage from './pages/DocumentsPage';
 import PostesPage from './pages/PostesPage';
 import DashboardSignaturesPage from './pages/DashboardSignaturesPage';
+import RapportsPage from './pages/RapportsPage';
 
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
@@ -116,6 +117,7 @@ export default function App() {
             <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
             <Route path="/postes" element={<AdminRoute><PostesPage /></AdminRoute>} />
             <Route path="/dashboard-signatures" element={<AdminRoute><DashboardSignaturesPage /></AdminRoute>} />
+            <Route path="/rapports" element={<AdminRoute><RapportsPage /></AdminRoute>} />
 
             {/* Mobile app */}
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
