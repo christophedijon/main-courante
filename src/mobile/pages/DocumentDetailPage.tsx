@@ -41,6 +41,15 @@ const META: Record<Categorie, {
   RADIO:     { label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  iconBg: 'bg-teal-500/15 border-teal-500/30' },
 };
 
+function isRichHtml(content: string): boolean {
+  return (
+    content.includes('<style') ||
+    content.includes('<script') ||
+    content.includes('<div ') ||
+    content.includes('<table')
+  );
+}
+
 function extractPdfLinks(html: string): { href: string; label: string }[] {
   const matches = [...html.matchAll(/<a[^>]+href="([^"]+\.pdf[^"]*)"[^>]*>([^<]*)<\/a>/gi)];
   return matches.map((m) => ({ href: m[1], label: m[2].replace(/📎\s*/g, '').trim() || 'Document PDF' }));
@@ -101,6 +110,7 @@ export default function DocumentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [imagesOpen, setImagesOpen] = useState(false);
+  const [iframeHeight, setIframeHeight] = useState(600);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Signature state
@@ -112,6 +122,16 @@ export default function DocumentDetailPage() {
 
   const cat = (categorie?.toUpperCase() ?? '') as Categorie;
   const meta = META[cat];
+
+  useEffect(() => {
+    function handleMessage(e: MessageEvent) {
+      if (e.data?.type === 'iframeHeight') {
+        setIframeHeight(e.data.height);
+      }
+    }
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -284,8 +304,45 @@ export default function DocumentDetailPage() {
         </div>
 
         {/* Main text content */}
-        <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
-          <div ref={contentRef} className="mobile-doc-content" dangerouslySetInnerHTML={{ __html: cleanedContent }} />
+        <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+          {isRichHtml(cleanedContent) ? (
+            <iframe
+              srcDoc={`<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #e2e8f0;
+  }
+</style>
+</head>
+<body>
+${cleanedContent}
+<script>
+function notifyHeight() {
+  window.parent.postMessage({ type: 'iframeHeight', height: document.body.scrollHeight }, '*');
+}
+window.addEventListener('load', notifyHeight);
+window.addEventListener('click', function() { setTimeout(notifyHeight, 100); });
+new ResizeObserver(notifyHeight).observe(document.body);
+<\/script>
+</body>
+</html>`}
+              className="w-full border-0"
+              style={{ height: iframeHeight + 'px' }}
+              title={doc.titre}
+              sandbox="allow-scripts allow-same-origin"
+            />
+          ) : (
+            <div ref={contentRef} className="mobile-doc-content p-4" dangerouslySetInnerHTML={{ __html: cleanedContent }} />
+          )}
         </div>
 
         {/* ── Section signature ── */}
