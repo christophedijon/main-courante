@@ -1,13 +1,10 @@
-import { useEffect, useState, FormEvent, useRef } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Flame, FileText, Radio, Plus, Pencil, Trash2, Eye, EyeOff, Save, X, AlertCircle, CheckCircle, ChevronDown, ChevronUp, GripVertical, ArrowUp, ArrowDown, Users, PenLine, Bold, Italic, Heading2, Heading3, List, ListOrdered, Image as ImageIcon, FileDown, Link2 } from 'lucide-react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import TiptapImage from '@tiptap/extension-image';
-import Placeholder from '@tiptap/extension-placeholder';
+import { Shield, Flame, FileText, Radio, Plus, Pencil, Trash2, Eye, EyeOff, Save, X, AlertCircle, CheckCircle, ChevronDown, ChevronUp, GripVertical, ArrowUp, ArrowDown, Users, PenLine } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
+import RichEditor from '../components/RichEditor';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -62,219 +59,18 @@ const EMPTY_DRAFT: DocDraft = {
 const inputCls = `w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm
   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`;
 
-// ── Inline URL mini-modal ──────────────────────────────────────────────────
-function UrlModal({
-  title,
-  fields,
-  onConfirm,
-  onClose,
-}: {
-  title: string;
-  fields: { label: string; placeholder: string; key: string }[];
-  onConfirm: (values: Record<string, string>) => void;
-  onClose: () => void;
-}) {
-  const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(fields.map((f) => [f.key, '']))
-  );
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl p-5 space-y-3">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-white font-semibold text-sm">{title}</p>
-          <button type="button" onClick={onClose}
-            className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        {fields.map((f) => (
-          <div key={f.key}>
-            <label className="block text-xs font-medium text-slate-400 mb-1">{f.label}</label>
-            <input
-              type="text"
-              value={values[f.key]}
-              onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-              placeholder={f.placeholder}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
-              autoFocus={f.key === fields[0].key}
-            />
-          </div>
-        ))}
-        <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose}
-            className="flex-1 py-2 rounded-xl text-sm font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all">
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(values)}
-            className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all"
-          >
-            Insérer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Visual editor with toolbar ─────────────────────────────────────────────
-function VisualEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
-  const [imgModal, setImgModal] = useState(false);
-  const [pdfModal, setPdfModal] = useState(false);
-  const [linkModal, setLinkModal] = useState(false);
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TiptapImage.configure({ allowBase64: false, inline: false }),
-      Placeholder.configure({ placeholder: 'Rédigez le contenu du document ici…' }),
-    ],
-    content: value,
-    onUpdate: ({ editor: e }) => {
-      onChange(e.getHTML());
-    },
-    editorProps: {
-      attributes: { class: 'focus:outline-none min-h-[200px] text-slate-200 text-sm leading-relaxed' },
-    },
-  });
-
-  // Sync when value changes from outside (switching tabs)
-  const lastExternal = useRef(value);
-  useEffect(() => {
-    if (!editor) return;
-    if (value !== lastExternal.current && value !== editor.getHTML()) {
-      editor.commands.setContent(value);
-    }
-    lastExternal.current = value;
-  }, [value, editor]);
-
-  if (!editor) return null;
-
-  const btn = (active: boolean) =>
-    `p-1.5 rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-600 ${active ? 'bg-blue-600 text-white' : ''}`;
-
-  function insertImage(vals: Record<string, string>) {
-    const url = vals.url.trim();
-    if (url) editor.chain().focus().setImage({ src: url }).run();
-    setImgModal(false);
-  }
-
-  function insertPdf(vals: Record<string, string>) {
-    const url = vals.url.trim();
-    const name = vals.name.trim() || url;
-    if (url) editor.chain().focus().insertContent(`<p><a href="${url}">${name}</a></p>`).run();
-    setPdfModal(false);
-  }
-
-  function insertLink(vals: Record<string, string>) {
-    const url = vals.url.trim();
-    if (!url) { setLinkModal(false); return; }
-    if (editor.state.selection.empty) {
-      editor.chain().focus().insertContent(`<a href="${url}">${url}</a>`).run();
-    } else {
-      editor.chain().focus().setLink({ href: url }).run();
-    }
-    setLinkModal(false);
-  }
-
-  return (
-    <>
-      <div className="border border-slate-700 rounded-xl overflow-hidden bg-slate-800/50 focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500/40 transition-all">
-        {/* Toolbar */}
-        <div className="flex items-center flex-wrap gap-0.5 px-3 py-2 border-b border-slate-700 bg-slate-800">
-          <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={btn(editor.isActive('bold'))} title="Gras">
-            <Bold className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={btn(editor.isActive('italic'))} title="Italique">
-            <Italic className="w-3.5 h-3.5" />
-          </button>
-
-          <div className="w-px h-4 bg-slate-600 mx-1" />
-
-          <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={btn(editor.isActive('heading', { level: 2 }))} title="Titre H2">
-            <Heading2 className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={btn(editor.isActive('heading', { level: 3 }))} title="Titre H3">
-            <Heading3 className="w-3.5 h-3.5" />
-          </button>
-
-          <div className="w-px h-4 bg-slate-600 mx-1" />
-
-          <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={btn(editor.isActive('bulletList'))} title="Liste à puces">
-            <List className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={btn(editor.isActive('orderedList'))} title="Liste numérotée">
-            <ListOrdered className="w-3.5 h-3.5" />
-          </button>
-
-          <div className="w-px h-4 bg-slate-600 mx-1" />
-
-          <button type="button" onClick={() => setLinkModal(true)} className={btn(editor.isActive('link'))} title="Lien">
-            <Link2 className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={() => setImgModal(true)} className={btn(false)} title="Insérer une image">
-            <ImageIcon className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={() => setPdfModal(true)} className={btn(false)} title="Insérer un PDF">
-            <FileDown className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Editor area */}
-        <div className="px-4 py-3 cursor-text" onClick={() => editor.commands.focus()}>
-          <EditorContent editor={editor} />
-        </div>
-      </div>
-
-      {imgModal && (
-        <UrlModal
-          title="Insérer une image"
-          fields={[{ label: 'URL de l\'image', placeholder: 'https://…', key: 'url' }]}
-          onConfirm={insertImage}
-          onClose={() => setImgModal(false)}
-        />
-      )}
-      {pdfModal && (
-        <UrlModal
-          title="Insérer un PDF"
-          fields={[
-            { label: 'URL du PDF', placeholder: 'https://…/fichier.pdf', key: 'url' },
-            { label: 'Nom du lien', placeholder: 'Ex : Procédure évacuation.pdf', key: 'name' },
-          ]}
-          onConfirm={insertPdf}
-          onClose={() => setPdfModal(false)}
-        />
-      )}
-      {linkModal && (
-        <UrlModal
-          title="Insérer un lien"
-          fields={[{ label: 'URL', placeholder: 'https://…', key: 'url' }]}
-          onConfirm={insertLink}
-          onClose={() => setLinkModal(false)}
-        />
-      )}
-    </>
-  );
-}
-
 // ── Dual-mode content editor (visual + raw HTML) ───────────────────────────
 function ContentEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const [mode, setMode] = useState<'visual' | 'html'>('visual');
-
-  function switchTo(next: 'visual' | 'html') {
-    setMode(next);
-  }
 
   return (
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">Contenu</label>
 
-      {/* Mode tabs */}
       <div className="flex gap-1 bg-slate-900 border border-slate-700 rounded-xl p-1 w-fit mb-2">
         <button
           type="button"
-          onClick={() => switchTo('visual')}
+          onClick={() => setMode('visual')}
           className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all
             ${mode === 'visual' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
         >
@@ -282,7 +78,7 @@ function ContentEditor({ value, onChange }: { value: string; onChange: (html: st
         </button>
         <button
           type="button"
-          onClick={() => switchTo('html')}
+          onClick={() => setMode('html')}
           className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all
             ${mode === 'html' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
         >
@@ -291,7 +87,7 @@ function ContentEditor({ value, onChange }: { value: string; onChange: (html: st
       </div>
 
       {mode === 'visual' ? (
-        <VisualEditor value={value} onChange={onChange} />
+        <RichEditor value={value} onChange={onChange} />
       ) : (
         <>
           <textarea
