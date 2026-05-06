@@ -1,16 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { Flame } from 'lucide-react';
+import { Flame, Mic, MicOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSaisie } from './SaisieContext';
 
 type MotifRow = { id: string; nom: string; description: string | null };
+
+type AnyWindow = Window & {
+  SpeechRecognition?: any;
+  webkitSpeechRecognition?: any;
+};
 
 export default function StepSsiMotifs() {
   const navigate = useNavigate();
   const { draft, setField } = useSaisie();
   const [items, setItems] = useState<MotifRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [transcription, setTranscription] = useState(draft.commentaire ?? '');
+  const [recording, setRecording] = useState(false);
+  const [supported, setSupported] = useState(true);
+  const recRef = useRef<any>(null);
 
   useEffect(() => {
     supabase
@@ -23,6 +32,26 @@ export default function StepSsiMotifs() {
       });
   }, []);
 
+  useEffect(() => {
+    const w = window as unknown as AnyWindow;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) { setSupported(false); return; }
+    const rec = new SR();
+    rec.lang = 'fr-FR';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = (e: any) => {
+      let finalText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+      }
+      if (finalText) setTranscription((t) => (t ? t + ' ' : '') + finalText.trim());
+    };
+    rec.onend = () => setRecording(false);
+    recRef.current = rec;
+    return () => { try { rec.stop(); } catch {} };
+  }, []);
+
   if (!draft.zone) return <Navigate to="/mobile/saisie/ssi/ssi-zone" replace />;
 
   function toggle(id: string, nom: string) {
@@ -31,6 +60,17 @@ export default function StepSsiMotifs() {
       ? draft.motifs.filter((m) => m.id !== id)
       : [...draft.motifs, { id, label: nom }];
     setField('motifs', next);
+  }
+
+  function toggleRec() {
+    if (!recRef.current) return;
+    if (recording) {
+      recRef.current.stop();
+      setRecording(false);
+    } else {
+      try { recRef.current.start(); setRecording(true); }
+      catch { setRecording(false); }
+    }
   }
 
   const canContinue = draft.motifs.length > 0;
@@ -133,6 +173,60 @@ export default function StepSsiMotifs() {
             );
           })}
         </div>
+
+        {/* Message vocal */}
+        <div className="mt-6">
+          <p className="text-[11px] font-bold text-slate-400 tracking-[0.15em] uppercase mb-3">
+            Message vocal
+          </p>
+          {supported ? (
+            <button
+              type="button"
+              onClick={toggleRec}
+              className={`w-full flex items-center gap-4 px-5 py-5 rounded-2xl border-2 transition-all
+                ${recording
+                  ? 'bg-red-950/60 border-red-500/50'
+                  : 'bg-red-950/30 border-red-700/40 hover:border-red-600/60'
+                }`}
+            >
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0
+                ${recording ? 'bg-red-500 animate-pulse' : 'bg-red-600'}`}>
+                {recording
+                  ? <MicOff className="w-6 h-6 text-white" />
+                  : <Mic className="w-6 h-6 text-white" />
+                }
+              </div>
+              <div className="text-left">
+                <p className="text-white font-bold text-[15px]">
+                  {recording ? 'Arrêter l\'enregistrement' : 'Enregistrer un message vocal'}
+                </p>
+                <p className="text-slate-400 text-[12px] mt-0.5">
+                  {recording ? 'Dictée en cours…' : 'Appuyez pour démarrer'}
+                </p>
+              </div>
+            </button>
+          ) : (
+            <div className="bg-[#1c2333] border border-slate-700 rounded-2xl px-5 py-4 text-center">
+              <p className="text-slate-500 text-sm">Dictée vocale non supportée sur ce navigateur.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Transcription */}
+        <div className="mt-4">
+          <p className="text-[11px] font-bold text-slate-400 tracking-[0.15em] uppercase mb-3">
+            Transcription / commentaire
+          </p>
+          <textarea
+            value={transcription}
+            onChange={(e) => setTranscription(e.target.value)}
+            placeholder="La transcription de votre enregistrement apparaîtra ici automatiquement… Vous pouvez aussi taper directement."
+            rows={4}
+            className="w-full bg-[#1c2333] border border-slate-700 rounded-2xl px-4 py-3 text-white text-[14px]
+              placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500/40
+              transition-all resize-none"
+          />
+        </div>
       </div>
 
       {/* Sticky continue */}
@@ -141,7 +235,10 @@ export default function StepSsiMotifs() {
           <button
             type="button"
             disabled={!canContinue}
-            onClick={() => navigate('/mobile/saisie/ssi/recap')}
+            onClick={() => {
+              setField('commentaire', transcription.trim());
+              navigate('/mobile/saisie/ssi/recap');
+            }}
             className={`w-full py-4 rounded-2xl font-bold text-[16px] transition-all
               ${canContinue
                 ? 'bg-orange-600 hover:bg-orange-500 text-white'
