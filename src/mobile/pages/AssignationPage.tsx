@@ -222,10 +222,10 @@ export default function AssignationPage() {
                 {/* Poste header */}
                 <div className="px-4 py-3.5 flex items-start gap-3">
                   <div className="flex-1 min-w-0 pt-0.5">
-                    <p className="text-white font-semibold text-[14px] leading-snug">{poste.nom}</p>
-                    <p className="text-slate-500 text-[12px] mt-0.5">{poste.fonction}</p>
+                    <p className="text-white font-bold text-base leading-snug">{poste.nom}</p>
+                    <span className="inline-block mt-1 text-slate-300 text-xs font-medium bg-slate-700 px-2 py-0.5 rounded-lg">{poste.fonction}</span>
                     {poste.description ? (
-                      <p className="text-slate-600 text-[11px] mt-1 leading-snug">{poste.description}</p>
+                      <p className="text-slate-300 text-sm leading-relaxed mt-1">{poste.description}</p>
                     ) : null}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
