@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Map, ShieldAlert, Cpu, Users,
-  TrendingUp, Flame, ChevronRight, ChevronDown,
+  TrendingUp, Flame, ChevronRight, ChevronDown, Monitor,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -61,7 +61,17 @@ export default function MobileAdminPage() {
             <h1 className="text-white text-2xl font-bold truncate">Administration</h1>
             <p className="text-slate-500 text-sm">Accès rapide back-office</p>
           </div>
-          <EntrepriseBadge />
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-all"
+            >
+              <Monitor className="w-4 h-4" />
+              <span className="text-xs font-medium">Back-office</span>
+            </button>
+            <EntrepriseBadge />
+          </div>
         </div>
       </div>
 
