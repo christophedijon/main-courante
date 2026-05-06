@@ -305,7 +305,7 @@ export default function DocumentDetailPage() {
 
         {/* Main text content */}
         <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
-          {isRichHtml(cleanedContent) ? (
+          {isRichHtml(doc.contenu) ? (
             <iframe
               srcDoc={`<!DOCTYPE html>
 <html lang="fr">
@@ -324,7 +324,7 @@ export default function DocumentDetailPage() {
 </style>
 </head>
 <body>
-${cleanedContent}
+${doc.contenu}
 <script>
 function notifyHeight() {
   window.parent.postMessage({ type: 'iframeHeight', height: document.body.scrollHeight }, '*');
