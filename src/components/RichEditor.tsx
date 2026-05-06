@@ -20,10 +20,10 @@ async function uploadFile(file: File): Promise<string | null> {
   const ext = file.name.split('.').pop() ?? 'bin';
   const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { error } = await supabase.storage
-    .from('documents-media')
+    .from('documents-médias')
     .upload(path, file, { contentType: file.type });
   if (error) return null;
-  const { data } = supabase.storage.from('documents-media').getPublicUrl(path);
+  const { data } = supabase.storage.from('documents-médias').getPublicUrl(path);
   return data.publicUrl;
 }
 
