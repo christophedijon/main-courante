@@ -14,8 +14,10 @@ type AuthContextType = {
   hasAdminAccess: boolean;
   hasChefDePosteAccess: boolean;
   hasMobileAccess: boolean;
+  mustCompleteProfile: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  setProfileCompleted: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,14 +27,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [userFonction, setUserFonction] = useState<string | null>(null);
+  const [mustCompleteProfile, setMustCompleteProfile] = useState(false);
 
   async function loadUserMeta(userEmail: string, userId: string) {
     const [adminRes, managedRes] = await Promise.all([
       supabase.from('super_admins').select('id').eq('email', userEmail).maybeSingle(),
-      supabase.from('managed_users').select('fonction').eq('auth_user_id', userId).maybeSingle(),
+      supabase.from('managed_users')
+        .select('fonction, is_provisoire, profile_completed')
+        .eq('auth_user_id', userId)
+        .maybeSingle(),
     ]);
     setIsSuperAdmin(!!adminRes.data || managedRes.data?.fonction === 'Direction');
     setUserFonction(managedRes.data?.fonction ?? null);
+
+    const mu = managedRes.data;
+    if (mu?.is_provisoire && !mu?.profile_completed) {
+      setMustCompleteProfile(true);
+    } else {
+      setMustCompleteProfile(false);
+    }
   }
 
   useEffect(() => {
@@ -52,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setIsSuperAdmin(false);
         setUserFonction(null);
+        setMustCompleteProfile(false);
       }
     });
 
@@ -68,6 +82,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setIsSuperAdmin(false);
     setUserFonction(null);
+    setMustCompleteProfile(false);
+  }
+
+  async function setProfileCompleted() {
+    const userId = session?.user.id;
+    if (!userId) return;
+    await supabase
+      .from('managed_users')
+      .update({ profile_completed: true, is_provisoire: false })
+      .eq('auth_user_id', userId);
+    setMustCompleteProfile(false);
   }
 
   const isDirection = userFonction === 'Direction';
@@ -84,7 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session, loading, isSuperAdmin, userFonction,
         isDirection, isSecurite, isServeur, isChefDePoste,
         hasAdminAccess, hasChefDePosteAccess, hasMobileAccess,
-        signIn, signOut,
+        mustCompleteProfile,
+        signIn, signOut, setProfileCompleted,
       }}
     >
       {children}

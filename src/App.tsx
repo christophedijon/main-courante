@@ -14,6 +14,7 @@ import DocumentsPage from './pages/DocumentsPage';
 import PostesPage from './pages/PostesPage';
 import DashboardSignaturesPage from './pages/DashboardSignaturesPage';
 import RapportsPage from './pages/RapportsPage';
+import CompleteProfilePage from './pages/CompleteProfilePage';
 
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
@@ -91,9 +92,19 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function MobileRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, loading, mustCompleteProfile } = useAuth();
   if (loading) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
+  if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
+  return <>{children}</>;
+}
+
+function AdminRoute2({ children }: { children: React.ReactNode }) {
+  const { session, loading, hasAdminAccess, mustCompleteProfile } = useAuth();
+  if (loading) return <Spinner />;
+  if (!session) return <Navigate to="/" replace />;
+  if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
+  if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
   return <>{children}</>;
 }
 
@@ -106,18 +117,21 @@ export default function App() {
           <Routes>
             <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
 
+            {/* Complétion profil obligatoire première connexion */}
+            <Route path="/complete-profile" element={<PrivateRoute><CompleteProfilePage /></PrivateRoute>} />
+
             {/* Desktop back-office (inchangé) */}
-            <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
-            <Route path="/dashboard/users/:id" element={<AdminRoute><UserEditPage /></AdminRoute>} />
+            <Route path="/dashboard" element={<AdminRoute2><DashboardPage /></AdminRoute2>} />
+            <Route path="/dashboard/users/:id" element={<AdminRoute2><UserEditPage /></AdminRoute2>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-            <Route path="/entreprise" element={<AdminRoute><EntreprisePage /></AdminRoute>} />
-            <Route path="/espaces-zones" element={<AdminRoute><EspacesZonesPage /></AdminRoute>} />
-            <Route path="/ia" element={<AdminRoute><IAPage /></AdminRoute>} />
-            <Route path="/motifs" element={<AdminRoute><MotifsPage /></AdminRoute>} />
-            <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
-            <Route path="/postes" element={<AdminRoute><PostesPage /></AdminRoute>} />
-            <Route path="/dashboard-signatures" element={<AdminRoute><DashboardSignaturesPage /></AdminRoute>} />
-            <Route path="/rapports" element={<AdminRoute><RapportsPage /></AdminRoute>} />
+            <Route path="/entreprise" element={<AdminRoute2><EntreprisePage /></AdminRoute2>} />
+            <Route path="/espaces-zones" element={<AdminRoute2><EspacesZonesPage /></AdminRoute2>} />
+            <Route path="/ia" element={<AdminRoute2><IAPage /></AdminRoute2>} />
+            <Route path="/motifs" element={<AdminRoute2><MotifsPage /></AdminRoute2>} />
+            <Route path="/documents" element={<AdminRoute2><DocumentsPage /></AdminRoute2>} />
+            <Route path="/postes" element={<AdminRoute2><PostesPage /></AdminRoute2>} />
+            <Route path="/dashboard-signatures" element={<AdminRoute2><DashboardSignaturesPage /></AdminRoute2>} />
+            <Route path="/rapports" element={<AdminRoute2><RapportsPage /></AdminRoute2>} />
 
             {/* Mobile app */}
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>

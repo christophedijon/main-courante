@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users, UserPlus, Search, Trash2,
   ChevronUp, ChevronDown, RefreshCw, Mail, Pencil,
+  X, Copy, CheckCircle, AlertCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { ManagedUser } from '../lib/supabase';
@@ -53,6 +54,15 @@ export default function DashboardPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
+  const [inviteFonction, setInviteFonction] = useState('Agent de Sécurité');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState<{ email: string; password: string } | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [copiedCredentials, setCopiedCredentials] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
@@ -126,6 +136,69 @@ export default function DashboardPage() {
     setToast({ message: `${user.email} a été créé avec succès.`, type: 'success' });
   }
 
+  function generatePassword() {
+    return Math.random().toString(36).slice(-8);
+  }
+
+  function openInvite() {
+    setInviteEmail('');
+    setInvitePassword(generatePassword());
+    setInviteFonction('Agent de Sécurité');
+    setInviteError(null);
+    setInviteSuccess(null);
+    setCopiedCredentials(false);
+    setShowInvite(true);
+  }
+
+  function closeInvite() {
+    setShowInvite(false);
+    setInviteSuccess(null);
+    setInviteError(null);
+    if (inviteSuccess) fetchUsers();
+  }
+
+  async function handleInviteSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setInviteError(null);
+    setInviteLoading(true);
+    const { data: { session: s } } = await supabase.auth.getSession();
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${s?.access_token}`,
+            'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            email: inviteEmail,
+            password: invitePassword,
+            fonction: inviteFonction,
+            invited_by: s?.user.id,
+          }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setInviteError(json.error ?? 'Erreur inconnue');
+      } else {
+        setInviteSuccess({ email: inviteEmail, password: invitePassword });
+      }
+    } catch {
+      setInviteError('Erreur réseau. Réessayez.');
+    }
+    setInviteLoading(false);
+  }
+
+  function copyCredentials() {
+    if (!inviteSuccess) return;
+    navigator.clipboard.writeText(`Email : ${inviteSuccess.email}\nMot de passe : ${inviteSuccess.password}`);
+    setCopiedCredentials(true);
+    setTimeout(() => setCopiedCredentials(false), 2000);
+  }
+
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     return (
@@ -170,6 +243,14 @@ export default function DashboardPage() {
               title="Rafraîchir"
             >
               <RefreshCw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={openInvite}
+              className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-medium
+                px-4 py-2 rounded-xl text-sm transition-all shadow-lg shadow-emerald-900/30"
+            >
+              <UserPlus className="w-4 h-4" />
+              Inviter un utilisateur
             </button>
             <button
               onClick={() => setShowCreate(true)}
@@ -367,11 +448,137 @@ export default function DashboardPage() {
           loading={deleteLoading}
         />
       )}
+      {/* Modale invitation */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeInvite} />
+          <div className="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-slate-800">
+              <div>
+                <h3 className="text-white font-bold text-lg">Inviter un utilisateur</h3>
+                <p className="text-slate-400 text-xs mt-0.5">Compte provisoire — valable 48h</p>
+              </div>
+              <button type="button" onClick={closeInvite}
+                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              {inviteSuccess ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <CheckCircle className="w-5 h-5 shrink-0" />
+                    <p className="font-semibold">Compte provisoire créé.</p>
+                  </div>
+                  <p className="text-slate-400 text-sm">Communiquez ces identifiants à l'agent :</p>
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span className="text-slate-400 text-xs w-24 shrink-0">Email</span>
+                      <span className="text-white text-sm font-mono">{inviteSuccess.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span className="text-slate-400 text-xs w-24 shrink-0">Mot de passe</span>
+                      <span className="text-white text-sm font-mono">{inviteSuccess.password}</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={copyCredentials}
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all
+                      ${copiedCredentials ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'}`}>
+                    {copiedCredentials ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copiedCredentials ? 'Copié !' : 'Copier les identifiants'}
+                  </button>
+                  <button type="button" onClick={closeInvite}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-all">
+                    Fermer
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleInviteSubmit} className="space-y-4">
+                  {inviteError && (
+                    <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-3 text-sm">
+                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                      {inviteError}
+                    </div>
+                  )}
+
+                  <InviteField label="Email *">
+                    <input
+                      type="email"
+                      required
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="adresse@email.com"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    />
+                  </InviteField>
+
+                  <InviteField label="Mot de passe provisoire *">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={invitePassword}
+                        onChange={(e) => setInvitePassword(e.target.value)}
+                        placeholder="Mot de passe à communiquer"
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      />
+                      <button type="button" onClick={() => setInvitePassword(generatePassword())}
+                        className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 text-xs font-medium transition-colors whitespace-nowrap">
+                        Générer
+                      </button>
+                    </div>
+                  </InviteField>
+
+                  <InviteField label="Fonction *">
+                    <select
+                      value={inviteFonction}
+                      onChange={(e) => setInviteFonction(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
+                    >
+                      <option>Direction</option>
+                      <option>Chef de poste</option>
+                      <option>Agent de Sécurité</option>
+                      <option>Serveur</option>
+                    </select>
+                  </InviteField>
+
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={closeInvite}
+                      className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition-all">
+                      Annuler
+                    </button>
+                    <button type="submit" disabled={inviteLoading}
+                      className="flex-1 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                      {inviteLoading
+                        ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>Création…</>
+                        : 'Créer le compte provisoire'
+                      }
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div className="fixed bottom-6 right-6 z-[60]">
           <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
         </div>
       )}
+    </div>
+  );
+}
+
+function InviteField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">{label}</label>
+      {children}
     </div>
   );
 }
