@@ -7,7 +7,7 @@ import AppHeader from '../components/AppHeader';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ZoneCategorie = 'securite_personnes' | 'ssi';
+type ZoneCategorie = 'securite_personnes';
 
 type Zone = {
   id: string;
@@ -16,6 +16,14 @@ type Zone = {
   description: string;
   capacite: number | null;
   categorie: ZoneCategorie;
+};
+
+type ZoneSsi = {
+  id: string;
+  nom: string;
+  description: string;
+  actif: boolean;
+  ordre: number;
 };
 
 type Espace = {
@@ -43,14 +51,6 @@ const ZONE_CATEGORIES: { value: ZoneCategorie; label: string; icon: React.Elemen
     accent: 'text-blue-400',
     border: 'border-blue-500/20',
     gradient: 'from-blue-500 to-cyan-400',
-  },
-  {
-    value: 'ssi',
-    label: 'Sécurité Incendie SSI',
-    icon: Flame,
-    accent: 'text-orange-400',
-    border: 'border-orange-500/20',
-    gradient: 'from-orange-500 to-amber-400',
   },
 ];
 
@@ -441,6 +441,64 @@ function ZonePanel({
   );
 }
 
+// ─── SSI zone form (nom + description only) ──────────────────────────────────
+
+type SsiZoneFormProps = {
+  initial?: { nom: string; description: string };
+  onSave: (data: { nom: string; description: string }) => Promise<void>;
+  onCancel: () => void;
+  loading: boolean;
+};
+
+function SsiZoneForm({ initial, onSave, onCancel, loading }: SsiZoneFormProps) {
+  const [nom, setNom] = useState(initial?.nom ?? '');
+  const [description, setDescription] = useState(initial?.description ?? '');
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    await onSave({ nom: nom.trim(), description: description.trim() });
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-300 mb-1">Nom de la zone SSI</label>
+          <input
+            type="text" required value={nom}
+            onChange={(e) => setNom(e.target.value)}
+            placeholder="Ex : Détecteur Hall A, RIA Cuisine…"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-500 text-sm
+              focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
+          <input
+            type="text" value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description optionnelle"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-500 text-sm
+              focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={onCancel}
+          className="flex-1 px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-all border border-slate-700">
+          Annuler
+        </button>
+        <button type="submit" disabled={loading}
+          className="flex-1 flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-500 disabled:bg-orange-800
+            disabled:cursor-not-allowed text-white font-medium px-4 py-2 rounded-xl text-xs transition-colors">
+          <Save className="w-3 h-3" />
+          {loading ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 function EspacesZonesPage() {
@@ -464,6 +522,11 @@ function EspacesZonesPage() {
   const [editingZone, setEditingZone] = useState<string | null>(null);
   const [zoneFormLoading, setZoneFormLoading] = useState(false);
 
+  const [zonesSsi, setZonesSsi] = useState<ZoneSsi[]>([]);
+  const [showAddSsi, setShowAddSsi] = useState(false);
+  const [editingSsiId, setEditingSsiId] = useState<string | null>(null);
+  const [ssiFormLoading, setSsiFormLoading] = useState(false);
+
   useEffect(() => {
     if (!session) { navigate('/'); return; }
     if (!isSuperAdmin) { navigate('/profile'); return; }
@@ -484,9 +547,10 @@ function EspacesZonesPage() {
 
   async function fetchAll() {
     setLoading(true);
-    const [espacesRes, zonesRes] = await Promise.all([
+    const [espacesRes, zonesRes, ssiRes] = await Promise.all([
       supabase.from('espaces').select('*').order('created_at'),
       supabase.from('zones').select('*').order('created_at'),
+      supabase.from('zones_ssi').select('*').order('ordre', { ascending: true }),
     ]);
     const zonesData: Zone[] = zonesRes.data ?? [];
     const espacesData: Espace[] = (espacesRes.data ?? []).map((e) => ({
@@ -495,6 +559,7 @@ function EspacesZonesPage() {
     }));
     setEspaces(espacesData);
     setExpandedEspaces(new Set(espacesData.map((e) => e.id)));
+    setZonesSsi((ssiRes.data ?? []) as ZoneSsi[]);
     setLoading(false);
   }
 
@@ -576,6 +641,35 @@ function EspacesZonesPage() {
     setToast({ type: 'success', text: `Zone "${nom}" supprimée.` });
   }
 
+  async function handleAddSsi(data: { nom: string; description: string }) {
+    setSsiFormLoading(true);
+    const ordre = zonesSsi.length;
+    const { data: inserted, error } = await supabase
+      .from('zones_ssi').insert({ ...data, ordre }).select().maybeSingle();
+    setSsiFormLoading(false);
+    if (error || !inserted) { setToast({ type: 'error', text: 'Erreur lors de la création.' }); return; }
+    setZonesSsi((prev) => [...prev, inserted as ZoneSsi]);
+    setShowAddSsi(false);
+    setToast({ type: 'success', text: `Zone SSI "${inserted.nom}" créée.` });
+  }
+
+  async function handleEditSsi(id: string, data: { nom: string; description: string }) {
+    setSsiFormLoading(true);
+    const { error } = await supabase.from('zones_ssi').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
+    setSsiFormLoading(false);
+    if (error) { setToast({ type: 'error', text: 'Erreur lors de la modification.' }); return; }
+    setZonesSsi((prev) => prev.map((z) => z.id === id ? { ...z, ...data } : z));
+    setEditingSsiId(null);
+    setToast({ type: 'success', text: 'Zone SSI mise à jour.' });
+  }
+
+  async function handleDeleteSsi(id: string, nom: string) {
+    const { error } = await supabase.from('zones_ssi').delete().eq('id', id);
+    if (error) { setToast({ type: 'error', text: 'Erreur lors de la suppression.' }); return; }
+    setZonesSsi((prev) => prev.filter((z) => z.id !== id));
+    setToast({ type: 'success', text: `Zone SSI "${nom}" supprimée.` });
+  }
+
   async function handleSignOut() { await signOut(); navigate('/'); }
 
   const totalEspaces = espaces.length;
@@ -654,7 +748,7 @@ function EspacesZonesPage() {
                   <div className="flex-1 min-w-0">
                     <h2 className="text-sm font-semibold text-amber-300">Zones SSI – Sécurité Incendie</h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {espaces.reduce((n, e) => n + e.zones.filter((z) => z.categorie === 'ssi').length, 0)} zone{espaces.reduce((n, e) => n + e.zones.filter((z) => z.categorie === 'ssi').length, 0) !== 1 ? 's' : ''} SSI configurée{espaces.reduce((n, e) => n + e.zones.filter((z) => z.categorie === 'ssi').length, 0) !== 1 ? 's' : ''}
+                      {zonesSsi.length} zone{zonesSsi.length !== 1 ? 's' : ''} SSI configurée{zonesSsi.length !== 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
@@ -665,7 +759,8 @@ function EspacesZonesPage() {
 
               {ssiSectionExpanded && (
                 <div className="p-5 space-y-3">
-                  {espaces.length === 0 && (
+                  {/* Empty state */}
+                  {zonesSsi.length === 0 && !showAddSsi && (
                     <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
                       <div className="w-12 h-12 rounded-xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
                         <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -680,63 +775,98 @@ function EspacesZonesPage() {
                         </svg>
                       </div>
                       <div>
-                        <p className="text-slate-400 text-sm font-medium">Aucun espace créé</p>
-                        <p className="text-slate-600 text-xs mt-0.5">Créez d'abord des espaces dans la section ci-dessous.</p>
+                        <p className="text-slate-400 text-sm font-medium">Aucune zone SSI configurée</p>
+                        <p className="text-slate-600 text-xs mt-0.5">Ajoutez des zones pour les utiliser lors des saisies SSI.</p>
                       </div>
+                      <button
+                        onClick={() => setShowAddSsi(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-orange-600 hover:bg-orange-500 rounded-xl transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Ajouter une zone SSI
+                      </button>
                     </div>
                   )}
-                  {espaces.map((espace) => {
-                    const ssiZones = espace.zones.filter((z) => z.categorie === 'ssi');
-                    return (
-                      <div key={espace.id} className="border border-slate-800 rounded-xl overflow-hidden">
-                        <div className="h-0.5" style={{ background: `linear-gradient(to right, ${espace.couleur}, ${espace.couleur}55)` }} />
-                        <div className="px-4 py-3 bg-slate-800/40 flex items-center gap-3">
-                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: espace.couleur }} />
-                          <p className="font-semibold text-white text-sm flex-1">{espace.nom}</p>
-                          <span className="text-xs text-slate-500 bg-slate-800 border border-slate-700/60 rounded-full px-2 py-0.5">
-                            {ssiZones.length} zone{ssiZones.length !== 1 ? 's' : ''}
-                          </span>
+
+                  {/* Zone list */}
+                  {zonesSsi.map((zone) => {
+                    if (editingSsiId === zone.id) {
+                      return (
+                        <div key={zone.id} className="bg-slate-800/50 border border-orange-900/40 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Modifier</p>
+                          <SsiZoneForm
+                            initial={{ nom: zone.nom, description: zone.description }}
+                            onSave={(data) => handleEditSsi(zone.id, data)}
+                            onCancel={() => setEditingSsiId(null)}
+                            loading={ssiFormLoading}
+                          />
                         </div>
-                        <div className="px-4 pb-4 pt-2 space-y-2 bg-slate-900/40">
-                          {ssiZones.map((zone) => (
-                            <ZoneRow
-                              key={zone.id}
-                              zone={zone}
-                              espaceColor={espace.couleur}
-                              onEdit={() => setEditingZone(zone.id)}
-                              onDelete={() => handleDeleteZone(zone.id, espace.id, zone.nom)}
-                              editingZoneId={editingZone}
-                              onSaveEdit={(data) => handleEditZone(zone.id, espace.id, data)}
-                              onCancelEdit={() => setEditingZone(null)}
-                              zoneFormLoading={zoneFormLoading}
-                              accentRing="focus:ring-orange-500"
-                            />
-                          ))}
-                          {showAddZone !== `${espace.id}-ssi` && (
-                            <button
-                              onClick={() => { setShowAddZone(`${espace.id}-ssi`); setEditingZone(null); }}
-                              className="flex items-center gap-1 text-xs px-2.5 py-1.5 border rounded-lg
-                                text-amber-500/80 hover:text-amber-300 bg-red-950/40 hover:bg-red-900/50
-                                border-red-900/40 hover:border-red-700/50 transition-all"
-                            >
-                              <Plus className="w-3 h-3" />
-                              Ajouter une zone SSI
-                            </button>
+                      );
+                    }
+                    return (
+                      <div key={zone.id} className="flex items-center gap-3 bg-red-950/30 hover:bg-red-950/50 border border-red-900/40 hover:border-red-800/60 rounded-xl px-3 py-2.5 transition-all group">
+                        <div className="w-9 h-9 rounded-xl bg-red-800/60 border border-red-700/50 flex items-center justify-center shrink-0">
+                          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2C12 2 9 6 9 9.5C9 11.4 10.1 13 11.5 14C11.2 13.3 11 12.4 11.5 11.5C12.5 9.8 14 9.5 14 9.5C13.5 11 14 12 15 13C15.6 13.6 16 14.5 16 15.5C16 18 14.2 20 12 20C9.8 20 8 18 8 15.5C8 13.5 9 12 9 12C9 12 7 13.5 7 16C7 19.3 9.2 22 12 22C14.8 22 17 19.3 17 16C17 11.5 12 2 12 2Z"
+                              fill="url(#flameSsiRow)" />
+                            <defs>
+                              <linearGradient id="flameSsiRow" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stopColor="#fbbf24" />
+                                <stop offset="60%" stopColor="#f97316" />
+                                <stop offset="100%" stopColor="#dc2626" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-amber-300">{zone.nom}</p>
+                          {zone.description && (
+                            <p className="text-xs text-slate-500 truncate mt-0.5">{zone.description}</p>
                           )}
-                          {showAddZone === `${espace.id}-ssi` && (
-                            <div className="border border-dashed rounded-xl p-4 bg-red-950/20 border-red-900/40">
-                              <ZoneForm
-                                onSave={(data) => handleAddZone(espace.id, 'ssi', data)}
-                                onCancel={() => setShowAddZone(null)}
-                                loading={zoneFormLoading}
-                                accentRing="focus:ring-orange-500"
-                              />
-                            </div>
-                          )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button
+                            onClick={() => setEditingSsiId(zone.id)}
+                            className="w-7 h-7 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 flex items-center justify-center transition-all"
+                            title="Modifier"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSsi(zone.id, zone.nom)}
+                            className="w-7 h-7 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
                       </div>
                     );
                   })}
+
+                  {/* Add form */}
+                  {showAddSsi && (
+                    <div className="border border-dashed rounded-xl p-4 bg-red-950/20 border-red-900/40">
+                      <SsiZoneForm
+                        onSave={handleAddSsi}
+                        onCancel={() => setShowAddSsi(false)}
+                        loading={ssiFormLoading}
+                      />
+                    </div>
+                  )}
+
+                  {/* Add button (when list is not empty) */}
+                  {zonesSsi.length > 0 && !showAddSsi && editingSsiId === null && (
+                    <button
+                      onClick={() => setShowAddSsi(true)}
+                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 border rounded-lg
+                        text-amber-500/80 hover:text-amber-300 bg-red-950/40 hover:bg-red-900/50
+                        border-red-900/40 hover:border-red-700/50 transition-all"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Ajouter une zone SSI
+                    </button>
+                  )}
                 </div>
               )}
             </div>

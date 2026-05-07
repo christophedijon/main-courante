@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, MapPin } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSaisie } from './SaisieContext';
 
-type ZoneRow = { id: string; nom: string; description: string | null; espace_nom: string };
+type ZoneRow = { id: string; nom: string; description: string | null };
 
 export default function StepSsiZone() {
   const navigate = useNavigate();
@@ -14,18 +14,12 @@ export default function StepSsiZone() {
 
   useEffect(() => {
     supabase
-      .from('zones')
-      .select('id, nom, description, espace_id, espaces(nom)')
-      .eq('categorie', 'ssi')
-      .order('nom')
+      .from('zones_ssi')
+      .select('id, nom, description')
+      .eq('actif', true)
+      .order('ordre', { ascending: true })
       .then(({ data }) => {
-        const rows: ZoneRow[] = (data ?? []).map((z: any) => ({
-          id: z.id,
-          nom: z.nom,
-          description: z.description,
-          espace_nom: z.espaces?.nom ?? '',
-        }));
-        setZones(rows);
+        setZones((data ?? []) as ZoneRow[]);
         setLoading(false);
       });
   }, []);
@@ -121,11 +115,6 @@ export default function StepSsiZone() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`font-bold text-[15px] ${selected ? 'text-amber-300' : 'text-white'}`}>{z.nom}</p>
-                    {z.espace_nom && (
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3" />{z.espace_nom || ''}
-                      </p>
-                    )}
                     {z.description && (
                       <p className="text-xs text-slate-500 truncate mt-0.5">{z.description}</p>
                     )}
