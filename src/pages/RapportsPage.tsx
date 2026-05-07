@@ -190,10 +190,7 @@ export default function RapportsPage() {
                       {emailSettings.email_enabled ? (
                         <span className="flex items-center gap-1 text-xs text-emerald-400">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                          Activé
-                          {emailSettings.email_destination && (
-                            <span className="text-slate-500 ml-1">· {emailSettings.email_destination}</span>
-                          )}
+                          Activé — envoi aux utilisateurs Direction
                         </span>
                       ) : (
                         <span className="text-xs text-slate-500">Désactivé</span>
