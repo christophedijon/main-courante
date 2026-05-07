@@ -252,12 +252,42 @@ Deno.serve(async (req: Request) => {
 
     if (insertErr) throw insertErr;
 
+    // Envoyer le rapport par e-mail via Make.com si activé
+    const { data: emailSettings } = await supabase
+      .from("rapport_email_settings")
+      .select("email_destination, email_enabled")
+      .limit(1)
+      .maybeSingle();
+
+    let emailSent = false;
+    if (emailSettings?.email_enabled && emailSettings.email_destination) {
+      try {
+        await fetch("https://hook.eu2.make.com/bpqpne75u61bbwd1jklhs06w2ggeekav", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: emailSettings.email_destination,
+            subject: `Rapport de soirée — ${dateSoireeLabel}`,
+            html: contenuHtml,
+            date_soiree: dateSoireeStr,
+            nb_evenements: evenements.length,
+            nb_agents: agentIds.length,
+            entreprise: nomEntreprise,
+          }),
+        });
+        emailSent = true;
+      } catch (_emailErr) {
+        // Email failure is non-blocking — report is already saved
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         date: dateSoireeStr,
         nb_evenements: evenements.length,
         nb_agents: agentIds.length,
+        email_sent: emailSent,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

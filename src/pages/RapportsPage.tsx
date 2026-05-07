@@ -1,6 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, ChevronDown, ChevronUp, RefreshCw, Calendar, Users, AlertTriangle, Play } from 'lucide-react';
+import {
+  FileText, ChevronDown, ChevronUp, RefreshCw, Calendar, Users,
+  AlertTriangle, Play, Mail, ToggleLeft, ToggleRight, Save, CheckCircle,
+  AlertCircle, Settings, X,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
@@ -14,6 +18,12 @@ type Rapport = {
   nb_agents: number;
   contenu_html: string | null;
   created_at: string;
+};
+
+type EmailSettings = {
+  id: string;
+  email_destination: string;
+  email_enabled: boolean;
 };
 
 function formatDateSoiree(dateStr: string) {
@@ -39,6 +49,13 @@ export default function RapportsPage() {
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
+  // Email settings state
+  const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
+  const [emailPanelOpen, setEmailPanelOpen] = useState(false);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+
   async function load() {
     setLoading(true);
     const { data } = await supabase
@@ -49,7 +66,23 @@ export default function RapportsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  async function loadEmailSettings() {
+    const { data } = await supabase
+      .from('rapport_email_settings')
+      .select('*')
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setEmailSettings(data as EmailSettings);
+      setEmailDraft(data.email_destination ?? '');
+      setEmailEnabled(data.email_enabled ?? false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    if (isSuperAdmin) loadEmailSettings();
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     if (!toast) return;
@@ -78,6 +111,28 @@ export default function RapportsPage() {
       setToast({ msg: err.message, type: 'error' });
     }
     setGenerating(false);
+  }
+
+  async function handleSaveEmail(e: FormEvent) {
+    e.preventDefault();
+    if (!emailSettings) return;
+    setSavingEmail(true);
+    const { error } = await supabase
+      .from('rapport_email_settings')
+      .update({
+        email_destination: emailDraft.trim(),
+        email_enabled: emailEnabled,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', emailSettings.id);
+    setSavingEmail(false);
+    if (error) {
+      setToast({ msg: 'Erreur lors de la sauvegarde.', type: 'error' });
+      return;
+    }
+    setEmailSettings((prev) => prev ? { ...prev, email_destination: emailDraft.trim(), email_enabled: emailEnabled } : prev);
+    setEmailPanelOpen(false);
+    setToast({ msg: 'Paramètres email enregistrés.', type: 'success' });
   }
 
   return (
@@ -122,6 +177,120 @@ export default function RapportsPage() {
             )}
           </div>
         </div>
+
+        {/* ── Email notification settings ─────────────────────────────── */}
+        {isSuperAdmin && emailSettings !== null && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden mb-6">
+            <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
+            <div className="px-5 py-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                  <Mail className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white font-semibold text-sm">Envoi par e-mail</p>
+                  {!emailPanelOpen && (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {emailSettings.email_enabled ? (
+                        <span className="flex items-center gap-1 text-xs text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                          Activé
+                          {emailSettings.email_destination && (
+                            <span className="text-slate-500 ml-1">· {emailSettings.email_destination}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-500">Désactivé</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmailPanelOpen((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg
+                  text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700
+                  hover:border-slate-600 transition-all shrink-0"
+              >
+                <Settings className="w-3 h-3" />
+                {emailPanelOpen ? 'Fermer' : 'Configurer'}
+              </button>
+            </div>
+
+            {emailPanelOpen && (
+              <form onSubmit={handleSaveEmail} className="border-t border-slate-800 px-5 py-5 space-y-4">
+                {/* Toggle */}
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-slate-200">Envoyer le rapport par e-mail</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Le rapport HTML sera envoyé dès qu'un nouveau rapport est généré.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEmailEnabled((v) => !v)}
+                    className="shrink-0 transition-colors"
+                    aria-label="Activer/désactiver"
+                  >
+                    {emailEnabled
+                      ? <ToggleRight className="w-9 h-9 text-emerald-400" />
+                      : <ToggleLeft className="w-9 h-9 text-slate-600" />}
+                  </button>
+                </div>
+
+                {/* Email input */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                    Adresse e-mail de destination
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <input
+                      type="email"
+                      value={emailDraft}
+                      onChange={(e) => setEmailDraft(e.target.value)}
+                      placeholder="destinataire@exemple.com"
+                      disabled={!emailEnabled}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white
+                        placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+                        focus:border-transparent transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1.5">
+                    L'envoi s'effectue via Make.com. Assurez-vous que le scénario Make est actif.
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmailPanelOpen(false);
+                      setEmailDraft(emailSettings.email_destination);
+                      setEmailEnabled(emailSettings.email_enabled);
+                    }}
+                    className="flex-1 px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-all border border-slate-700"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingEmail}
+                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500
+                      disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium px-4 py-2
+                      rounded-xl text-sm transition-colors"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {savingEmail ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
 
         {/* Stats rapides */}
         {!loading && rapports.length > 0 && (
@@ -177,24 +346,20 @@ export default function RapportsPage() {
                   key={rapport.id}
                   className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden transition-all"
                 >
-                  {/* Carte rapport */}
                   <button
                     type="button"
                     onClick={() => setOpenId(isOpen ? null : rapport.id)}
                     className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-slate-800/50 transition-colors"
                   >
-                    {/* Icône date */}
                     <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
                       <Calendar className="w-5 h-5 text-slate-400" />
                     </div>
 
-                    {/* Infos */}
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-semibold text-[15px] capitalize truncate">{dateSoiree}</p>
                       <p className="text-slate-500 text-[12px] mt-0.5">{heureDebut} → {heureFin}</p>
                     </div>
 
-                    {/* Stats */}
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-center hidden sm:block">
                         <p className="text-white font-bold text-lg leading-none">{rapport.nb_evenements}</p>
@@ -210,16 +375,13 @@ export default function RapportsPage() {
                       </div>
                     </div>
 
-                    {/* Chevron */}
                     <div className="shrink-0 ml-2">
                       {isOpen
                         ? <ChevronUp className="w-4 h-4 text-slate-500" />
-                        : <ChevronDown className="w-4 h-4 text-slate-500" />
-                      }
+                        : <ChevronDown className="w-4 h-4 text-slate-500" />}
                     </div>
                   </button>
 
-                  {/* Rapport HTML inline */}
                   {isOpen && rapport.contenu_html && (
                     <div className="border-t border-slate-800">
                       <div
@@ -245,12 +407,18 @@ export default function RapportsPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-sm font-medium shadow-2xl border max-w-sm text-center
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-medium shadow-2xl border max-w-sm
           ${toast.type === 'success'
             ? 'bg-emerald-900/90 border-emerald-700 text-emerald-200'
             : 'bg-red-900/90 border-red-700 text-red-200'}`}
         >
+          {toast.type === 'success'
+            ? <CheckCircle className="w-4 h-4 shrink-0" />
+            : <AlertCircle className="w-4 h-4 shrink-0" />}
           {toast.msg}
+          <button onClick={() => setToast(null)} className="ml-1 opacity-60 hover:opacity-100">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>
