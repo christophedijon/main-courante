@@ -68,7 +68,7 @@ export default function RapportsPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: '{}',
+        body: JSON.stringify({ test: true }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Erreur inconnue');

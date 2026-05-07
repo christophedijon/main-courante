@@ -17,28 +17,37 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fenêtre de la soirée : hier 15h00 → aujourd'hui 07h00 (heure locale Europe/Paris)
-    // On travaille en UTC et on applique un offset de -2h (CEST) ou -1h (CET)
-    // La fonction tourne à 8h00 UTC, donc "aujourd'hui" = jour courant UTC
+    const body = await req.json().catch(() => ({}));
+    const isTest = body?.test === true;
+
     const now = new Date();
+    let debutSoiree: Date;
+    let finSoiree: Date;
 
-    const finSoiree = new Date(now);
-    finSoiree.setUTCHours(7, 0, 0, 0); // aujourd'hui 07:00 UTC
+    if (isTest) {
+      // Mode test : fenêtre de 48h glissante pour capturer les événements récents
+      finSoiree = new Date(now);
+      debutSoiree = new Date(now);
+      debutSoiree.setUTCHours(debutSoiree.getUTCHours() - 48);
+    } else {
+      // Mode normal : hier 15h00 UTC → aujourd'hui 07h00 UTC
+      finSoiree = new Date(now);
+      finSoiree.setUTCHours(7, 0, 0, 0);
+      debutSoiree = new Date(finSoiree);
+      debutSoiree.setUTCDate(debutSoiree.getUTCDate() - 1);
+      debutSoiree.setUTCHours(15, 0, 0, 0);
+    }
 
-    const debutSoiree = new Date(finSoiree);
-    debutSoiree.setUTCDate(debutSoiree.getUTCDate() - 1);
-    debutSoiree.setUTCHours(15, 0, 0, 0); // hier 15:00 UTC
+    const dateSoireeStr = debutSoiree.toISOString().split("T")[0];
 
-    const dateSoireeStr = debutSoiree.toISOString().split("T")[0]; // "2026-05-05"
-
-    // Vérifier si le rapport existe déjà
+    // Vérifier si le rapport existe déjà (ignoré en mode test)
     const { data: existing } = await supabase
       .from("rapports_soiree")
       .select("id")
       .eq("date_soiree", dateSoireeStr)
       .maybeSingle();
 
-    if (existing) {
+    if (!isTest && existing) {
       return new Response(
         JSON.stringify({ message: "Rapport déjà généré pour cette soirée", date: dateSoireeStr }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -229,17 +238,17 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-    // Sauvegarder le rapport en base
+    // Sauvegarder le rapport en base (upsert en mode test pour écraser l'existant)
     const { error: insertErr } = await supabase
       .from("rapports_soiree")
-      .insert({
+      .upsert({
         date_soiree: dateSoireeStr,
         debut_soiree: debutSoiree.toISOString(),
         fin_soiree: finSoiree.toISOString(),
         nb_evenements: evenements.length,
         nb_agents: agentIds.length,
         contenu_html: contenuHtml,
-      });
+      }, { onConflict: "date_soiree" });
 
     if (insertErr) throw insertErr;
 
