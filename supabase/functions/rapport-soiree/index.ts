@@ -51,16 +51,20 @@ Deno.serve(async (req: Request) => {
       .select(`
         id,
         created_at,
-        type_evenement,
-        espace,
-        zone,
-        niveau,
+        date_evenement,
+        type,
+        espace_nom,
+        zone_nom,
+        niveau_label,
         commentaire,
-        user_id
+        created_by,
+        created_by_email,
+        user_fonction,
+        etablissement_nom
       `)
-      .gte("created_at", debutSoiree.toISOString())
-      .lte("created_at", finSoiree.toISOString())
-      .order("created_at", { ascending: true });
+      .gte("date_evenement", debutSoiree.toISOString())
+      .lte("date_evenement", finSoiree.toISOString())
+      .order("date_evenement", { ascending: true });
 
     if (evErr) throw evErr;
 
@@ -72,27 +76,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Agents uniques
-    const agentIds = [...new Set(evenements.map((e: any) => e.user_id).filter(Boolean))];
+    // Agents uniques (via created_by ou created_by_email)
+    const agentIds = [...new Set(evenements.map((e: any) => e.created_by).filter(Boolean))];
 
     // Récupérer les profils des agents
-    const { data: profiles } = await supabase
+    const { data: profiles } = agentIds.length > 0 ? await supabase
       .from("user_profiles")
       .select("id, first_name, last_name")
-      .in("id", agentIds);
-
-    const { data: managedUsers } = await supabase
-      .from("managed_users")
-      .select("auth_user_id, email")
-      .in("auth_user_id", agentIds);
+      .in("id", agentIds) : { data: [] };
 
     const profMap: Record<string, string> = {};
     (profiles ?? []).forEach((p: any) => {
       const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
       if (full) profMap[p.id] = full;
     });
-    (managedUsers ?? []).forEach((mu: any) => {
-      if (!profMap[mu.auth_user_id]) profMap[mu.auth_user_id] = mu.email;
+    // Fallback sur created_by_email si pas de profil
+    evenements.forEach((e: any) => {
+      if (e.created_by && !profMap[e.created_by] && e.created_by_email) {
+        profMap[e.created_by] = e.created_by_email;
+      }
     });
 
     // Récupérer les infos entreprise
@@ -103,8 +105,8 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     // Stats
-    const nbSSI = evenements.filter((e: any) => e.type_evenement === "SSI").length;
-    const nbPersonnes = evenements.filter((e: any) => e.type_evenement !== "SSI").length;
+    const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
+    const nbPersonnes = evenements.filter((e: any) => e.type !== "ssi").length;
 
     // Formater la date de la soirée
     const dateSoireeLabel = debutSoiree.toLocaleDateString("fr-FR", {
@@ -119,25 +121,29 @@ Deno.serve(async (req: Request) => {
 
     // Lignes du tableau d'événements
     const lignesEvenements = evenements.map((e: any) => {
-      const heure = new Date(e.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-      const agent = profMap[e.user_id] ?? "Inconnu";
+      const heure = new Date(e.date_evenement).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      const agent = profMap[e.created_by] ?? e.created_by_email ?? "Inconnu";
       const typeColor =
-        e.type_evenement === "SSI" ? "#ef4444" :
-        e.type_evenement === "RONDE" ? "#3b82f6" :
-        e.type_evenement === "RADIO" ? "#10b981" : "#f59e0b";
+        e.type === "ssi" ? "#ef4444" :
+        e.type === "securite_personnes" ? "#3b82f6" :
+        e.type === "radio" ? "#10b981" : "#f59e0b";
+      const typeLabel =
+        e.type === "ssi" ? "SSI" :
+        e.type === "securite_personnes" ? "Sécurité" :
+        e.type === "radio" ? "Radio" : (e.type ?? "—");
 
       return `
         <tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:12px 16px;font-size:13px;color:#64748b;white-space:nowrap">${heure}</td>
           <td style="padding:12px 16px">
             <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;color:${typeColor};background:${typeColor}18">
-              ${e.type_evenement ?? "—"}
+              ${typeLabel}
             </span>
           </td>
           <td style="padding:12px 16px;font-size:13px;color:#374151">
-            ${e.espace ?? "—"}${e.zone ? ` <span style="color:#9ca3af">/ ${e.zone}</span>` : ""}
+            ${e.espace_nom ?? "—"}${e.zone_nom ? ` <span style="color:#9ca3af">/ ${e.zone_nom}</span>` : ""}
           </td>
-          <td style="padding:12px 16px;font-size:13px;color:#374151">${e.niveau ?? "—"}</td>
+          <td style="padding:12px 16px;font-size:13px;color:#374151">${e.niveau_label ?? "—"}</td>
           <td style="padding:12px 16px;font-size:13px;color:#374151">${agent}</td>
           <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-style:italic">${e.commentaire ?? "—"}</td>
         </tr>

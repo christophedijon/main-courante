@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, ChevronDown } from 'lucide-react';
+import { Filter, X, ChevronDown, ChevronUp as ChevronUpIcon, FileText, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import EventCard, { EventItem } from '../components/EventCard';
 import EmptyState from '../components/EmptyState';
 import EntrepriseBadge from '../components/EntrepriseBadge';
@@ -8,6 +9,17 @@ import EntrepriseBadge from '../components/EntrepriseBadge';
 type Filters = {
   type: 'all' | 'ssi' | 'securite_personnes';
   date: 'all' | 'today' | '7d' | '30d';
+};
+
+type Rapport = {
+  id: string;
+  date_soiree: string;
+  debut_soiree: string;
+  fin_soiree: string;
+  nb_evenements: number;
+  nb_agents: number;
+  contenu_html: string | null;
+  created_at: string;
 };
 
 type IaRecord = {
@@ -53,7 +65,9 @@ function IaRecordSections({ sections }: { sections: { title: string; content: st
 }
 
 export default function HistoryPage() {
-  const [activeTab, setActiveTab] = useState<'events' | 'ia'>('events');
+  const { isDirection, isChefDePoste, isSuperAdmin } = useAuth();
+  const canSeeRapports = isDirection || isChefDePoste || isSuperAdmin;
+  const [activeTab, setActiveTab] = useState<'events' | 'ia' | 'rapports'>('events');
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +76,10 @@ export default function HistoryPage() {
 
   const [iaHistory, setIaHistory] = useState<IaRecord[]>([]);
   const [iaLoading, setIaLoading] = useState(false);
+
+  const [rapports, setRapports] = useState<Rapport[]>([]);
+  const [rapportsLoading, setRapportsLoading] = useState(false);
+  const [openRapportId, setOpenRapportId] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab !== 'events') return;
@@ -105,6 +123,20 @@ export default function HistoryPage() {
     })();
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'rapports') return;
+    (async () => {
+      setRapportsLoading(true);
+      const { data } = await supabase
+        .from('rapports_soiree')
+        .select('id, date_soiree, debut_soiree, fin_soiree, nb_evenements, nb_agents, contenu_html, created_at')
+        .order('date_soiree', { ascending: false })
+        .limit(30);
+      setRapports((data ?? []) as Rapport[]);
+      setRapportsLoading(false);
+    })();
+  }, [activeTab]);
+
   const activeFiltersCount = Number(filters.type !== 'all') + Number(filters.date !== 'all');
 
   return (
@@ -129,6 +161,7 @@ export default function HistoryPage() {
             )}
           </button>
         )}
+        {activeTab !== 'events' && <div className="w-11 h-11" />}
       </div>
 
       {/* Tabs */}
@@ -150,6 +183,16 @@ export default function HistoryPage() {
           >
             Historique IA
           </button>
+          {canSeeRapports && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('rapports')}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
+                ${activeTab === 'rapports' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Rapports
+            </button>
+          )}
         </div>
       </div>
 
@@ -189,6 +232,70 @@ export default function HistoryPage() {
               <IaRecordSections sections={record.sections} />
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Rapports tab */}
+      {activeTab === 'rapports' && (
+        <div className="px-5 py-4 space-y-3">
+          {rapportsLoading && (
+            <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>
+          )}
+          {!rapportsLoading && rapports.length === 0 && (
+            <EmptyState text="Aucun rapport disponible" hint="Les rapports sont générés automatiquement chaque matin à 8h00" />
+          )}
+          {!rapportsLoading && rapports.map((rapport) => {
+            const isOpen = openRapportId === rapport.id;
+            const dateSoiree = new Date(rapport.date_soiree + 'T12:00:00').toLocaleDateString('fr-FR', {
+              weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+            });
+            const heureDebut = new Date(rapport.debut_soiree).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const heureFin = new Date(rapport.fin_soiree).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+            return (
+              <div key={rapport.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenRapportId(isOpen ? null : rapport.id)}
+                  className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-[14px] capitalize truncate">{dateSoiree}</p>
+                    <p className="text-slate-500 text-[11px] mt-0.5">{heureDebut} → {heureFin}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <p className="text-white font-bold text-base leading-none">{rapport.nb_evenements}</p>
+                      <p className="text-slate-500 text-[10px] mt-0.5">évén.</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-emerald-400 font-bold text-base leading-none">{rapport.nb_agents}</p>
+                      <p className="text-slate-500 text-[10px] mt-0.5">agents</p>
+                    </div>
+                    {isOpen
+                      ? <ChevronUpIcon className="w-4 h-4 text-slate-500" />
+                      : <ChevronDown className="w-4 h-4 text-slate-500" />
+                    }
+                  </div>
+                </button>
+
+                {isOpen && rapport.contenu_html && (
+                  <div className="border-t border-slate-800 overflow-auto bg-white rounded-b-2xl" style={{ maxHeight: '75vh' }}>
+                    <div dangerouslySetInnerHTML={{ __html: rapport.contenu_html }} />
+                  </div>
+                )}
+                {isOpen && !rapport.contenu_html && (
+                  <div className="border-t border-slate-800 px-4 py-4 flex items-center gap-3 text-slate-500">
+                    <FileText className="w-4 h-4 shrink-0" />
+                    <span className="text-sm">Aucun contenu disponible.</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
