@@ -665,7 +665,7 @@ function EspacesZonesPage() {
 
               {ssiSectionExpanded && (
                 <div className="p-5 space-y-3">
-                  {espaces.every((e) => e.zones.filter((z) => z.categorie === 'ssi').length === 0) && (
+                  {espaces.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
                       <div className="w-12 h-12 rounded-xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
                         <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -680,14 +680,13 @@ function EspacesZonesPage() {
                         </svg>
                       </div>
                       <div>
-                        <p className="text-slate-400 text-sm font-medium">Aucune zone SSI configurée</p>
-                        <p className="text-slate-600 text-xs mt-0.5">Ajoutez des zones SSI depuis la section "Espace ou salle" ci-dessous.</p>
+                        <p className="text-slate-400 text-sm font-medium">Aucun espace créé</p>
+                        <p className="text-slate-600 text-xs mt-0.5">Créez d'abord des espaces dans la section ci-dessous.</p>
                       </div>
                     </div>
                   )}
                   {espaces.map((espace) => {
                     const ssiZones = espace.zones.filter((z) => z.categorie === 'ssi');
-                    if (ssiZones.length === 0) return null;
                     return (
                       <div key={espace.id} className="border border-slate-800 rounded-xl overflow-hidden">
                         <div className="h-0.5" style={{ background: `linear-gradient(to right, ${espace.couleur}, ${espace.couleur}55)` }} />
@@ -713,6 +712,27 @@ function EspacesZonesPage() {
                               accentRing="focus:ring-orange-500"
                             />
                           ))}
+                          {showAddZone !== `${espace.id}-ssi` && (
+                            <button
+                              onClick={() => { setShowAddZone(`${espace.id}-ssi`); setEditingZone(null); }}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1.5 border rounded-lg
+                                text-amber-500/80 hover:text-amber-300 bg-red-950/40 hover:bg-red-900/50
+                                border-red-900/40 hover:border-red-700/50 transition-all"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Ajouter une zone SSI
+                            </button>
+                          )}
+                          {showAddZone === `${espace.id}-ssi` && (
+                            <div className="border border-dashed rounded-xl p-4 bg-red-950/20 border-red-900/40">
+                              <ZoneForm
+                                onSave={(data) => handleAddZone(espace.id, 'ssi', data)}
+                                onCancel={() => setShowAddZone(null)}
+                                loading={zoneFormLoading}
+                                accentRing="focus:ring-orange-500"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -862,10 +882,10 @@ function EspacesZonesPage() {
                         )}
                       </div>
 
-                      {/* Zone panels inside this espace */}
+                      {/* Zone panels inside this espace (SSI excluded — managed in the SSI section above) */}
                       {!isEditingThis && expanded && (
                         <div className="px-4 pb-4 pt-3 space-y-3 bg-slate-900/40">
-                          {ZONE_CATEGORIES.map((cat) => (
+                          {ZONE_CATEGORIES.filter((cat) => cat.value !== 'ssi').map((cat) => (
                             <ZonePanel
                               key={cat.value}
                               espace={espace}
@@ -875,7 +895,7 @@ function EspacesZonesPage() {
                               accentColor={cat.accent}
                               border={cat.border}
                               gradient={cat.gradient}
-                              accentRing={cat.value === 'ssi' ? 'focus:ring-orange-500' : 'focus:ring-blue-500'}
+                              accentRing="focus:ring-blue-500"
                               showAddZone={showAddZone}
                               setShowAddZone={setShowAddZone}
                               editingZone={editingZone}
