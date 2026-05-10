@@ -60,7 +60,7 @@ const iCls = `w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5
 const bCls = `w-full py-3.5 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 transition-all bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white`;
 
 export default function MobileProfilePage() {
-  const { session, userFonction, isSuperAdmin, signOut, hasAdminAccess } = useAuth();
+  const { session, userFonction, isSuperAdmin, isChefDePoste, signOut, hasAdminAccess } = useAuth();
   const navigate = useNavigate();
   const { profile: basicProfile } = useCurrentProfile();
   const [formations, setFormations] = useState<Formation[]>([]);
