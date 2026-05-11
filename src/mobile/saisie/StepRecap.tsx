@@ -160,7 +160,8 @@ export default function StepRecap() {
       .insert({
         type,
         espace_id: draft.espace?.id || null,
-        zone_id: draft.zone?.id || null,
+        zone_id: isSsiFlow ? null : (draft.zone?.id || null),
+        zone_ssi_id: isSsiFlow ? (draft.zone?.id || null) : null,
         niveau_id: draft.niveau?.id || null,
         espace_nom: draft.espace?.label ?? '',
         zone_nom: draft.zone?.label ?? '',
