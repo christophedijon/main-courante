@@ -268,6 +268,35 @@ function computeNextVisit(lastVisit: string, categorie: number, hasLocauxSommeil
   return new Date(d.getFullYear() + years, d.getMonth(), d.getDate());
 }
 
+// ── Format AI plain-text output as HTML ──────────────────────────────────────
+
+function formatObligationsHtml(text: string): string {
+  if (!text) return '';
+  let html = text
+    .replace(
+      /^(\d+)\.\s+([A-ZÀÂÉÈÊËÎÏÔÙÛÜÆŒÇ][A-ZÀÂÉÈÊËÎÏÔÙÛÜÆŒÇa-z\s]+)$/gm,
+      '<h2 style="color:#e2e8f0;font-size:15px;font-weight:700;margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid #334155;text-transform:uppercase;letter-spacing:.05em">$1. $2</h2>'
+    )
+    .replace(
+      /^—\s+(.+)$/gm,
+      '<h3 style="color:#94a3b8;font-size:13px;font-weight:600;margin:14px 0 6px"><span style="display:inline-block;width:3px;height:14px;background:#3b82f6;border-radius:2px;margin-right:6px;vertical-align:middle"></span>$1</h3>'
+    )
+    .replace(
+      /\(Source\s*:\s*([^)]+)\)/g,
+      '<span style="font-size:11px;color:#64748b;font-style:italic;display:inline-block;margin-top:2px">(Source : $1)</span>'
+    )
+    .replace(
+      /^⚠\s*(.+)$/gm,
+      '<div style="background:#78350f20;border:1px solid #f59e0b40;border-radius:8px;padding:10px 14px;margin:8px 0;color:#fde68a;font-size:13px">⚠ $1</div>'
+    )
+    .replace(
+      /^(?!<[h2|h3|div])(.+)$/gm,
+      '<p style="color:#cbd5e1;font-size:13px;line-height:1.7;margin:4px 0">$1</p>'
+    )
+    .replace(/\n{2,}/g, '<div style="height:8px"></div>');
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:4px 0;color:#e2e8f0">${html}</div>`;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function EntreprisePage() {
@@ -586,7 +615,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
               titre: 'Mes obligations réglementaires',
               categorie: 'PROCEDURE',
               description: `Généré le ${nowFR} — Profil ${data.activite_principale || 'ERP'}`,
-              contenu: iaResponse,
+              contenu: formatObligationsHtml(iaResponse),
               destinataires: ['Direction', 'Chef de poste'],
               actif: true,
               ordre: 0,
@@ -1130,7 +1159,10 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                         </p>
                       </div>
                       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 max-h-80 overflow-y-auto">
-                        <pre className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-sans">{data.document_obligations_html}</pre>
+                        <div
+                          className="prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: formatObligationsHtml(data.document_obligations_html ?? '') }}
+                        />
                       </div>
                     </div>
                   )}
