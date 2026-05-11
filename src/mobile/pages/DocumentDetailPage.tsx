@@ -246,7 +246,7 @@ export default function DocumentDetailPage() {
   body {
     margin: 0;
     padding: 4px 0 16px;
-    background: transparent;
+    background: #0f172a;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color: #e2e8f0;
     font-size: 14px;
@@ -309,8 +309,7 @@ new ResizeObserver(notifyHeight).observe(document.body);
   const pdfLinks = extractPdfLinks(doc.contenu);
 
   const cleanedContent = doc.contenu
-    .replace(/<p><a[^>]+href="[^"]*(?:\.pdf|documents-media)[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '')
-    .replace(/<p><a[^>]+href="[^"]*"[^>]*>📎[^<]*<\/a><\/p>/gi, '');
+    ?.replace(/<p><a[^>]+href="[^"]*(?:\.pdf|documents-media)[^"]*"[^>]*>[^<]*<\/a><\/p>/gi, '') ?? '';
 
   return (
     <div ref={contentRef} className="pb-12">

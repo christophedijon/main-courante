@@ -272,29 +272,70 @@ function computeNextVisit(lastVisit: string, categorie: number, hasLocauxSommeil
 
 function formatObligationsHtml(text: string): string {
   if (!text) return '';
-  let html = text
-    .replace(
-      /^(\d+)\.\s+([A-ZÀÂÉÈÊËÎÏÔÙÛÜÆŒÇ][A-ZÀÂÉÈÊËÎÏÔÙÛÜÆŒÇa-z\s]+)$/gm,
-      '<h2 style="color:#e2e8f0;font-size:15px;font-weight:700;margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid #334155;text-transform:uppercase;letter-spacing:.05em">$1. $2</h2>'
-    )
-    .replace(
-      /^—\s+(.+)$/gm,
-      '<h3 style="color:#94a3b8;font-size:13px;font-weight:600;margin:14px 0 6px"><span style="display:inline-block;width:3px;height:14px;background:#3b82f6;border-radius:2px;margin-right:6px;vertical-align:middle"></span>$1</h3>'
-    )
-    .replace(
+
+  const sourceReplace = (s: string) =>
+    s.replace(
       /\(Source\s*:\s*([^)]+)\)/g,
-      '<span style="font-size:11px;color:#64748b;font-style:italic;display:inline-block;margin-top:2px">(Source : $1)</span>'
-    )
-    .replace(
-      /^⚠\s*(.+)$/gm,
-      '<div style="background:#78350f20;border:1px solid #f59e0b40;border-radius:8px;padding:10px 14px;margin:8px 0;color:#fde68a;font-size:13px">⚠ $1</div>'
-    )
-    .replace(
-      /^(?!<[h2|h3|div])(.+)$/gm,
-      '<p style="color:#cbd5e1;font-size:13px;line-height:1.7;margin:4px 0">$1</p>'
-    )
-    .replace(/\n{2,}/g, '<div style="height:8px"></div>');
-  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:4px 0;color:#e2e8f0">${html}</div>`;
+      '<span style="font-size:11px;color:#475569;font-style:italic"> (Source : $1)</span>'
+    );
+
+  const lines = text.split('\n');
+  let html = '';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      html += '<div style="height:6px"></div>';
+      continue;
+    }
+
+    // Titres 1. 2. 3.
+    const titleMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+    if (titleMatch) {
+      html += `<h2 style="color:#e2e8f0;font-size:15px;font-weight:700;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #1e40af;text-transform:uppercase;letter-spacing:.05em">${titleMatch[1]}. ${titleMatch[2]}</h2>`;
+      continue;
+    }
+
+    // Sous-titres — tiret
+    if (trimmed.startsWith('— ')) {
+      const subtitle = trimmed.slice(2);
+      html += `<h3 style="color:#93c5fd;font-size:13px;font-weight:700;margin:18px 0 8px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:4px;height:16px;background:#3b82f6;border-radius:2px;flex-shrink:0"></span>${subtitle}</h3>`;
+      continue;
+    }
+
+    // Points obligation ►
+    if (trimmed.startsWith('► ')) {
+      const content = sourceReplace(trimmed.slice(2));
+      html += `<div style="display:flex;align-items:flex-start;gap:8px;margin:6px 0;padding:10px 12px;background:#0f172a;border-radius:8px;border-left:3px solid #334155"><span style="color:#3b82f6;font-size:14px;flex-shrink:0;margin-top:1px;font-weight:bold">►</span><p style="color:#cbd5e1;font-size:13px;line-height:1.7;margin:0">${content}</p></div>`;
+      continue;
+    }
+
+    // Alertes ⚠
+    if (trimmed.startsWith('⚠')) {
+      const content = trimmed.replace(/^⚠\s*/, '');
+      html += `<div style="background:#451a0320;border:1px solid #f59e0b50;border-radius:8px;padding:12px 14px;margin:10px 0;color:#fde68a;font-size:13px;line-height:1.6">⚠ ${content}</div>`;
+      continue;
+    }
+
+    // Démarche →
+    if (trimmed.startsWith('→')) {
+      const content = trimmed.replace(/^→\s*Démarche\s*:\s*/i, '').replace(/^→\s*/, '').trim();
+      html += `<p style="color:#6ee7b7;font-size:12px;margin:4px 0 10px 24px;font-style:italic;line-height:1.6">→ Démarche : ${content}</p>`;
+      continue;
+    }
+
+    // Échéances 📅
+    if (trimmed.startsWith('📅')) {
+      const content = sourceReplace(trimmed.slice(2).trim());
+      html += `<div style="display:flex;align-items:flex-start;gap:8px;margin:6px 0;padding:10px 12px;background:#0f172a;border-radius:8px;border-left:3px solid #10b981"><span style="font-size:14px;flex-shrink:0">📅</span><p style="color:#6ee7b7;font-size:13px;line-height:1.7;margin:0">${content}</p></div>`;
+      continue;
+    }
+
+    // Texte normal
+    html += `<p style="color:#94a3b8;font-size:13px;line-height:1.7;margin:4px 0">${sourceReplace(trimmed)}</p>`;
+  }
+
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:8px 0;color:#e2e8f0;max-width:100%">${html}</div>`;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -596,18 +637,19 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
         setGenMsg({ type: 'error', text: json.error ?? 'Erreur lors de la génération.' });
       } else {
         const iaResponse: string = json.response;
+        const formattedHtml = formatObligationsHtml(iaResponse);
         const nowIso = new Date().toISOString();
         const nowFR = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-        // Sauvegarde dans entreprise
+        // Sauvegarde dans entreprise (HTML formaté)
         if (rowId) {
           await supabase.from('entreprise').update({
-            document_obligations_html: iaResponse,
+            document_obligations_html: formattedHtml,
             document_obligations_updated_at: nowIso,
           }).eq('id', rowId);
         }
 
-        // Sync vers toolbox_documents
+        // Sync vers toolbox_documents (HTML formaté)
         const { error: upsertError } = await supabase
           .from('toolbox_documents')
           .upsert(
@@ -615,7 +657,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
               titre: 'Mes obligations réglementaires',
               categorie: 'PROCEDURE',
               description: `Généré le ${nowFR} — Profil ${data.activite_principale || 'ERP'}`,
-              contenu: formatObligationsHtml(iaResponse),
+              contenu: formattedHtml,
               destinataires: ['Direction', 'Chef de poste'],
               actif: true,
               ordre: 0,
@@ -627,7 +669,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
           console.error('Sync toolbox:', upsertError);
         }
 
-        setData((d) => ({ ...d, document_obligations_html: iaResponse, document_obligations_updated_at: nowIso }));
+        setData((d) => ({ ...d, document_obligations_html: formattedHtml, document_obligations_updated_at: nowIso }));
         setGenMsg({ type: 'success', text: 'Document généré et synchronisé avec la Boîte à outils.' });
       }
     } catch {
