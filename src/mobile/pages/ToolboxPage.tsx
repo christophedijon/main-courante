@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck } from 'lucide-react';
+import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import EntrepriseBadge from '../components/EntrepriseBadge';
@@ -138,6 +138,20 @@ export default function ToolboxPage() {
             </div>
             <p className="text-white font-semibold text-[14px] leading-tight">Assignation</p>
             <p className="text-slate-500 text-[11px] mt-0.5">Postes ce soir</p>
+          </button>
+        )}
+
+        {canAssign && (
+          <button
+            type="button"
+            onClick={() => navigate('/mobile/registre-securite')}
+            className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
+          >
+            <div className="w-11 h-11 rounded-xl border flex items-center justify-center mb-3 bg-amber-500/15 border-amber-500/30">
+              <BookOpen className="w-5 h-5 text-amber-400" strokeWidth={2.3} />
+            </div>
+            <p className="text-white font-semibold text-[14px] leading-tight">Registre</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Sécurité ERP</p>
           </button>
         )}
       </div>

@@ -14,6 +14,7 @@ import DocumentsPage from './pages/DocumentsPage';
 import PostesPage from './pages/PostesPage';
 import DashboardSignaturesPage from './pages/DashboardSignaturesPage';
 import RapportsPage from './pages/RapportsPage';
+import RegistreSecuritePage from './pages/RegistreSecuritePage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
 
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
@@ -41,6 +42,7 @@ import StepLocalisation from './mobile/saisie/StepLocalisation';
 import StepDescription from './mobile/saisie/StepDescription';
 import StepSsiZone from './mobile/saisie/StepSsiZone';
 import StepSsiMotifs from './mobile/saisie/StepSsiMotifs';
+import RegistreMobilePage from './mobile/pages/RegistreMobilePage';
 
 function OfflineSignatureSync() {
   useEffect(() => {
@@ -132,6 +134,7 @@ export default function App() {
             <Route path="/postes" element={<AdminRoute2><PostesPage /></AdminRoute2>} />
             <Route path="/dashboard-signatures" element={<AdminRoute2><DashboardSignaturesPage /></AdminRoute2>} />
             <Route path="/rapports" element={<AdminRoute2><RapportsPage /></AdminRoute2>} />
+            <Route path="/registre-securite" element={<AdminRoute2><RegistreSecuritePage /></AdminRoute2>} />
 
             {/* Mobile app */}
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
@@ -145,6 +148,7 @@ export default function App() {
               <Route path="assignation" element={<AssignationPage />} />
               <Route path="evenement/:id" element={<EventDetailPage />} />
               <Route path="assistant-ia" element={<AssistantIAPage />} />
+              <Route path="registre-securite" element={<RegistreMobilePage />} />
               <Route path="outils/documents/:categorie" element={<DocumentListPage />} />
               <Route path="outils/documents/:categorie/:id" element={<DocumentDetailPage />} />
               {/* SSI flow (unchanged) */}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, ChevronDown, ChevronUp as ChevronUpIcon, FileText, Calendar } from 'lucide-react';
+import { Filter, X, ChevronDown, ChevronUp as ChevronUpIcon, FileText, Calendar, AlertTriangle, CheckCircle, Clock, Minus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import EventCard, { EventItem } from '../components/EventCard';
@@ -28,6 +28,18 @@ type IaRecord = {
   sections: { title: string; content: string }[];
   created_at: string;
   agent_nom: string;
+};
+
+type RegistreHistoriqueEntry = {
+  id: string;
+  registre_id: string;
+  date_verification: string;
+  nom_verificateur: string;
+  rapport_url: string;
+  observations: string;
+  observations_levees: string;
+  created_at: string;
+  registre_securite?: { installation: string };
 };
 
 const INITIAL: Filters = { type: 'all', date: 'all' };
@@ -67,7 +79,8 @@ function IaRecordSections({ sections }: { sections: { title: string; content: st
 export default function HistoryPage() {
   const { isDirection, isChefDePoste, isSuperAdmin } = useAuth();
   const canSeeRapports = isDirection || isChefDePoste || isSuperAdmin;
-  const [activeTab, setActiveTab] = useState<'events' | 'ia' | 'rapports'>('events');
+  const canSeeRegistre = isDirection || isChefDePoste || isSuperAdmin;
+  const [activeTab, setActiveTab] = useState<'events' | 'ia' | 'rapports' | 'registre'>('events');
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +93,9 @@ export default function HistoryPage() {
   const [rapports, setRapports] = useState<Rapport[]>([]);
   const [rapportsLoading, setRapportsLoading] = useState(false);
   const [openRapportId, setOpenRapportId] = useState<string | null>(null);
+
+  const [registreHistory, setRegistreHistory] = useState<RegistreHistoriqueEntry[]>([]);
+  const [registreLoading, setRegistreLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'events') return;
@@ -137,6 +153,20 @@ export default function HistoryPage() {
     })();
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'registre') return;
+    (async () => {
+      setRegistreLoading(true);
+      const { data } = await supabase
+        .from('registre_historique')
+        .select('*, registre_securite(installation)')
+        .order('date_verification', { ascending: false })
+        .limit(100);
+      setRegistreHistory((data ?? []) as RegistreHistoriqueEntry[]);
+      setRegistreLoading(false);
+    })();
+  }, [activeTab]);
+
   const activeFiltersCount = Number(filters.type !== 'all') + Number(filters.date !== 'all');
 
   return (
@@ -191,6 +221,16 @@ export default function HistoryPage() {
                 ${activeTab === 'rapports' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
               Rapports
+            </button>
+          )}
+          {canSeeRegistre && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('registre')}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
+                ${activeTab === 'registre' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Registre
             </button>
           )}
         </div>
@@ -296,6 +336,45 @@ export default function HistoryPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Registre tab */}
+      {activeTab === 'registre' && (
+        <div className="px-5 py-4 space-y-3">
+          {registreLoading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
+          {!registreLoading && registreHistory.length === 0 && (
+            <EmptyState text="Aucun historique de registre" hint="Les vérifications archivées apparaîtront ici" />
+          )}
+          {!registreLoading && registreHistory.map((entry) => (
+            <div key={entry.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold text-sm leading-snug">
+                    {entry.registre_securite?.installation ?? '—'}
+                  </p>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    {new Date(entry.date_verification + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </p>
+                </div>
+                {entry.rapport_url && (
+                  <a href={entry.rapport_url} target="_blank" rel="noreferrer"
+                    className="flex-shrink-0 flex items-center gap-1 text-[11px] text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg">
+                    <FileText className="w-3 h-3" />Voir
+                  </a>
+                )}
+              </div>
+              {entry.nom_verificateur && (
+                <p className="text-slate-400 text-xs">Vérificateur : <span className="text-slate-300">{entry.nom_verificateur}</span></p>
+              )}
+              {entry.observations && (
+                <p className="text-slate-400 text-xs">Observations : <span className="text-slate-300">{entry.observations}</span></p>
+              )}
+              {entry.observations_levees && (
+                <p className="text-xs text-emerald-400">Levée : {entry.observations_levees}</p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
