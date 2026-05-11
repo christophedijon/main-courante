@@ -27,10 +27,13 @@ function getNextDate(lastDate: string, periodicite: string): Date | null {
   if (!lastDate) return null;
   const d = new Date(lastDate);
   switch (periodicite.toLowerCase()) {
-    case 'annuelle': d.setFullYear(d.getFullYear() + 1); break;
+    case 'mensuelle': d.setMonth(d.getMonth() + 1); break;
+    case 'trimestrielle': d.setMonth(d.getMonth() + 3); break;
     case 'semestrielle': d.setMonth(d.getMonth() + 6); break;
+    case 'annuelle': d.setFullYear(d.getFullYear() + 1); break;
     case 'triennale': d.setFullYear(d.getFullYear() + 3); break;
     case 'quinquennale': d.setFullYear(d.getFullYear() + 5); break;
+    case 'sans': return null;
     default: return null;
   }
   return d;
@@ -38,6 +41,7 @@ function getNextDate(lastDate: string, periodicite: string): Date | null {
 
 function getStatut(lastDate: string | null, periodicite: string, applicable: boolean): Statut {
   if (!applicable) return 'non_applicable';
+  if (periodicite.toLowerCase() === 'sans') return 'non_applicable';
   if (!lastDate) return 'non_planifie';
   const next = getNextDate(lastDate, periodicite);
   if (!next) return 'non_planifie';
