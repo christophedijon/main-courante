@@ -42,10 +42,13 @@ function getNextDate(lastDate: string, periodicite: string): Date | null {
   if (!lastDate) return null;
   const d = new Date(lastDate);
   switch (periodicite.toLowerCase()) {
-    case 'annuelle': d.setFullYear(d.getFullYear() + 1); break;
+    case 'mensuelle': d.setMonth(d.getMonth() + 1); break;
+    case 'trimestrielle': d.setMonth(d.getMonth() + 3); break;
     case 'semestrielle': d.setMonth(d.getMonth() + 6); break;
+    case 'annuelle': d.setFullYear(d.getFullYear() + 1); break;
     case 'triennale': d.setFullYear(d.getFullYear() + 3); break;
     case 'quinquennale': d.setFullYear(d.getFullYear() + 5); break;
+    case 'sans': return null;
     default: return null;
   }
   return d;
@@ -53,6 +56,7 @@ function getNextDate(lastDate: string, periodicite: string): Date | null {
 
 function getStatut(lastDate: string | null, periodicite: string, applicable: boolean): Statut {
   if (!applicable) return 'non_applicable';
+  if (periodicite.toLowerCase() === 'sans') return 'non_applicable';
   if (!lastDate) return 'non_planifie';
   const next = getNextDate(lastDate, periodicite);
   if (!next) return 'non_planifie';
@@ -69,10 +73,13 @@ function formatDate(d: string | null) {
 }
 
 const PERIODE_COLORS: Record<string, string> = {
-  annuelle: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  mensuelle: 'bg-red-500/15 text-red-300 border-red-500/30',
+  trimestrielle: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
   semestrielle: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+  annuelle: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
   triennale: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
   quinquennale: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+  sans: 'bg-slate-700/30 text-slate-500 border-slate-600/30',
 };
 
 function StatutBadge({ statut, nextDate }: { statut: Statut; nextDate: Date | null }) {
@@ -194,7 +201,7 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
             <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Périodicité</label>
             <select value={form.periodicite} onChange={(e) => setForm(f => ({ ...f, periodicite: e.target.value }))}
               className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
-              {['Annuelle', 'Semestrielle', 'Triennale', 'Quinquennale'].map((p) => <option key={p}>{p}</option>)}
+              {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans', 'Autre'].map((p) => <option key={p}>{p}</option>)}
             </select>
           </div>
         </div>
