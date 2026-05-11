@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardList, Upload, Eye, RefreshCw, History, X, ChevronDown, ChevronUp,
   Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2,
@@ -485,9 +485,24 @@ export default function RegistreSecuritePage() {
   const applicable = items.filter((it) => it.applicable);
   const nonApplicable = items.filter((it) => !it.applicable);
 
-  const retard = applicable.filter((it) => getStatut(it.date_verification, it.periodicite, it.applicable) === 'retard').length;
-  const attention = applicable.filter((it) => getStatut(it.date_verification, it.periodicite, it.applicable) === 'attention').length;
-  const aJour = applicable.filter((it) => getStatut(it.date_verification, it.periodicite, it.applicable) === 'a_jour').length;
+  const stats = useMemo(() => {
+    let enRetard = 0;
+    let aPlanifier = 0;
+    let aJour = 0;
+    let sansObjet = 0;
+    let nonPlanifie = 0;
+    items.forEach((item) => {
+      const statut = getStatut(item.date_verification, item.periodicite, item.applicable);
+      switch (statut) {
+        case 'retard': enRetard++; break;
+        case 'attention': aPlanifier++; break;
+        case 'a_jour': aJour++; break;
+        case 'non_applicable': sansObjet++; break;
+        case 'non_planifie': nonPlanifie++; break;
+      }
+    });
+    return { enRetard, aPlanifier, aJour, sansObjet, nonPlanifie };
+  }, [items]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -522,10 +537,10 @@ export default function RegistreSecuritePage() {
         {/* Summary badges */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           {[
-            { label: 'En retard', count: retard, color: 'red' },
-            { label: 'À planifier', count: attention, color: 'amber' },
-            { label: 'À jour', count: aJour, color: 'emerald' },
-            { label: 'Sans objet', count: nonApplicable.length, color: 'slate' },
+            { label: 'En retard', count: stats.enRetard, color: 'red' },
+            { label: 'À planifier', count: stats.aPlanifier, color: 'amber' },
+            { label: 'À jour', count: stats.aJour, color: 'emerald' },
+            { label: 'Sans objet', count: stats.sansObjet, color: 'slate' },
           ].map(({ label, count, color }) => (
             <div key={label} className={`rounded-2xl bg-slate-900 border border-slate-800 p-4`}>
               <p className={`text-3xl font-black ${color === 'red' ? 'text-red-400' : color === 'amber' ? 'text-amber-400' : color === 'emerald' ? 'text-emerald-400' : 'text-slate-400'}`}>{count}</p>
