@@ -71,19 +71,21 @@ Deno.serve(async (req: Request) => {
     const bientot: { item: RegistreItem; next: Date }[] = [];
 
     for (const item of items as RegistreItem[]) {
+      if (!item.applicable) continue;
       if (!item.date_verification) continue;
       const next = getNextDate(item.date_verification, item.periodicite);
       if (!next) continue;
       const diff = (next.getTime() - now) / (1000 * 60 * 60 * 24);
       if (diff < 0) {
         retard.push({ item, jours: Math.abs(Math.ceil(diff)) });
-      } else if (diff < 90) {
+      } else if (diff <= 90) {
         bientot.push({ item, next });
       }
+      // diff > 90 : pas d'alerte
     }
 
     if (retard.length === 0 && bientot.length === 0) {
-      return new Response(JSON.stringify({ message: "Aucune alerte à envoyer" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ message: "Aucune alerte — pas d'email" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Récupérer les emails Direction
@@ -114,7 +116,8 @@ Deno.serve(async (req: Request) => {
 
     const entrepriseNom = (entreprise as EntrepriseRow | null)?.nom ?? "Votre établissement";
 
-    const subject = `⚠ Registre de sécurité — ${retard.length + bientot.length} vérification(s) à planifier — ${entrepriseNom}`;
+    const nbAlertesTotal = retard.length + bientot.length;
+    const subject = `⚠ Registre de sécurité — ${nbAlertesTotal} vérification(s) à traiter — ${entrepriseNom}`;
 
     const retardHtml = retard.length > 0 ? `
       <h2 style="color:#ef4444;font-size:16px;margin-bottom:12px;border-bottom:2px solid #ef4444;padding-bottom:6px;">
