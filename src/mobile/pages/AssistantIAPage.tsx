@@ -46,6 +46,7 @@ export default function AssistantIAPage() {
   const [sections, setSections] = useState<Section[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [expertsUsed, setExpertsUsed] = useState<string[]>([]);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,6 +152,7 @@ export default function AssistantIAPage() {
 
       const parsedSections = parseResponse(data.response);
       setSections(parsedSections);
+      setExpertsUsed(data.experts || ['terrain']);
       setEditMode(false);
 
       // Sauvegarder dans l'historique
@@ -184,6 +186,7 @@ export default function AssistantIAPage() {
     setSections(null);
     setError(null);
     setEditMode(false);
+    setExpertsUsed([]);
   }
 
   const showInput = !sections || editMode;
@@ -297,6 +300,30 @@ export default function AssistantIAPage() {
         {/* Response cards */}
         {sections && !editMode && !loading && (
           <>
+            {/* Expert badges */}
+            {expertsUsed.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {expertsUsed.includes('terrain') && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                    Expert Terrain
+                  </span>
+                )}
+                {expertsUsed.includes('erp') && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                    Expert ERP
+                  </span>
+                )}
+                {expertsUsed.includes('bruit') && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                    Expert Bruit
+                  </span>
+                )}
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => setEditMode(true)}

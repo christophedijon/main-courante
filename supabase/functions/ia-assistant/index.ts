@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: iaSettings } = await supabase
       .from("ia_settings")
-      .select("prompt, openai_api_key, gpt_model, prompt_erp, gpt_model_erp, prompt_bruit, gpt_model_bruit")
+      .select("prompt, openai_api_key, gpt_model, prompt_erp, gpt_model_erp, prompt_bruit, gpt_model_bruit, prompt_router, gpt_model_router")
       .limit(1)
       .maybeSingle();
 
@@ -41,18 +41,87 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Select prompt and model based on mode
-    let systemPrompt: string;
-    let gptModel: string;
+    // ── Mode ERP ou Bruit : comportement direct (appelé depuis le back-office) ──
+    if (mode === "erp" || mode === "bruit") {
+      const systemPrompt = mode === "erp"
+        ? (iaSettings.prompt_erp || "")
+        : (iaSettings.prompt_bruit || "");
+      const gptModel = mode === "erp"
+        ? (iaSettings.gpt_model_erp || "gpt-4o")
+        : (iaSettings.gpt_model_bruit || "gpt-4o");
 
-    if (mode === "erp") {
-      systemPrompt = iaSettings.prompt_erp || "";
-      gptModel = iaSettings.gpt_model_erp || "gpt-4o";
-    } else if (mode === "bruit") {
-      systemPrompt = iaSettings.prompt_bruit || "";
-      gptModel = iaSettings.gpt_model_bruit || "gpt-4o";
-    } else {
-      // terrain (default)
+      const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${iaSettings.openai_api_key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: gptModel,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message },
+          ],
+          max_tokens: 4000,
+          temperature: 0.3,
+        }),
+      });
+
+      const openaiData = await openaiRes.json();
+      if (!openaiRes.ok) {
+        return new Response(
+          JSON.stringify({ error: openaiData.error?.message || "Erreur OpenAI" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+
+      const content = openaiData.choices?.[0]?.message?.content || "";
+      return new Response(
+        JSON.stringify({ response: content, experts: [mode] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── Mode terrain avec routage intelligent ──────────────────────────────────
+    let experts: string[] = ["terrain"];
+
+    if (iaSettings.prompt_router && iaSettings.prompt_router.trim() !== "") {
+      try {
+        const routerRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${iaSettings.openai_api_key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: iaSettings.gpt_model_router || "gpt-3.5-turbo",
+            messages: [
+              { role: "system", content: iaSettings.prompt_router },
+              { role: "user", content: message },
+            ],
+            max_tokens: 50,
+            temperature: 0,
+          }),
+        });
+
+        if (routerRes.ok) {
+          const routerData = await routerRes.json();
+          const routerText = routerData.choices?.[0]?.message?.content?.trim() ?? '["terrain"]';
+          const parsed = JSON.parse(routerText);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            experts = parsed;
+          }
+        }
+      } catch {
+        experts = ["terrain"];
+      }
+    }
+
+    // ── Construire le prompt combiné selon les experts détectés ────────────────
+    const promptParts: string[] = [];
+
+    if (experts.includes("terrain") && iaSettings.prompt) {
+      // Enrichir le prompt terrain avec les documents SSI/PROCEDURE
       const { data: ssiDocs } = await supabase
         .from("toolbox_documents")
         .select("titre, contenu, categorie")
@@ -77,11 +146,26 @@ ${ssiDocs.map((doc) => `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`
 ═══════════════════════════════════════`;
       }
 
-      systemPrompt = (iaSettings.prompt || "") + documentContext;
-      gptModel = iaSettings.gpt_model || "gpt-4o";
+      promptParts.push(`=== EXPERT SÉCURITÉ TERRAIN ===\n${iaSettings.prompt}${documentContext}`);
     }
 
-    const maxTokens = mode === "erp" ? 4000 : 1500;
+    if (experts.includes("erp") && iaSettings.prompt_erp) {
+      promptParts.push(`=== EXPERT RÉGLEMENTATION ERP ===\n${iaSettings.prompt_erp}`);
+    }
+
+    if (experts.includes("bruit") && iaSettings.prompt_bruit) {
+      promptParts.push(`=== EXPERT BRUIT ET ACOUSTIQUE ===\n${iaSettings.prompt_bruit}`);
+    }
+
+    let combinedPrompt = promptParts.length > 0
+      ? promptParts.join("\n\n")
+      : (iaSettings.prompt || "");
+
+    if (promptParts.length > 1) {
+      combinedPrompt += `\n\n=== INSTRUCTION DE SYNTHÈSE ===\nTu combines les expertises ci-dessus pour répondre à cette question.\nStructure ta réponse en 4 blocs clairs.\nCommence par identifier les dimensions de la question (terrain / ERP / bruit) puis réponds à chacune.`;
+    }
+
+    const maxTokens = experts.includes("erp") ? 4000 : 1500;
 
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -90,9 +174,9 @@ ${ssiDocs.map((doc) => `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: gptModel,
+        model: iaSettings.gpt_model || "gpt-4o",
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: combinedPrompt },
           { role: "user", content: message },
         ],
         max_tokens: maxTokens,
@@ -111,39 +195,11 @@ ${ssiDocs.map((doc) => `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`
 
     const content = openaiData.choices?.[0]?.message?.content || "";
 
-    // If ERP mode: also sync to toolbox_documents
-    if (mode === "erp" && content) {
-      const now = new Date().toISOString();
-      const dateFR = new Date().toLocaleDateString("fr-FR");
-
-      // Update entreprise document
-      await supabase
-        .from("entreprise")
-        .update({
-          document_obligations_html: content,
-          document_obligations_updated_at: now,
-        })
-        .not("id", "is", null);
-
-      // Sync to toolbox_documents
-      await supabase
-        .from("toolbox_documents")
-        .upsert({
-          titre: "Mes obligations réglementaires",
-          categorie: "PROCEDURE",
-          description: `Mis à jour le ${dateFR}`,
-          contenu: content,
-          destinataires: ["Direction", "Chef de poste"],
-          actif: true,
-          ordre: 0,
-          signature_requise: false,
-        }, { onConflict: "titre" });
-    }
-
     return new Response(
-      JSON.stringify({ response: content }),
+      JSON.stringify({ response: content, experts }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erreur interne";
     return new Response(
