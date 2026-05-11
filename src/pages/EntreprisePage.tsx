@@ -566,8 +566,39 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
       if (!res.ok || json.error) {
         setGenMsg({ type: 'error', text: json.error ?? 'Erreur lors de la génération.' });
       } else {
-        const now = new Date().toISOString();
-        setData((d) => ({ ...d, document_obligations_html: json.response, document_obligations_updated_at: now }));
+        const iaResponse: string = json.response;
+        const nowIso = new Date().toISOString();
+        const nowFR = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        // Sauvegarde dans entreprise
+        if (rowId) {
+          await supabase.from('entreprise').update({
+            document_obligations_html: iaResponse,
+            document_obligations_updated_at: nowIso,
+          }).eq('id', rowId);
+        }
+
+        // Sync vers toolbox_documents
+        const { error: upsertError } = await supabase
+          .from('toolbox_documents')
+          .upsert(
+            {
+              titre: 'Mes obligations réglementaires',
+              categorie: 'PROCEDURE',
+              description: `Généré le ${nowFR} — Profil ${data.activite_principale || 'ERP'}`,
+              contenu: iaResponse,
+              destinataires: ['Direction', 'Chef de poste'],
+              actif: true,
+              ordre: 0,
+              signature_requise: false,
+            },
+            { onConflict: 'titre' }
+          );
+        if (upsertError) {
+          console.error('Sync toolbox:', upsertError);
+        }
+
+        setData((d) => ({ ...d, document_obligations_html: iaResponse, document_obligations_updated_at: nowIso }));
         setGenMsg({ type: 'success', text: 'Document généré et synchronisé avec la Boîte à outils.' });
       }
     } catch {
