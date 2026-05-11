@@ -36,6 +36,28 @@ declare global {
   }
 }
 
+function removeDuplicates(text: string): string {
+  const words = text.split(' ');
+  const cleaned: string[] = [];
+  let i = 0;
+  while (i < words.length) {
+    cleaned.push(words[i]);
+    let j = i + 1;
+    while (j < words.length && words[j].toLowerCase() === words[i].toLowerCase()) {
+      j++;
+    }
+    i = j;
+  }
+  const result = cleaned.join(' ');
+  const halfLen = Math.floor(result.length / 2);
+  const firstHalf = result.slice(0, halfLen);
+  const secondHalf = result.slice(halfLen);
+  if (secondHalf.trim().startsWith(firstHalf.trim().split(' ')[0])) {
+    return firstHalf.trim() + secondHalf.replace(firstHalf, '').trim();
+  }
+  return result;
+}
+
 export default function AssistantIAPage() {
   const navigate = useNavigate();
 
@@ -49,45 +71,63 @@ export default function AssistantIAPage() {
   const [expertsUsed, setExpertsUsed] = useState<string[]>([]);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const stoppedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const speechAvailable = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-  function stopRecording() {
-    recognitionRef.current?.stop();
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    setRecording(false);
-    setElapsed(0);
-  }
-
   function handleRecord() {
     if (recording) {
-      stopRecording();
+      stoppedRef.current = true;
+      recognitionRef.current?.stop();
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      setRecording(false);
+      setElapsed(0);
       return;
     }
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) return;
 
+    stoppedRef.current = false;
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'fr-FR';
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let transcript = '';
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-        if (i < event.results.length - 1) transcript += ' ';
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
       }
-      setMessage(transcript);
+      if (finalTranscript.trim()) {
+        setMessage(removeDuplicates(finalTranscript.trim()));
+      }
+      stoppedRef.current = true;
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      setRecording(false);
+      setElapsed(0);
     };
 
-    recognition.onerror = () => stopRecording();
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error !== 'no-speech') {
+        console.error('Speech error:', event.error);
+      }
+      stoppedRef.current = true;
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      setRecording(false);
+      setElapsed(0);
+    };
 
     recognition.onend = () => {
+      stoppedRef.current = true;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
       if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
       setRecording(false);
@@ -95,24 +135,30 @@ export default function AssistantIAPage() {
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-    setRecording(true);
-    setElapsed(0);
 
-    timerRef.current = setTimeout(() => {
-      recognition.stop();
+    try {
+      recognition.start();
+      setRecording(true);
+      setElapsed(0);
+
+      timerRef.current = setTimeout(() => {
+        stoppedRef.current = true;
+        recognition.stop();
+        setRecording(false);
+      }, 90000);
+
+      intervalRef.current = setInterval(() => {
+        setElapsed((e) => {
+          if (e >= 90) {
+            if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+            return 90;
+          }
+          return e + 1;
+        });
+      }, 1000);
+    } catch {
       setRecording(false);
-    }, 90000);
-
-    intervalRef.current = setInterval(() => {
-      setElapsed((e) => {
-        if (e >= 90) {
-          if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-          return 90;
-        }
-        return e + 1;
-      });
-    }, 1000);
+    }
   }
 
   async function handleSend() {
