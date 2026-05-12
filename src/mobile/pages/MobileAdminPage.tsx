@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Map, ShieldAlert, Cpu, Users,
   TrendingUp, Flame, ChevronRight, ChevronDown, Monitor,
@@ -26,7 +26,6 @@ const accents: Record<string, string> = {
 
 export default function MobileAdminPage() {
   const { hasAdminAccess } = useAuth();
-  const navigate = useNavigate();
   const [stats, setStats] = useState({ total: 0, today: 0, ssi: 0, personnes: 0 });
   const [kpisOpen, setKpisOpen] = useState(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(true);
@@ -64,7 +63,7 @@ export default function MobileAdminPage() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => { window.location.href = '/dashboard'; }}
               className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-all"
             >
               <Monitor className="w-4 h-4" />
@@ -110,7 +109,7 @@ export default function MobileAdminPage() {
             {SHORTCUTS.map(({ to, label, Icon, accent }) => (
               <button
                 key={to}
-                onClick={() => navigate(to)}
+                onClick={() => { window.location.href = to; }}
                 className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors"
               >
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${accents[accent]}`}>
