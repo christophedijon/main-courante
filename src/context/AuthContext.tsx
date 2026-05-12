@@ -30,42 +30,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mustCompleteProfile, setMustCompleteProfile] = useState(false);
 
   async function loadUserMeta(userEmail: string, userId: string) {
-    const [adminRes, managedRes] = await Promise.all([
-      supabase.from('super_admins').select('id').eq('email', userEmail).maybeSingle(),
-      supabase.from('managed_users')
-        .select('fonction, is_provisoire, profile_completed')
-        .eq('auth_user_id', userId)
-        .maybeSingle(),
-    ]);
-    setIsSuperAdmin(!!adminRes.data || managedRes.data?.fonction === 'Direction');
-    setUserFonction(managedRes.data?.fonction ?? null);
+    try {
+      const [adminRes, managedRes] = await Promise.all([
+        supabase.from('super_admins').select('id').eq('email', userEmail).maybeSingle(),
+        supabase.from('managed_users')
+          .select('fonction, is_provisoire, profile_completed')
+          .eq('auth_user_id', userId)
+          .maybeSingle(),
+      ]);
+      setIsSuperAdmin(!!adminRes.data || managedRes.data?.fonction === 'Direction');
+      setUserFonction(managedRes.data?.fonction ?? null);
 
-    const mu = managedRes.data;
-    if (mu?.is_provisoire && !mu?.profile_completed) {
-      setMustCompleteProfile(true);
-    } else {
+      const mu = managedRes.data;
+      if (mu?.is_provisoire && !mu?.profile_completed) {
+        setMustCompleteProfile(true);
+      } else {
+        setMustCompleteProfile(false);
+      }
+    } catch (err) {
+      console.error('loadUserMeta error:', err);
+      setIsSuperAdmin(false);
+      setUserFonction(null);
       setMustCompleteProfile(false);
     }
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) {
-        loadUserMeta(data.session.user.email!, data.session.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
-    });
-
+    // onAuthStateChange fires for both initial session and subsequent changes.
+    // We rely on it exclusively so loading is always resolved.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
-        (async () => { await loadUserMeta(session.user.email!, session.user.id); })();
+        (async () => {
+          try {
+            await loadUserMeta(session.user.email!, session.user.id);
+          } catch (err) {
+            console.error('Auth loadUserMeta error:', err);
+          } finally {
+            setLoading(false);
+          }
+        })();
       } else {
         setIsSuperAdmin(false);
         setUserFonction(null);
         setMustCompleteProfile(false);
+        setLoading(false);
       }
     });
 
