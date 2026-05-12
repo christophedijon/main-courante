@@ -44,6 +44,7 @@ export default function RapportsPage() {
 
   const [rapports, setRapports] = useState<Rapport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -56,12 +57,20 @@ export default function RapportsPage() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
-      .from('rapports_soiree')
-      .select('*')
-      .order('date_soiree', { ascending: false });
-    setRapports((data ?? []) as Rapport[]);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const { data, error } = await supabase
+        .from('rapports_soiree')
+        .select('*')
+        .order('date_soiree', { ascending: false });
+      if (error) throw error;
+      setRapports((data ?? []) as Rapport[]);
+    } catch (err: any) {
+      console.error('RapportsPage error:', err);
+      setLoadError(err?.message ?? 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadEmailSettings() {
@@ -243,8 +252,7 @@ export default function RapportsPage() {
                     type="button"
                     onClick={() => {
                       setEmailPanelOpen(false);
-                      setEmailDraft(emailSettings.email_destination);
-                      setEmailEnabled(emailSettings.email_enabled);
+                      setEmailEnabled(emailSettings?.email_enabled ?? false);
                     }}
                     className="flex-1 px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-all border border-slate-700"
                   >
@@ -286,6 +294,16 @@ export default function RapportsPage() {
                   : 0}
               </p>
               <p className="text-slate-400 text-sm mt-1">Moy. / soirée</p>
+            </div>
+          </div>
+        )}
+
+        {loadError && (
+          <div className="min-h-[40vh] flex items-center justify-center p-8">
+            <div className="text-center">
+              <p className="text-red-400 font-semibold mb-2">Erreur de chargement</p>
+              <p className="text-slate-500 text-sm mb-4">{loadError}</p>
+              <button onClick={() => window.location.reload()} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm hover:bg-slate-700 transition-colors">Réessayer</button>
             </div>
           </div>
         )}

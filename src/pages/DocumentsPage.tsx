@@ -110,6 +110,7 @@ export default function DocumentsPage() {
   const [activeTab, setActiveTab] = useState<Categorie>('RONDE');
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [msg, setMsg] = useState<Msg | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -127,14 +128,22 @@ export default function DocumentsPage() {
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('toolbox_documents')
-      .select('*')
-      .order('categorie')
-      .order('ordre')
-      .order('created_at');
-    if (!error && data) setDocs(data as Doc[]);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const { data, error } = await supabase
+        .from('toolbox_documents')
+        .select('*')
+        .order('categorie')
+        .order('ordre')
+        .order('created_at');
+      if (error) throw error;
+      if (data) setDocs(data as Doc[]);
+    } catch (err: any) {
+      console.error('DocumentsPage error:', err);
+      setLoadError(err?.message ?? 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function openCreate() {
@@ -283,6 +292,16 @@ export default function DocumentsPage() {
             ${msg.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
             {msg.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
             {msg.text}
+          </div>
+        )}
+
+        {loadError && (
+          <div className="min-h-[40vh] flex items-center justify-center p-8">
+            <div className="text-center">
+              <p className="text-red-400 font-semibold mb-2">Erreur de chargement</p>
+              <p className="text-slate-500 text-sm mb-4">{loadError}</p>
+              <button onClick={() => window.location.reload()} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm hover:bg-slate-700 transition-colors">Réessayer</button>
+            </div>
           </div>
         )}
 

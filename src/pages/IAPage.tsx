@@ -165,6 +165,7 @@ export default function IAPage() {
   const [settings, setSettings] = useState<IASettings>(EMPTY);
   const [rowId, setRowId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
 
   // Open/close state per section
@@ -192,22 +193,30 @@ export default function IAPage() {
 
   async function fetchSettings() {
     setLoading(true);
-    const { data } = await supabase.from('ia_settings').select('*').limit(1).maybeSingle();
-    if (data) {
-      setSettings({
-        prompt: data.prompt ?? '',
-        openai_api_key: data.openai_api_key ?? '',
-        gpt_model: data.gpt_model ?? 'gpt-4o',
-        prompt_erp: data.prompt_erp ?? '',
-        gpt_model_erp: data.gpt_model_erp ?? 'gpt-4o',
-        prompt_bruit: data.prompt_bruit ?? '',
-        gpt_model_bruit: data.gpt_model_bruit ?? 'gpt-4o',
-        prompt_router: data.prompt_router ?? '',
-        gpt_model_router: data.gpt_model_router ?? 'gpt-3.5-turbo',
-      });
-      setRowId(data.id);
+    setLoadError(null);
+    try {
+      const { data, error } = await supabase.from('ia_settings').select('*').limit(1).maybeSingle();
+      if (error) throw error;
+      if (data) {
+        setSettings({
+          prompt: data.prompt ?? '',
+          openai_api_key: data.openai_api_key ?? '',
+          gpt_model: data.gpt_model ?? 'gpt-4o',
+          prompt_erp: data.prompt_erp ?? '',
+          gpt_model_erp: data.gpt_model_erp ?? 'gpt-4o',
+          prompt_bruit: data.prompt_bruit ?? '',
+          gpt_model_bruit: data.gpt_model_bruit ?? 'gpt-4o',
+          prompt_router: data.prompt_router ?? '',
+          gpt_model_router: data.gpt_model_router ?? 'gpt-3.5-turbo',
+        });
+        setRowId(data.id);
+      }
+    } catch (err: any) {
+      console.error('IAPage error:', err);
+      setLoadError(err?.message ?? 'Erreur de chargement');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function persist(
@@ -294,6 +303,14 @@ export default function IAPage() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
             Chargement…
+          </div>
+        ) : loadError ? (
+          <div className="min-h-[60vh] flex items-center justify-center p-8">
+            <div className="text-center">
+              <p className="text-red-400 font-semibold mb-2">Erreur de chargement</p>
+              <p className="text-slate-500 text-sm mb-4">{loadError}</p>
+              <button onClick={() => window.location.reload()} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm hover:bg-slate-700 transition-colors">Réessayer</button>
+            </div>
           </div>
         ) : (
           <div className="space-y-8">

@@ -455,18 +455,26 @@ export default function RegistreSecuritePage() {
   const { nom, logo_url } = useEntreprise();
   const [items, setItems] = useState<RegistreItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [collapseNonApp, setCollapseNonApp] = useState(true);
 
   useEffect(() => {
-    supabase
-      .from('registre_securite')
-      .select('*')
-      .order('installation')
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('registre_securite')
+          .select('*')
+          .order('installation');
+        if (error) throw error;
         setItems((data ?? []) as RegistreItem[]);
+      } catch (err: any) {
+        console.error('RegistreSecuritePage error:', err);
+        setLoadError(err?.message ?? 'Erreur de chargement');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   function handleUpdate(id: string, patch: Partial<RegistreItem>) {
@@ -551,7 +559,17 @@ export default function RegistreSecuritePage() {
 
         {loading && <p className="text-slate-500 text-sm text-center py-16">Chargement…</p>}
 
-        {!loading && (
+        {loadError && (
+          <div className="min-h-[40vh] flex items-center justify-center p-8">
+            <div className="text-center">
+              <p className="text-red-400 font-semibold mb-2">Erreur de chargement</p>
+              <p className="text-slate-500 text-sm mb-4">{loadError}</p>
+              <button onClick={() => window.location.reload()} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm hover:bg-slate-700 transition-colors">Réessayer</button>
+            </div>
+          </div>
+        )}
+
+        {!loading && !loadError && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
