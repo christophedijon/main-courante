@@ -32,13 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadUserMeta(userEmail: string, userId: string) {
     try {
       const [adminRes, managedRes] = await Promise.all([
-        supabase.from('super_admins').select('id').eq('email', userEmail).maybeSingle(),
+        supabase.from('super_administrateurs').select('id').eq('email', userEmail).maybeSingle(),
         supabase.from('managed_users')
           .select('fonction, is_provisoire, profile_completed')
           .eq('auth_user_id', userId)
           .maybeSingle(),
       ]);
-      setIsSuperAdmin(!!adminRes.data || managedRes.data?.fonction === 'Direction');
+      setIsSuperAdmin(!!adminRes.data);
       setUserFonction(managedRes.data?.fonction ?? null);
 
       const mu = managedRes.data;
@@ -78,7 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   async function signIn(email: string, password: string): Promise<string | null> {
