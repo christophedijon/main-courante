@@ -11,94 +11,99 @@ type Props = {
   offsetTop?: number;
 };
 
-// Hexagon points — flat bottom, pointy sides
-const hexPoints = (w: number, h: number) => {
-  const hw = w / 2;
-  const hh = h / 2;
-  const q = h * 0.25;
-  return `${hw},0 ${w},${q} ${w},${h - q} ${hw},${h} 0,${h - q} 0,${q}`;
-};
+// Flat-top hexagon — matches the maquette shape (slightly squarish)
+// Width 160, Height 180
+const W = 160;
+const H = 184;
+// Flat-top hex: top-left, top-right, right, bottom-right, bottom-left, left
+// with slightly rounded feel via tighter points
+const q = H * 0.26; // ~48px quarter offset
+const POINTS = `${W * 0.5},0 ${W},${q} ${W},${H - q} ${W * 0.5},${H} 0,${H - q} 0,${q}`;
+const DEPTH = 14;
 
 const V = {
   ssi: {
-    accent: '#dc2626',
-    accentDim: 'rgba(220,38,38,0.18)',
-    topHighlight: 'rgba(255,80,80,0.55)',
-    bottomShadow: 'rgba(0,0,0,0.9)',
-    sideShadow: 'rgba(80,0,0,0.6)',
-    bgTop: '#1c0808',
-    bgBottom: '#0a0303',
-    iconColor: '#f87171',
-    glowColor: 'rgba(220,38,38,0.5)',
-    subtitleColor: 'rgba(252,165,165,0.7)',
-    rimLight: 'rgba(248,113,113,0.4)',
+    faceGradTop: '#1a1f2e',
+    faceGradBot: '#0d1018',
+    rimTopColor: 'rgba(200,210,230,0.55)',
+    rimBotColor: 'rgba(20,25,40,0.8)',
+    sideColor: '#060810',
+    shadowColor: 'rgba(0,0,0,0.85)',
+    iconColor: '#ef4444',
+    iconGlow: 'rgba(239,68,68,0.6)',
+    subtitleColor: 'rgba(252,165,165,0.72)',
+    accentBorder: 'rgba(100,120,180,0.25)',
   },
   personnes: {
-    accent: '#0ea5e9',
-    accentDim: 'rgba(14,165,233,0.15)',
-    topHighlight: 'rgba(56,189,248,0.5)',
-    bottomShadow: 'rgba(0,0,0,0.9)',
-    sideShadow: 'rgba(0,30,60,0.6)',
-    bgTop: '#071525',
-    bgBottom: '#030a12',
+    faceGradTop: '#141a28',
+    faceGradBot: '#090d16',
+    rimTopColor: 'rgba(200,215,240,0.5)',
+    rimBotColor: 'rgba(15,20,35,0.85)',
+    sideColor: '#050810',
+    shadowColor: 'rgba(0,0,0,0.85)',
     iconColor: '#38bdf8',
-    glowColor: 'rgba(14,165,233,0.45)',
-    subtitleColor: 'rgba(186,230,255,0.65)',
-    rimLight: 'rgba(56,189,248,0.35)',
+    iconGlow: 'rgba(56,189,248,0.55)',
+    subtitleColor: 'rgba(186,230,255,0.68)',
+    accentBorder: 'rgba(56,189,248,0.2)',
   },
 };
 
-const W = 150;
-const H = 172;
-const DEPTH = 10; // 3D extrusion depth in px
-
 export default function QuickActionCard({ variant, title, subtitle, Icon, onClick, offsetTop = 0 }: Props) {
   const v = V[variant];
-  const pts = hexPoints(W, H);
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center select-none focus:outline-none group"
+      className="flex flex-col items-center select-none focus:outline-none"
       style={{ marginTop: offsetTop, WebkitTapHighlightColor: 'transparent' }}
     >
-      <div className="relative active:translate-y-[3px] transition-transform duration-100" style={{ width: W, height: H + DEPTH }}>
-        {/* ── Bottom face (3D depth) ── */}
+      <div
+        className="active:translate-y-[4px] transition-transform duration-100"
+        style={{ width: W, height: H + DEPTH, position: 'relative' }}
+      >
+        {/* ── Drop shadow layer (lowest) ── */}
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          width={W}
-          height={H}
-          className="absolute"
-          style={{ top: DEPTH, left: 0 }}
+          width={W} height={H}
+          style={{ position: 'absolute', top: DEPTH + 4, left: 2, filter: 'blur(8px)', opacity: 0.7 }}
         >
-          <polygon
-            points={pts}
-            fill={v.bottomShadow}
-            stroke="rgba(0,0,0,0.8)"
-            strokeWidth="1"
-          />
+          <polygon points={POINTS} fill="rgba(0,0,0,0.9)" />
         </svg>
 
-        {/* ── Side faces — left-bottom bevel (dark) ── */}
-        <svg viewBox={`0 0 ${W} ${H + DEPTH}`} width={W} height={H + DEPTH} className="absolute inset-0">
-          {/* left lower side */}
+        {/* ── Bottom / depth face ── */}
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width={W} height={H}
+          style={{ position: 'absolute', top: DEPTH, left: 0 }}
+        >
+          <polygon points={POINTS} fill={v.sideColor} stroke="rgba(0,0,0,0.6)" strokeWidth="1" />
+        </svg>
+
+        {/* ── Side bevel faces ── */}
+        <svg
+          viewBox={`0 0 ${W} ${H + DEPTH}`}
+          width={W} height={H + DEPTH}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+        >
+          {/* Left-bottom bevel */}
           <polygon
-            points={`0,${H * 0.25} 0,${H * 0.75 + DEPTH} ${W / 2},${H + DEPTH} ${W / 2},${H}`}
-            fill={v.sideShadow}
+            points={`0,${q} 0,${H - q + DEPTH} ${W * 0.5},${H + DEPTH} ${W * 0.5},${H}`}
+            fill="rgba(0,0,0,0.65)"
           />
-          {/* right lower side */}
+          {/* Right-bottom bevel */}
           <polygon
-            points={`${W},${H * 0.25} ${W},${H * 0.75 + DEPTH} ${W / 2},${H + DEPTH} ${W / 2},${H}`}
-            fill={v.sideShadow}
+            points={`${W},${q} ${W},${H - q + DEPTH} ${W * 0.5},${H + DEPTH} ${W * 0.5},${H}`}
+            fill="rgba(0,0,0,0.55)"
           />
-          {/* bottom side */}
+          {/* Bottom-left face */}
           <polygon
-            points={`${W / 2},${H} ${W},${H * 0.75} ${W},${H * 0.75 + DEPTH} ${W / 2},${H + DEPTH}`}
+            points={`0,${H - q} ${W * 0.5},${H} ${W * 0.5},${H + DEPTH} 0,${H - q + DEPTH}`}
             fill="rgba(0,0,0,0.7)"
           />
+          {/* Bottom-right face */}
           <polygon
-            points={`0,${H * 0.75} ${W / 2},${H} ${W / 2},${H + DEPTH} 0,${H * 0.75 + DEPTH}`}
+            points={`${W},${H - q} ${W * 0.5},${H} ${W * 0.5},${H + DEPTH} ${W},${H - q + DEPTH}`}
             fill="rgba(0,0,0,0.7)"
           />
         </svg>
@@ -106,69 +111,66 @@ export default function QuickActionCard({ variant, title, subtitle, Icon, onClic
         {/* ── Top face (main surface) ── */}
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          width={W}
-          height={H}
-          className="absolute"
-          style={{ top: 0, left: 0 }}
+          width={W} height={H}
+          style={{ position: 'absolute', top: 0, left: 0 }}
         >
           <defs>
-            <linearGradient id={`bg-${variant}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={v.bgTop} />
-              <stop offset="100%" stopColor={v.bgBottom} />
+            <linearGradient id={`face-${variant}`} x1="0.3" y1="0" x2="0.7" y2="1">
+              <stop offset="0%" stopColor={v.faceGradTop} />
+              <stop offset="100%" stopColor={v.faceGradBot} />
             </linearGradient>
-            <linearGradient id={`rim-${variant}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={v.topHighlight} />
-              <stop offset="45%" stopColor={v.accent} stopOpacity="0.4" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+            {/* Rim: bright silver top, dark bottom */}
+            <linearGradient id={`rim-${variant}`} x1="0.5" y1="0" x2="0.5" y2="1">
+              <stop offset="0%" stopColor={v.rimTopColor} />
+              <stop offset="40%" stopColor="rgba(140,155,190,0.3)" />
+              <stop offset="100%" stopColor={v.rimBotColor} />
             </linearGradient>
-            <filter id={`glow-${variant}`}>
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
           </defs>
-          {/* Background fill */}
-          <polygon points={pts} fill={`url(#bg-${variant})`} />
-          {/* Outer rim border — bright top, dark bottom */}
-          <polygon points={pts} fill="none" stroke={`url(#rim-${variant})`} strokeWidth="2.5" />
-          {/* Inner subtle glow border */}
-          <polygon points={pts} fill="none" stroke={v.accentDim} strokeWidth="6" opacity="0.4" />
+          {/* Main fill */}
+          <polygon points={POINTS} fill={`url(#face-${variant})`} />
+          {/* Accent inner border */}
+          <polygon points={POINTS} fill="none" stroke={v.accentBorder} strokeWidth="8" />
+          {/* Outer rim — metallic bevel */}
+          <polygon points={POINTS} fill="none" stroke={`url(#rim-${variant})`} strokeWidth="2" />
         </svg>
 
-        {/* ── Content overlay ── */}
+        {/* ── Content ── */}
         <div
-          className="absolute flex flex-col items-center justify-center gap-2"
-          style={{ top: 0, left: 0, width: W, height: H }}
-        >
-          {/* Icon circle */}
-          <div style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background: `radial-gradient(circle at 40% 35%, ${v.bgTop}, rgba(0,0,0,0.7))`,
-            border: `1.5px solid ${v.rimLight}`,
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: W,
+            height: H,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: `0 0 18px ${v.glowColor}, 0 2px 6px rgba(0,0,0,0.6)`,
-          }}>
-            <Icon style={{ width: 26, height: 26, color: v.iconColor, strokeWidth: 2.3, filter: `drop-shadow(0 0 6px ${v.iconColor})` }} />
-          </div>
+            gap: 10,
+          }}
+        >
+          {/* Icon */}
+          <Icon style={{
+            width: 38,
+            height: 38,
+            color: v.iconColor,
+            strokeWidth: 2.1,
+            filter: `drop-shadow(0 0 8px ${v.iconGlow}) drop-shadow(0 0 16px ${v.iconGlow})`,
+          }} />
           {/* Labels */}
-          <div style={{ textAlign: 'center', paddingBottom: 4 }}>
+          <div style={{ textAlign: 'center', paddingBottom: 6, paddingLeft: 12, paddingRight: 12 }}>
             <p style={{
-              color: '#fff',
+              color: '#ffffff',
               fontWeight: 800,
-              fontSize: 18,
+              fontSize: 20,
               lineHeight: 1.1,
               letterSpacing: '-0.01em',
-              textShadow: `0 1px 8px ${v.glowColor}`,
             }}>{title}</p>
             <p style={{
               color: v.subtitleColor,
-              fontSize: 11,
-              lineHeight: 1.35,
-              marginTop: 4,
-              maxWidth: 100,
+              fontSize: 12,
+              lineHeight: 1.4,
+              marginTop: 5,
             }}>{subtitle}</p>
           </div>
         </div>
