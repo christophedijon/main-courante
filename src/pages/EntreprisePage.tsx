@@ -59,6 +59,16 @@ const CATEGORIE_COLORS: Record<number, string> = {
   5: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
 };
 
+const ACTIVITES_PAR_TYPE: Record<string, string[]> = {
+  P: ['Discothèque', 'Dancing / Bal', 'Club privé', 'Karaoké dansant', 'Bar de nuit avec piste de danse'],
+  N: ['Bar à Ambiance Musicale (BAM)', 'Restaurant à Ambiance Musicale (RAM)', 'Bar de nuit', 'Bar à cocktails', 'Café / Brasserie', 'Pub', 'Restaurant traditionnel', 'Fast-food / Restauration rapide'],
+  O: ['Hôtel', 'Hôtel-restaurant', 'Résidence hôtelière', 'Auberge de jeunesse'],
+  L: ['Salle de concert', 'Salle de spectacle vivant', 'Cinéma', 'Salle de conférences', 'Opéra / Théâtre'],
+  M: ['Centre commercial', 'Grande surface', 'Boutique / Commerce de détail'],
+  R: ['École / Lycée', 'Université', 'Centre de formation', 'Auto-école'],
+  X: ['Salle de sport', 'Piscine couverte', 'Patinoire', 'Salle de boxe / Arts martiaux'],
+};
+
 // Questions per type
 type Question = {
   id: string;
@@ -133,6 +143,7 @@ type EntrepriseData = {
   // questionnaire fields
   activite_principale: string;
   activites_complementaires: string[];
+  activites_reelles: string[];
   licence_boissons: string;
   questionnaire_reponses: Record<string, boolean | number | null>;
   derniere_visite_commission: string;
@@ -143,7 +154,7 @@ type EntrepriseData = {
 const EMPTY: EntrepriseData = {
   nom: '', adresse: '', telephone: '', siret: '', code_ape: '', horaires_ouverture: HORAIRES_EMPTY, logo_url: null,
   type_erp: 'P', categorie_erp: 4, effectif_public: 0, effectif_personnel: 0,
-  activite_principale: 'P', activites_complementaires: [], licence_boissons: '',
+  activite_principale: 'P', activites_complementaires: [], activites_reelles: [], licence_boissons: '',
   questionnaire_reponses: {}, derniere_visite_commission: '',
   document_obligations_html: '', document_obligations_updated_at: null,
 };
@@ -378,6 +389,7 @@ export default function EntreprisePage() {
   const [profilMsg, setProfilMsg]       = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [genMsg, setGenMsg]             = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [autreActivite, setAutreActivite] = useState('');
   const [showApeSuggestions, setShowApeSuggestions] = useState(false);
   const apeRef = useRef<HTMLDivElement>(null);
 
@@ -439,6 +451,7 @@ export default function EntreprisePage() {
         effectif_personnel: rows.effectif_personnel ?? 0,
         activite_principale: rows.activite_principale ?? 'P',
         activites_complementaires: rows.activites_complementaires ?? [],
+        activites_reelles: rows.activites_reelles ?? [],
         licence_boissons: rows.licence_boissons ?? '',
         questionnaire_reponses: rows.questionnaire_reponses ?? {},
         derniere_visite_commission: rows.derniere_visite_commission ?? '',
@@ -560,7 +573,7 @@ export default function EntreprisePage() {
 
   async function handleSaveErpType(e: FormEvent) {
     e.preventDefault();
-    await saveField({ type_erp: data.type_erp }, setErpTypeMsg, () => setOpenErpType(false));
+    await saveField({ type_erp: data.type_erp, activites_reelles: data.activites_reelles }, setErpTypeMsg, () => setOpenErpType(false));
   }
 
   async function handleSaveErpCat(e: FormEvent) {
@@ -1013,6 +1026,85 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     <p className="text-slate-400 text-xs leading-relaxed">Établissement classé <strong>Type {data.type_erp}</strong>. Consultez les dispositions particulières applicables dans l'arrêté du 25 juin 1980.</p>
                   </div>
                 )}
+
+                {/* ── Activités exercées ── */}
+                {(() => {
+                  const activeTypes = [data.activite_principale, ...data.activites_complementaires].filter((t) => ACTIVITES_PAR_TYPE[t]);
+                  const toggleActivite = (act: string) => {
+                    setData((d) => ({
+                      ...d,
+                      activites_reelles: d.activites_reelles.includes(act)
+                        ? d.activites_reelles.filter((a) => a !== act)
+                        : [...d.activites_reelles, act],
+                    }));
+                  };
+                  const addAutre = () => {
+                    const val = autreActivite.trim();
+                    if (!val || data.activites_reelles.includes(val)) return;
+                    setData((d) => ({ ...d, activites_reelles: [...d.activites_reelles, val] }));
+                    setAutreActivite('');
+                  };
+                  return (
+                    <div className="pt-2">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Activités exercées</p>
+                      {activeTypes.length > 0 ? (
+                        <div className="space-y-4">
+                          {activeTypes.map((type) => (
+                            <div key={type}>
+                              <p className="text-xs text-slate-500 mb-2">Type {type}</p>
+                              <div className="space-y-1.5">
+                                {ACTIVITES_PAR_TYPE[type].map((act) => {
+                                  const checked = data.activites_reelles.includes(act);
+                                  return (
+                                    <label key={act} className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all ${checked ? 'border-blue-500/50 bg-blue-500/10' : 'border-slate-700/60 bg-slate-800/30 hover:border-slate-600'}`}>
+                                      <div className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-all ${checked ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
+                                        {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                      </div>
+                                      <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleActivite(act)} />
+                                      <span className={`text-sm ${checked ? 'text-white' : 'text-slate-400'}`}>{act}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-600 italic mb-3">Sélectionnez un type ERP ci-dessus pour voir les activités disponibles.</p>
+                      )}
+                      {data.activites_reelles.filter((a) => !activeTypes.flatMap((t) => ACTIVITES_PAR_TYPE[t] ?? []).includes(a)).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          <p className="text-xs text-slate-500 mb-2">Activités personnalisées</p>
+                          {data.activites_reelles.filter((a) => !activeTypes.flatMap((t) => ACTIVITES_PAR_TYPE[t] ?? []).includes(a)).map((act) => (
+                            <div key={act} className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-blue-500/50 bg-blue-500/10">
+                              <div className="w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center bg-blue-500 border-blue-500">
+                                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              </div>
+                              <span className="text-sm text-white flex-1">{act}</span>
+                              <button type="button" onClick={() => setData((d) => ({ ...d, activites_reelles: d.activites_reelles.filter((a) => a !== act) }))} className="text-slate-500 hover:text-red-400 transition-colors">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        <input
+                          type="text"
+                          value={autreActivite}
+                          onChange={(e) => setAutreActivite(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAutre(); } }}
+                          placeholder="Autre activité…"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        />
+                        <button type="button" onClick={addAutre} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-xl transition-colors font-medium">
+                          Ajouter
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <SaveRow loading={saveLoading} />
               </form>
             </CollapseCard>
