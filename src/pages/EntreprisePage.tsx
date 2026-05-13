@@ -104,6 +104,8 @@ type EntrepriseData = {
   nom: string;
   adresse: string;
   telephone: string;
+  siret: string;
+  code_ape: string;
   logo_url: string | null;
   type_erp: string;
   categorie_erp: number;
@@ -120,7 +122,7 @@ type EntrepriseData = {
 };
 
 const EMPTY: EntrepriseData = {
-  nom: '', adresse: '', telephone: '', logo_url: null,
+  nom: '', adresse: '', telephone: '', siret: '', code_ape: '', logo_url: null,
   type_erp: 'P', categorie_erp: 4, effectif_public: 0, effectif_personnel: 0,
   activite_principale: 'P', activites_complementaires: [], licence_boissons: '',
   questionnaire_reponses: {}, derniere_visite_commission: '',
@@ -357,6 +359,23 @@ export default function EntreprisePage() {
   const [profilMsg, setProfilMsg]       = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [genMsg, setGenMsg]             = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [showApeSuggestions, setShowApeSuggestions] = useState(false);
+  const apeRef = useRef<HTMLDivElement>(null);
+
+  const APE_SUGGESTIONS = ['5610A', '5610C', '5630Z', '9002Z', '9004Z', '5520Z', '9321Z', '9329Z'];
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (apeRef.current && !apeRef.current.contains(e.target as Node)) setShowApeSuggestions(false);
+    }
+    if (showApeSuggestions) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showApeSuggestions]);
+
+  const filteredApe = APE_SUGGESTIONS.filter(c =>
+    c.toLowerCase().includes(data.code_ape.toLowerCase())
+  );
+
   const [openInfo, setOpenInfo]         = useState(false);
   const [openLogo, setOpenLogo]         = useState(false);
   const [openErpType, setOpenErpType]   = useState(false);
@@ -391,6 +410,8 @@ export default function EntreprisePage() {
         nom: rows.nom ?? '',
         adresse: rows.adresse ?? '',
         telephone: rows.telephone ?? '',
+        siret: rows.siret ?? '',
+        code_ape: rows.code_ape ?? '',
         logo_url: rows.logo_url ?? null,
         type_erp: rows.type_erp ?? 'P',
         categorie_erp: rows.categorie_erp ?? 4,
@@ -483,7 +504,9 @@ export default function EntreprisePage() {
 
   async function handleSaveInfo(e: FormEvent) {
     e.preventDefault();
-    await saveField({ nom: data.nom.trim(), adresse: data.adresse.trim(), telephone: data.telephone.trim() }, setInfoMsg, () => setOpenInfo(false));
+    const siret = data.siret.trim();
+    if (siret && !/^\d{14}$/.test(siret)) { setInfoMsg({ type: 'error', text: 'Le SIRET doit contenir exactement 14 chiffres.' }); return; }
+    await saveField({ nom: data.nom.trim(), adresse: data.adresse.trim(), telephone: data.telephone.trim(), siret, code_ape: data.code_ape.trim() }, setInfoMsg, () => setOpenInfo(false));
   }
 
   async function handleSaveLogo(e: FormEvent) {
@@ -832,6 +855,60 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                       onChange={(e) => setData((d) => ({ ...d, telephone: e.target.value }))}
                       placeholder="+33 1 23 45 67 89"
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                  </div>
+                </Field>
+                <Field label="SIRET">
+                  {(() => {
+                    const siretVal = data.siret.trim();
+                    const isValid = /^\d{14}$/.test(siretVal);
+                    const hasError = siretVal.length > 0 && !isValid;
+                    return (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={data.siret}
+                          onChange={(e) => setData((d) => ({ ...d, siret: e.target.value.replace(/\D/g, '').slice(0, 14) }))}
+                          maxLength={14}
+                          placeholder="Ex : 12345678901234"
+                          className={`w-full bg-slate-800 border rounded-xl px-3.5 pr-10 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${hasError ? 'border-red-500 focus:ring-red-500' : isValid ? 'border-emerald-500 focus:ring-blue-500' : 'border-slate-700 focus:ring-blue-500'}`}
+                        />
+                        {isValid && (
+                          <CheckCircle className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+                        )}
+                        {hasError && (
+                          <AlertCircle className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-red-400" />
+                        )}
+                        {hasError && (
+                          <p className="mt-1 text-xs text-red-400">Le SIRET doit contenir exactement 14 chiffres.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </Field>
+                <Field label="Code APE / NAF">
+                  <div className="relative" ref={apeRef}>
+                    <input
+                      type="text"
+                      value={data.code_ape}
+                      onChange={(e) => { setData((d) => ({ ...d, code_ape: e.target.value.toUpperCase() })); setShowApeSuggestions(true); }}
+                      onFocus={() => setShowApeSuggestions(true)}
+                      placeholder="Ex : 5610A"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    />
+                    {showApeSuggestions && filteredApe.length > 0 && (
+                      <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+                        {filteredApe.map((code) => (
+                          <button
+                            key={code}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); setData((d) => ({ ...d, code_ape: code })); setShowApeSuggestions(false); }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                          >
+                            {code}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </Field>
                 <SaveRow loading={saveLoading} />
