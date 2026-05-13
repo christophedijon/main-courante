@@ -1,4 +1,4 @@
-import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 
 type Variant = 'ssi' | 'personnes';
 
@@ -10,46 +10,102 @@ type Props = {
   onClick: () => void;
 };
 
-const styles: Record<Variant, {
-  container: string;
-  iconWrap: string;
+// Hexagon clip-path (flat-top, 6 sides)
+const HEX_CLIP = 'polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)';
+
+const variants: Record<Variant, {
+  outerGlow: string;
+  outerBg: string;
+  outerBorder: string;
+  innerBg: string;
+  innerBorder: string;
   iconColor: string;
-  subtitle: string;
-  chevron: string;
+  subtitleColor: string;
+  shadowColor: string;
 }> = {
   ssi: {
-    container: 'bg-red-950/40 border-red-700/60 hover:border-red-600 hover:bg-red-950/60',
-    iconWrap: 'bg-red-600',
-    iconColor: 'text-amber-300',
-    subtitle: 'text-red-300/90',
-    chevron: 'text-red-400/80',
+    outerGlow: 'rgba(220,38,38,0.35)',
+    outerBg: 'linear-gradient(145deg, #2a1010 0%, #1a0808 100%)',
+    outerBorder: 'rgba(220,38,38,0.5)',
+    innerBg: 'linear-gradient(145deg, #1e0a0a 0%, #0f0404 100%)',
+    innerBorder: 'rgba(185,28,28,0.6)',
+    iconColor: '#ef4444',
+    subtitleColor: 'rgba(252,165,165,0.75)',
+    shadowColor: 'rgba(220,38,38,0.25)',
   },
   personnes: {
-    container: 'bg-sky-950/40 border-sky-700/60 hover:border-sky-600 hover:bg-sky-950/60',
-    iconWrap: 'bg-sky-500/30 border border-sky-500/40',
-    iconColor: 'text-sky-300',
-    subtitle: 'text-sky-300/90',
-    chevron: 'text-sky-400/80',
+    outerGlow: 'rgba(56,189,248,0.3)',
+    outerBg: 'linear-gradient(145deg, #0c1e2e 0%, #060f1a 100%)',
+    outerBorder: 'rgba(56,189,248,0.45)',
+    innerBg: 'linear-gradient(145deg, #0a1824 0%, #040c14 100%)',
+    innerBorder: 'rgba(14,165,233,0.55)',
+    iconColor: '#38bdf8',
+    subtitleColor: 'rgba(186,230,255,0.7)',
+    shadowColor: 'rgba(56,189,248,0.2)',
   },
 };
 
 export default function QuickActionCard({ variant, title, subtitle, Icon, onClick }: Props) {
-  const s = styles[variant];
+  const v = variants[variant];
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all
-        active:scale-[0.985] ${s.container}`}
+      className="flex flex-col items-center active:scale-95 transition-transform duration-150 select-none"
+      style={{ outline: 'none' }}
     >
-      <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${s.iconWrap}`}>
-        <Icon className={`w-7 h-7 ${s.iconColor}`} strokeWidth={2.4} />
+      {/* Outer hex — glow ring */}
+      <div
+        style={{
+          width: 148,
+          height: 170,
+          clipPath: HEX_CLIP,
+          background: v.outerBg,
+          padding: '3px',
+          boxShadow: `0 0 32px ${v.outerGlow}, 0 8px 24px ${v.shadowColor}, inset 0 1px 0 ${v.outerBorder}`,
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Border layer via inner hex */}
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            clipPath: HEX_CLIP,
+            background: v.innerBg,
+            border: `1.5px solid ${v.innerBorder}`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            paddingTop: 8,
+          }}
+        >
+          {/* Icon */}
+          <div style={{
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: `0 0 16px ${v.iconColor}55`,
+          }}>
+            <Icon style={{ width: 28, height: 28, color: v.iconColor, strokeWidth: 2.2 }} />
+          </div>
+          {/* Text */}
+          <div style={{ textAlign: 'center', paddingBottom: 4 }}>
+            <p style={{ color: '#fff', fontWeight: 800, fontSize: 17, lineHeight: 1.1, letterSpacing: '-0.01em' }}>{title}</p>
+            <p style={{ color: v.subtitleColor, fontSize: 11, lineHeight: 1.3, marginTop: 3, maxWidth: 90 }}>{subtitle}</p>
+          </div>
+        </div>
       </div>
-      <div className="flex-1 text-left min-w-0">
-        <p className="text-white font-bold text-lg leading-tight">{title}</p>
-        <p className={`text-sm mt-0.5 ${s.subtitle}`}>{subtitle}</p>
-      </div>
-      <ChevronRight className={`w-6 h-6 shrink-0 ${s.chevron}`} />
     </button>
   );
 }

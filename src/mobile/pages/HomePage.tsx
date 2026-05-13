@@ -7,7 +7,6 @@ import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import { useTodayEventsCount } from '../hooks/useEvenements';
 import { useSaisie } from '../saisie/SaisieContext';
 import RoleBadge from '../components/RoleBadge';
-import SectionLabel from '../components/SectionLabel';
 import QuickActionCard from '../components/QuickActionCard';
 
 export default function HomePage() {
@@ -37,62 +36,66 @@ export default function HomePage() {
   return (
     <div className="min-h-full">
       {/* Header */}
-      <div className="px-5 pt-6 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-            <Shield className="w-6 h-6 text-blue-400" strokeWidth={2.4} />
+      <div className="px-5 pt-8 pb-5">
+        <div className="flex items-center gap-4">
+          {/* Octagon avatar */}
+          <div className="shrink-0 relative w-14 h-14 flex items-center justify-center">
+            <svg viewBox="0 0 56 56" className="absolute inset-0 w-full h-full">
+              <polygon
+                points="16,2 40,2 54,16 54,40 40,54 16,54 2,40 2,16"
+                fill="rgba(30,64,175,0.18)"
+                stroke="rgba(96,165,250,0.4)"
+                strokeWidth="1.5"
+              />
+            </svg>
+            <Shield className="w-6 h-6 text-blue-400 relative z-10" strokeWidth={2.4} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-slate-400 text-[13px] leading-tight">Bonjour</p>
-            <p className="text-white font-bold text-lg leading-tight truncate">{fullName}</p>
+            <p className="text-slate-500 text-[11px] leading-tight tracking-[0.12em] uppercase font-medium">Bonjour</p>
+            <p className="text-white font-bold text-[17px] leading-tight truncate mt-0.5">{fullName}</p>
           </div>
           <RoleBadge fonction={userFonction} isSuperAdmin={isSuperAdmin} />
         </div>
 
-        {/* Logo/nom entreprise + stat card côte à côte */}
-        <div className="mt-4 flex items-center justify-between gap-3">
-          {/* Logo + nom entreprise */}
-          <div className="flex-1 flex items-center justify-start">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 min-h-[72px]">
-              {logo_url && (
-                <img
-                  src={logo_url}
-                  alt={entrepriseNom ?? 'Logo'}
-                  className="h-12 w-auto max-w-[60px] object-contain rounded-lg shrink-0"
-                />
-              )}
-              {entrepriseNom && (
-                <p className="text-slate-200 text-sm font-bold leading-tight">{entrepriseNom}</p>
-              )}
-              {!logo_url && !entrepriseNom && (
-                <Shield className="w-8 h-8 text-slate-600" />
-              )}
-            </div>
+        {/* Logo/nom entreprise + stat card */}
+        <div className="mt-5 flex items-stretch gap-3">
+          <div className="flex-1 flex items-center gap-3 rounded-2xl px-4 py-3 min-h-[72px]"
+            style={{ background: 'rgba(20,20,20,0.92)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            {logo_url && (
+              <img src={logo_url} alt={entrepriseNom ?? 'Logo'}
+                className="h-11 w-auto max-w-[56px] object-contain rounded-lg shrink-0" />
+            )}
+            {entrepriseNom && (
+              <p className="text-white text-sm font-bold leading-tight">{entrepriseNom}</p>
+            )}
+            {!logo_url && !entrepriseNom && (
+              <Shield className="w-8 h-8 text-slate-700" />
+            )}
           </div>
 
-          {/* Stat card réduite */}
-          <div className="rounded-2xl bg-slate-900 border border-slate-800 p-3 min-w-[130px] min-h-[72px] flex flex-col justify-center">
-            <div className="flex items-center gap-1.5 text-slate-400">
+          <div className="flex flex-col justify-center min-w-[130px] rounded-2xl px-4 py-3 min-h-[72px]"
+            style={{ background: 'rgba(20,20,20,0.92)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="flex items-center gap-1.5 text-slate-500">
               <Clock className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Aujourd'hui</span>
+              <span className="text-[11px] tracking-wide">Aujourd'hui</span>
             </div>
-            <p className="text-white font-extrabold text-3xl mt-1 leading-none">{todayCount}</p>
+            <p className="text-white font-black text-4xl mt-0.5 leading-none">{todayCount}</p>
           </div>
         </div>
       </div>
 
       {/* Saisie rapide */}
-      <div className="px-5 pt-2 pb-4">
+      <div className="px-5 pt-1 pb-8">
         <button
           type="button"
           onClick={() => setSaisieOpen((v) => !v)}
-          className="w-full flex items-center justify-between mb-3"
+          className="w-full flex items-center justify-between mb-6 px-1"
         >
-          <SectionLabel>Saisie rapide</SectionLabel>
+          <span className="text-[11px] font-bold text-slate-400 tracking-[0.2em] uppercase">Saisie rapide</span>
           <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${saisieOpen ? 'rotate-180' : ''}`} />
         </button>
         {saisieOpen && (
-          <div className="space-y-3">
+          <div className="flex items-end justify-center gap-6">
             <QuickActionCard
               variant="ssi"
               title="SSI"

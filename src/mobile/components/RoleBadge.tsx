@@ -10,18 +10,20 @@ export default function RoleBadge({ fonction, isSuperAdmin }: Props) {
   const isSecurite = label.includes('SÉCURITÉ') || label.includes('SECURITE');
   const isServeur = label === 'SERVEUR';
 
-  const cls = isDirection
-    ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+  const style = isDirection
+    ? { color: '#f59e0b', border: '1.5px solid rgba(245,158,11,0.7)', background: 'rgba(0,0,0,0.5)', boxShadow: '0 0 10px rgba(245,158,11,0.2)' }
     : isChefDePoste
-      ? 'text-violet-400 border-violet-500/40 bg-violet-500/10'
+      ? { color: '#a78bfa', border: '1.5px solid rgba(167,139,250,0.5)', background: 'rgba(0,0,0,0.4)' }
       : isSecurite
-        ? 'text-blue-300 border-blue-500/40 bg-blue-500/10'
+        ? { color: '#93c5fd', border: '1.5px solid rgba(147,197,253,0.4)', background: 'rgba(0,0,0,0.4)' }
         : isServeur
-          ? 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10'
-          : 'text-slate-300 border-slate-600/50 bg-slate-700/30';
+          ? { color: '#67e8f9', border: '1.5px solid rgba(103,232,249,0.4)', background: 'rgba(0,0,0,0.4)' }
+          : { color: '#cbd5e1', border: '1.5px solid rgba(148,163,184,0.3)', background: 'rgba(0,0,0,0.4)' };
 
   return (
-    <span className={`inline-flex items-center rounded-lg border px-3 py-1 text-[11px] font-extrabold tracking-wider ${cls}`}>
+    <span
+      style={{ ...style, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', display: 'inline-flex', alignItems: 'center' }}
+    >
       {label}
     </span>
   );
