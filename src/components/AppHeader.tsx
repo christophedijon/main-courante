@@ -46,7 +46,7 @@ export default function AppHeader({ onSignOut }: Props) {
     { path: '/postes',              label: 'Postes',          icon: MapPin,          superOnly: false, adminOnly: true  },
     { path: '/rapports',            label: 'Rapports',        icon: BarChart2,       superOnly: false, adminOnly: true  },
     { path: '/registre-securite',   label: 'Registre',        icon: ClipboardList,   superOnly: false, adminOnly: true  },
-    { path: '/ia',                  label: 'IA',              icon: Bot,             superOnly: true,  adminOnly: false },
+    { path: '/ia',                  label: 'IA',              icon: Bot,             superOnly: false, adminOnly: true  },
     { path: '/dashboard-signatures',label: 'Signatures',      icon: PenLine,         superOnly: false, adminOnly: true  },
   ];
 
