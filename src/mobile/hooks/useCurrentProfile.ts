@@ -21,20 +21,25 @@ export function useCurrentProfile() {
     if (!session?.user.id) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('first_name, last_name, telephone, nationalite')
-        .eq('id', session.user.id)
-        .maybeSingle();
-      if (cancelled) return;
-      setProfile({
-        first_name:  data?.first_name  ?? '',
-        last_name:   data?.last_name   ?? '',
-        telephone:   data?.telephone   ?? '',
-        nationalite: data?.nationalite ?? '',
-        email:       session.user.email ?? '',
-      });
-      setLoading(false);
+      try {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, telephone, nationalite')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        setProfile({
+          first_name:  data?.first_name  ?? '',
+          last_name:   data?.last_name   ?? '',
+          telephone:   data?.telephone   ?? '',
+          nationalite: data?.nationalite ?? '',
+          email:       session.user.email ?? '',
+        });
+      } catch (err) {
+        console.error('useCurrentProfile error:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [session?.user.id]);

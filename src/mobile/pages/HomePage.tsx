@@ -15,13 +15,13 @@ export default function HomePage() {
   const { userFonction, isSuperAdmin } = useAuth();
   const { profile } = useCurrentProfile();
   const { nom: entrepriseNom, logo_url } = useEntreprise();
-  const todayCount = useTodayEventsCount();
+  const todayCount = useTodayEventsCount() ?? 0;
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
 
   const fullName =
-    [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
-    || profile.email
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
+    || profile?.email
     || 'Utilisateur';
 
   function start(type: 'ssi' | 'securite_personnes') {
