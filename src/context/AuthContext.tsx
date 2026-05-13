@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 type AuthContextType = {
   session: Session | null;
   loading: boolean;
-  userMetaLoading: boolean;
+  userMetaReady: boolean;
   isSuperAdmin: boolean;
   userFonction: string | null;
   isDirection: boolean;
@@ -26,10 +26,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userMetaReady, setUserMetaReady] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [userFonction, setUserFonction] = useState<string | null>(null);
   const [mustCompleteProfile, setMustCompleteProfile] = useState(false);
-  const [userMetaLoading, setUserMetaLoading] = useState(true);
 
   async function loadUserMeta(userEmail: string, userId: string) {
     try {
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserFonction(managedRes.data?.fonction ?? null);
 
       const mu = managedRes.data;
-      if (mu?.is_provisoire && !mu?.profile_completed) {
+      if (mu?.is_provisoire === true && mu?.profile_completed === false) {
         setMustCompleteProfile(true);
       } else {
         setMustCompleteProfile(false);
@@ -55,13 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserFonction(null);
       setMustCompleteProfile(false);
     } finally {
-      setUserMetaLoading(false);
+      setUserMetaReady(true);
     }
   }
 
   useEffect(() => {
-    // onAuthStateChange fires for both initial session and subsequent changes.
-    // We rely on it exclusively so loading is always resolved.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
@@ -78,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsSuperAdmin(false);
         setUserFonction(null);
         setMustCompleteProfile(false);
-        setUserMetaLoading(false);
+        setUserMetaReady(true);
         setLoading(false);
       }
     });
@@ -127,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session, loading, userMetaLoading, isSuperAdmin, userFonction,
+        session, loading, userMetaReady, isSuperAdmin, userFonction,
         isDirection, isSecurite, isServeur, isChefDePoste,
         hasAdminAccess, hasChefDePosteAccess, hasMobileAccess,
         mustCompleteProfile,

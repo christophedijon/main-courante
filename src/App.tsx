@@ -86,24 +86,24 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaLoading, hasAdminAccess } = useAuth();
-  if (loading || userMetaLoading) return <Spinner />;
+  const { session, loading, userMetaReady, hasAdminAccess } = useAuth();
+  if (loading || userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
   return <>{children}</>;
 }
 
 function MobileRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaLoading, mustCompleteProfile } = useAuth();
-  if (loading || userMetaLoading) return <Spinner />;
+  const { session, loading, userMetaReady, mustCompleteProfile } = useAuth();
+  if (loading || userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
   return <>{children}</>;
 }
 
 function AdminRoute2({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaLoading, hasAdminAccess, mustCompleteProfile } = useAuth();
-  if (loading || userMetaLoading) return <Spinner />;
+  const { session, loading, userMetaReady, hasAdminAccess, mustCompleteProfile } = useAuth();
+  if (loading || userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
