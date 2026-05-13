@@ -99,6 +99,24 @@ const QUESTIONS: Record<string, Question[]> = {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type JourHoraire = { ouvert: boolean; ouverture: string; fermeture: string };
+type HorairesOuverture = Record<'lundi'|'mardi'|'mercredi'|'jeudi'|'vendredi'|'samedi'|'dimanche', JourHoraire>;
+
+const JOURS: Array<keyof HorairesOuverture> = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+const JOURS_LABELS: Record<keyof HorairesOuverture, string> = {
+  lundi: 'Lundi', mardi: 'Mardi', mercredi: 'Mercredi', jeudi: 'Jeudi',
+  vendredi: 'Vendredi', samedi: 'Samedi', dimanche: 'Dimanche',
+};
+const HORAIRES_EMPTY: HorairesOuverture = {
+  lundi:    { ouvert: false, ouverture: '', fermeture: '' },
+  mardi:    { ouvert: false, ouverture: '', fermeture: '' },
+  mercredi: { ouvert: false, ouverture: '', fermeture: '' },
+  jeudi:    { ouvert: false, ouverture: '', fermeture: '' },
+  vendredi: { ouvert: false, ouverture: '', fermeture: '' },
+  samedi:   { ouvert: false, ouverture: '', fermeture: '' },
+  dimanche: { ouvert: false, ouverture: '', fermeture: '' },
+};
+
 type EntrepriseData = {
   id?: string;
   nom: string;
@@ -106,6 +124,7 @@ type EntrepriseData = {
   telephone: string;
   siret: string;
   code_ape: string;
+  horaires_ouverture: HorairesOuverture;
   logo_url: string | null;
   type_erp: string;
   categorie_erp: number;
@@ -122,7 +141,7 @@ type EntrepriseData = {
 };
 
 const EMPTY: EntrepriseData = {
-  nom: '', adresse: '', telephone: '', siret: '', code_ape: '', logo_url: null,
+  nom: '', adresse: '', telephone: '', siret: '', code_ape: '', horaires_ouverture: HORAIRES_EMPTY, logo_url: null,
   type_erp: 'P', categorie_erp: 4, effectif_public: 0, effectif_personnel: 0,
   activite_principale: 'P', activites_complementaires: [], licence_boissons: '',
   questionnaire_reponses: {}, derniere_visite_commission: '',
@@ -412,6 +431,7 @@ export default function EntreprisePage() {
         telephone: rows.telephone ?? '',
         siret: rows.siret ?? '',
         code_ape: rows.code_ape ?? '',
+        horaires_ouverture: { ...HORAIRES_EMPTY, ...(rows.horaires_ouverture ?? {}) } as HorairesOuverture,
         logo_url: rows.logo_url ?? null,
         type_erp: rows.type_erp ?? 'P',
         categorie_erp: rows.categorie_erp ?? 4,
@@ -506,7 +526,7 @@ export default function EntreprisePage() {
     e.preventDefault();
     const siret = data.siret.trim();
     if (siret && !/^\d{14}$/.test(siret)) { setInfoMsg({ type: 'error', text: 'Le SIRET doit contenir exactement 14 chiffres.' }); return; }
-    await saveField({ nom: data.nom.trim(), adresse: data.adresse.trim(), telephone: data.telephone.trim(), siret, code_ape: data.code_ape.trim() }, setInfoMsg, () => setOpenInfo(false));
+    await saveField({ nom: data.nom.trim(), adresse: data.adresse.trim(), telephone: data.telephone.trim(), siret, code_ape: data.code_ape.trim(), horaires_ouverture: data.horaires_ouverture }, setInfoMsg, () => setOpenInfo(false));
   }
 
   async function handleSaveLogo(e: FormEvent) {
@@ -911,6 +931,52 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     )}
                   </div>
                 </Field>
+                {/* ── Horaires d'ouverture ── */}
+                <div className="pt-2">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Jours et horaires d'ouverture</p>
+                  <div className="space-y-2">
+                    {JOURS.map((jour) => {
+                      const h = data.horaires_ouverture[jour];
+                      const isNextDay = h.ouvert && h.ouverture && h.fermeture && h.fermeture < h.ouverture;
+                      return (
+                        <div key={jour} className={`rounded-xl border transition-all ${h.ouvert ? 'border-slate-600 bg-slate-800/60' : 'border-slate-700/50 bg-slate-800/20'}`}>
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => setData((d) => ({ ...d, horaires_ouverture: { ...d.horaires_ouverture, [jour]: { ...d.horaires_ouverture[jour], ouvert: !h.ouvert } } }))}
+                              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${h.ouvert ? 'bg-emerald-500' : 'bg-slate-600'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${h.ouvert ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </button>
+                            <span className={`text-sm font-medium w-20 ${h.ouvert ? 'text-white' : 'text-slate-500'}`}>{JOURS_LABELS[jour]}</span>
+                            {h.ouvert ? (
+                              <div className="flex items-center gap-2 ml-auto flex-wrap">
+                                <input
+                                  type="time"
+                                  value={h.ouverture}
+                                  onChange={(e) => setData((d) => ({ ...d, horaires_ouverture: { ...d.horaires_ouverture, [jour]: { ...d.horaires_ouverture[jour], ouverture: e.target.value } } }))}
+                                  className="bg-slate-700 border border-slate-600 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <span className="text-slate-500 text-xs">→</span>
+                                <input
+                                  type="time"
+                                  value={h.fermeture}
+                                  onChange={(e) => setData((d) => ({ ...d, horaires_ouverture: { ...d.horaires_ouverture, [jour]: { ...d.horaires_ouverture[jour], fermeture: e.target.value } } }))}
+                                  className="bg-slate-700 border border-slate-600 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                {isNextDay && (
+                                  <span className="text-xs text-amber-400 font-medium">(lendemain)</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="ml-auto text-xs text-slate-600">Fermé</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
                 <SaveRow loading={saveLoading} />
               </form>
             </CollapseCard>
