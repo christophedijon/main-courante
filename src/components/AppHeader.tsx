@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BookOpen } from 'lucide-react';
+import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2 } from 'lucide-react';
 import { useEntreprise } from '../hooks/useEntreprise';
 import { useAuth } from '../context/AuthContext';
 
@@ -39,15 +39,15 @@ export default function AppHeader({ onSignOut }: Props) {
   const allTabs = [
     { path: '/dashboard',           label: 'Utilisateurs',    icon: LayoutDashboard, superOnly: true,  adminOnly: false },
     { path: '/profile',             label: 'Mon Profil',      icon: User,            superOnly: false, adminOnly: false },
+    { path: '/entreprise',          label: 'Entreprise',      icon: Building2,       superOnly: false, adminOnly: true  },
+    { path: '/espaces-zones',       label: 'Espaces & Zones', icon: MapPin,          superOnly: false, adminOnly: true  },
+    { path: '/motifs',              label: 'Motifs',          icon: ShieldAlert,     superOnly: false, adminOnly: true  },
+    { path: '/documents',           label: 'Documents',       icon: FileText,        superOnly: false, adminOnly: true  },
     { path: '/postes',              label: 'Postes',          icon: MapPin,          superOnly: false, adminOnly: true  },
-    { path: '/entreprise',          label: 'Entreprise',      icon: Building2,       superOnly: true,  adminOnly: false },
-    { path: '/espaces-zones',       label: 'Espaces & Zones', icon: MapPin,          superOnly: true,  adminOnly: false },
+    { path: '/rapports',            label: 'Rapports',        icon: BarChart2,       superOnly: false, adminOnly: true  },
+    { path: '/registre-securite',   label: 'Registre',        icon: ClipboardList,   superOnly: false, adminOnly: true  },
     { path: '/ia',                  label: 'IA',              icon: Bot,             superOnly: true,  adminOnly: false },
-    { path: '/motifs',              label: 'Motifs',          icon: ShieldAlert,     superOnly: true,  adminOnly: false },
-    { path: '/documents',           label: 'Documents',       icon: FileText,        superOnly: true,  adminOnly: false },
     { path: '/dashboard-signatures',label: 'Signatures',      icon: PenLine,         superOnly: false, adminOnly: true  },
-    { path: '/rapports',            label: 'Rapports',        icon: ClipboardList,   superOnly: true,  adminOnly: false },
-    { path: '/registre-securite',   label: 'Registre',        icon: BookOpen,        superOnly: true,  adminOnly: false },
   ];
 
   const tabs = allTabs.filter((t) => {
