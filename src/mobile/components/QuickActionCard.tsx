@@ -8,101 +8,168 @@ type Props = {
   subtitle: string;
   Icon: LucideIcon;
   onClick: () => void;
+  offsetTop?: number;
 };
 
-// Hexagon clip-path (flat-top, 6 sides)
-const HEX_CLIP = 'polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)';
+// Hexagon points — flat bottom, pointy sides
+const hexPoints = (w: number, h: number) => {
+  const hw = w / 2;
+  const hh = h / 2;
+  const q = h * 0.25;
+  return `${hw},0 ${w},${q} ${w},${h - q} ${hw},${h} 0,${h - q} 0,${q}`;
+};
 
-const variants: Record<Variant, {
-  outerGlow: string;
-  outerBg: string;
-  outerBorder: string;
-  innerBg: string;
-  innerBorder: string;
-  iconColor: string;
-  subtitleColor: string;
-  shadowColor: string;
-}> = {
+const V = {
   ssi: {
-    outerGlow: 'rgba(220,38,38,0.35)',
-    outerBg: 'linear-gradient(145deg, #2a1010 0%, #1a0808 100%)',
-    outerBorder: 'rgba(220,38,38,0.5)',
-    innerBg: 'linear-gradient(145deg, #1e0a0a 0%, #0f0404 100%)',
-    innerBorder: 'rgba(185,28,28,0.6)',
-    iconColor: '#ef4444',
-    subtitleColor: 'rgba(252,165,165,0.75)',
-    shadowColor: 'rgba(220,38,38,0.25)',
+    accent: '#dc2626',
+    accentDim: 'rgba(220,38,38,0.18)',
+    topHighlight: 'rgba(255,80,80,0.55)',
+    bottomShadow: 'rgba(0,0,0,0.9)',
+    sideShadow: 'rgba(80,0,0,0.6)',
+    bgTop: '#1c0808',
+    bgBottom: '#0a0303',
+    iconColor: '#f87171',
+    glowColor: 'rgba(220,38,38,0.5)',
+    subtitleColor: 'rgba(252,165,165,0.7)',
+    rimLight: 'rgba(248,113,113,0.4)',
   },
   personnes: {
-    outerGlow: 'rgba(56,189,248,0.3)',
-    outerBg: 'linear-gradient(145deg, #0c1e2e 0%, #060f1a 100%)',
-    outerBorder: 'rgba(56,189,248,0.45)',
-    innerBg: 'linear-gradient(145deg, #0a1824 0%, #040c14 100%)',
-    innerBorder: 'rgba(14,165,233,0.55)',
+    accent: '#0ea5e9',
+    accentDim: 'rgba(14,165,233,0.15)',
+    topHighlight: 'rgba(56,189,248,0.5)',
+    bottomShadow: 'rgba(0,0,0,0.9)',
+    sideShadow: 'rgba(0,30,60,0.6)',
+    bgTop: '#071525',
+    bgBottom: '#030a12',
     iconColor: '#38bdf8',
-    subtitleColor: 'rgba(186,230,255,0.7)',
-    shadowColor: 'rgba(56,189,248,0.2)',
+    glowColor: 'rgba(14,165,233,0.45)',
+    subtitleColor: 'rgba(186,230,255,0.65)',
+    rimLight: 'rgba(56,189,248,0.35)',
   },
 };
 
-export default function QuickActionCard({ variant, title, subtitle, Icon, onClick }: Props) {
-  const v = variants[variant];
+const W = 150;
+const H = 172;
+const DEPTH = 10; // 3D extrusion depth in px
+
+export default function QuickActionCard({ variant, title, subtitle, Icon, onClick, offsetTop = 0 }: Props) {
+  const v = V[variant];
+  const pts = hexPoints(W, H);
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center active:scale-95 transition-transform duration-150 select-none"
-      style={{ outline: 'none' }}
+      className="flex flex-col items-center select-none focus:outline-none group"
+      style={{ marginTop: offsetTop, WebkitTapHighlightColor: 'transparent' }}
     >
-      {/* Outer hex — glow ring */}
-      <div
-        style={{
-          width: 148,
-          height: 170,
-          clipPath: HEX_CLIP,
-          background: v.outerBg,
-          padding: '3px',
-          boxShadow: `0 0 32px ${v.outerGlow}, 0 8px 24px ${v.shadowColor}, inset 0 1px 0 ${v.outerBorder}`,
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {/* Border layer via inner hex */}
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            clipPath: HEX_CLIP,
-            background: v.innerBg,
-            border: `1.5px solid ${v.innerBorder}`,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            paddingTop: 8,
-          }}
+      <div className="relative active:translate-y-[3px] transition-transform duration-100" style={{ width: W, height: H + DEPTH }}>
+        {/* ── Bottom face (3D depth) ── */}
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width={W}
+          height={H}
+          className="absolute"
+          style={{ top: DEPTH, left: 0 }}
         >
-          {/* Icon */}
+          <polygon
+            points={pts}
+            fill={v.bottomShadow}
+            stroke="rgba(0,0,0,0.8)"
+            strokeWidth="1"
+          />
+        </svg>
+
+        {/* ── Side faces — left-bottom bevel (dark) ── */}
+        <svg viewBox={`0 0 ${W} ${H + DEPTH}`} width={W} height={H + DEPTH} className="absolute inset-0">
+          {/* left lower side */}
+          <polygon
+            points={`0,${H * 0.25} 0,${H * 0.75 + DEPTH} ${W / 2},${H + DEPTH} ${W / 2},${H}`}
+            fill={v.sideShadow}
+          />
+          {/* right lower side */}
+          <polygon
+            points={`${W},${H * 0.25} ${W},${H * 0.75 + DEPTH} ${W / 2},${H + DEPTH} ${W / 2},${H}`}
+            fill={v.sideShadow}
+          />
+          {/* bottom side */}
+          <polygon
+            points={`${W / 2},${H} ${W},${H * 0.75} ${W},${H * 0.75 + DEPTH} ${W / 2},${H + DEPTH}`}
+            fill="rgba(0,0,0,0.7)"
+          />
+          <polygon
+            points={`0,${H * 0.75} ${W / 2},${H} ${W / 2},${H + DEPTH} 0,${H * 0.75 + DEPTH}`}
+            fill="rgba(0,0,0,0.7)"
+          />
+        </svg>
+
+        {/* ── Top face (main surface) ── */}
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width={W}
+          height={H}
+          className="absolute"
+          style={{ top: 0, left: 0 }}
+        >
+          <defs>
+            <linearGradient id={`bg-${variant}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={v.bgTop} />
+              <stop offset="100%" stopColor={v.bgBottom} />
+            </linearGradient>
+            <linearGradient id={`rim-${variant}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={v.topHighlight} />
+              <stop offset="45%" stopColor={v.accent} stopOpacity="0.4" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+            </linearGradient>
+            <filter id={`glow-${variant}`}>
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          {/* Background fill */}
+          <polygon points={pts} fill={`url(#bg-${variant})`} />
+          {/* Outer rim border — bright top, dark bottom */}
+          <polygon points={pts} fill="none" stroke={`url(#rim-${variant})`} strokeWidth="2.5" />
+          {/* Inner subtle glow border */}
+          <polygon points={pts} fill="none" stroke={v.accentDim} strokeWidth="6" opacity="0.4" />
+        </svg>
+
+        {/* ── Content overlay ── */}
+        <div
+          className="absolute flex flex-col items-center justify-center gap-2"
+          style={{ top: 0, left: 0, width: W, height: H }}
+        >
+          {/* Icon circle */}
           <div style={{
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             borderRadius: '50%',
-            background: 'rgba(0,0,0,0.4)',
+            background: `radial-gradient(circle at 40% 35%, ${v.bgTop}, rgba(0,0,0,0.7))`,
+            border: `1.5px solid ${v.rimLight}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: `0 0 16px ${v.iconColor}55`,
+            boxShadow: `0 0 18px ${v.glowColor}, 0 2px 6px rgba(0,0,0,0.6)`,
           }}>
-            <Icon style={{ width: 28, height: 28, color: v.iconColor, strokeWidth: 2.2 }} />
+            <Icon style={{ width: 26, height: 26, color: v.iconColor, strokeWidth: 2.3, filter: `drop-shadow(0 0 6px ${v.iconColor})` }} />
           </div>
-          {/* Text */}
+          {/* Labels */}
           <div style={{ textAlign: 'center', paddingBottom: 4 }}>
-            <p style={{ color: '#fff', fontWeight: 800, fontSize: 17, lineHeight: 1.1, letterSpacing: '-0.01em' }}>{title}</p>
-            <p style={{ color: v.subtitleColor, fontSize: 11, lineHeight: 1.3, marginTop: 3, maxWidth: 90 }}>{subtitle}</p>
+            <p style={{
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: 18,
+              lineHeight: 1.1,
+              letterSpacing: '-0.01em',
+              textShadow: `0 1px 8px ${v.glowColor}`,
+            }}>{title}</p>
+            <p style={{
+              color: v.subtitleColor,
+              fontSize: 11,
+              lineHeight: 1.35,
+              marginTop: 4,
+              maxWidth: 100,
+            }}>{subtitle}</p>
           </div>
         </div>
       </div>

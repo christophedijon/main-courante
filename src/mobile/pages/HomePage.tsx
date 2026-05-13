@@ -95,20 +95,24 @@ export default function HomePage() {
           <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${saisieOpen ? 'rotate-180' : ''}`} />
         </button>
         {saisieOpen && (
-          <div className="flex items-end justify-center gap-6">
+          <div className="flex items-start justify-center gap-4" style={{ paddingTop: 8, paddingBottom: 16 }}>
+            {/* SSI — plus haut (décalé vers le haut) */}
             <QuickActionCard
               variant="ssi"
               title="SSI"
               subtitle="Sécurité Incendie"
               Icon={Flame}
               onClick={() => start('ssi')}
+              offsetTop={0}
             />
+            {/* Gestion client — décalé vers le bas */}
             <QuickActionCard
               variant="personnes"
               title="Gestion client"
               subtitle="Sécurité des personnes"
               Icon={Users}
               onClick={() => start('securite_personnes')}
+              offsetTop={48}
             />
           </div>
         )}
