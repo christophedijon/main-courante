@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 type AuthContextType = {
   session: Session | null;
   loading: boolean;
+  userMetaLoading: boolean;
   isSuperAdmin: boolean;
   userFonction: string | null;
   isDirection: boolean;
@@ -28,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [userFonction, setUserFonction] = useState<string | null>(null);
   const [mustCompleteProfile, setMustCompleteProfile] = useState(false);
+  const [userMetaLoading, setUserMetaLoading] = useState(true);
 
   async function loadUserMeta(userEmail: string, userId: string) {
     try {
@@ -52,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsSuperAdmin(false);
       setUserFonction(null);
       setMustCompleteProfile(false);
+    } finally {
+      setUserMetaLoading(false);
     }
   }
 
@@ -74,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsSuperAdmin(false);
         setUserFonction(null);
         setMustCompleteProfile(false);
+        setUserMetaLoading(false);
         setLoading(false);
       }
     });
@@ -122,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session, loading, isSuperAdmin, userFonction,
+        session, loading, userMetaLoading, isSuperAdmin, userFonction,
         isDirection, isSecurite, isServeur, isChefDePoste,
         hasAdminAccess, hasChefDePosteAccess, hasMobileAccess,
         mustCompleteProfile,

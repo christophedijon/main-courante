@@ -86,8 +86,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, hasAdminAccess } = useAuth();
-  if (loading) return <Spinner />;
+  const { session, loading, userMetaLoading, hasAdminAccess } = useAuth();
+  if (loading || userMetaLoading) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
   return <>{children}</>;
@@ -102,8 +102,8 @@ function MobileRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute2({ children }: { children: React.ReactNode }) {
-  const { session, loading, hasAdminAccess, mustCompleteProfile } = useAuth();
-  if (loading) return <Spinner />;
+  const { session, loading, userMetaLoading, hasAdminAccess, mustCompleteProfile } = useAuth();
+  if (loading || userMetaLoading) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
