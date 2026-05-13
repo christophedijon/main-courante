@@ -502,7 +502,7 @@ function SsiZoneForm({ initial, onSave, onCancel, loading }: SsiZoneFormProps) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 function EspacesZonesPage() {
-  const { session, signOut, isSuperAdmin } = useAuth();
+  const { session, signOut, isSuperAdmin, hasAdminAccess } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const zoneParam = searchParams.get('zone'); // 'ssi' | null
@@ -529,7 +529,7 @@ function EspacesZonesPage() {
 
   useEffect(() => {
     if (!session) { navigate('/'); return; }
-    if (!isSuperAdmin) { navigate('/profile'); return; }
+    if (!hasAdminAccess) { navigate('/mobile'); return; }
     if (zoneParam === 'ssi') {
       setSsiSectionExpanded(true);
       setTimeout(() => {

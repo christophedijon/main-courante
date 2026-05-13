@@ -311,7 +311,7 @@ function NiveauItem({
 // ─── MotifsPage ───────────────────────────────────────────────────────────────
 
 export default function MotifsPage() {
-  const { session, signOut, isSuperAdmin } = useAuth();
+  const { session, signOut, isSuperAdmin, hasAdminAccess } = useAuth();
   const navigate = useNavigate();
 
   const [motifs, setMotifs]       = useState<Motif[]>([]);
@@ -329,7 +329,7 @@ export default function MotifsPage() {
 
   useEffect(() => {
     if (!session)      { navigate('/'); return; }
-    if (!isSuperAdmin) { navigate('/profile'); return; }
+    if (!hasAdminAccess) { navigate('/mobile'); return; }
     fetchAll();
   }, [session, isSuperAdmin]);
 
