@@ -94,8 +94,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function MobileRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, mustCompleteProfile } = useAuth();
-  if (loading) return <Spinner />;
+  const { session, loading, userMetaLoading, mustCompleteProfile } = useAuth();
+  if (loading || userMetaLoading) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
   return <>{children}</>;
