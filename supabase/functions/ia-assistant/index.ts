@@ -9,12 +9,14 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders
+    });
   }
 
   try {
-    const body = await req.json();
-    const { message, mode = "terrain" } = body;
+    const { message, mode } = await req.json();
 
     if (!message || typeof message !== "string" || message.trim() === "") {
       return new Response(
@@ -30,7 +32,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: iaSettings } = await supabase
       .from("ia_settings")
-      .select("prompt, openai_api_key, gpt_model, prompt_erp, gpt_model_erp, prompt_bruit, gpt_model_bruit, prompt_router, gpt_model_router")
+      .select("prompt, prompt_erp, prompt_bruit, prompt_router, openai_api_key, gpt_model, gpt_model_erp, gpt_model_bruit, gpt_model_router")
       .limit(1)
       .maybeSingle();
 
@@ -40,6 +42,19 @@ Deno.serve(async (req: Request) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
+
+    const { data: entreprise } = await supabase
+      .from("entreprise")
+      .select("nom, adresse, activite_principale, activites_complementaires, activites_reelles, licence_boissons, categorie_erp, effectif_public, effectif_personnel, questionnaire_reponses, horaires_ouverture, siret, code_ape")
+      .limit(1)
+      .maybeSingle();
+
+    const { data: ssiDocs } = await supabase
+      .from("toolbox_documents")
+      .select("titre, contenu, categorie")
+      .in("categorie", ["SSI", "PROCEDURE"])
+      .eq("actif", true)
+      .order("ordre", { ascending: true });
 
     // ── Mode ERP ou Bruit : comportement direct (appelé depuis le back-office) ──
     if (mode === "erp" || mode === "bruit") {
@@ -121,14 +136,6 @@ Deno.serve(async (req: Request) => {
     const promptParts: string[] = [];
 
     if (experts.includes("terrain") && iaSettings.prompt) {
-      // Enrichir le prompt terrain avec les documents SSI/PROCEDURE
-      const { data: ssiDocs } = await supabase
-        .from("toolbox_documents")
-        .select("titre, contenu, categorie")
-        .in("categorie", ["SSI", "PROCEDURE"])
-        .eq("actif", true)
-        .order("ordre", { ascending: true });
-
       let documentContext = "";
       if (ssiDocs && ssiDocs.length > 0) {
         documentContext = `
