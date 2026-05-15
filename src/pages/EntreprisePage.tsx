@@ -61,12 +61,11 @@ const CATEGORIE_COLORS: Record<number, string> = {
 
 const ACTIVITES_PAR_TYPE: Record<string, string[]> = {
   P: ['Discothèque', 'Dancing / Bal', 'Club privé', 'Karaoké dansant', 'Bar de nuit avec piste de danse'],
-  N: ['Bar à Ambiance Musicale (BAM)', 'Restaurant à Ambiance Musicale (RAM)', 'Bar de nuit', 'Bar à cocktails', 'Café / Brasserie', 'Pub', 'Restaurant traditionnel', 'Fast-food / Restauration rapide'],
+  N: ['Bar à Ambiance Musicale (BAM)', 'Restaurant à Ambiance Musicale (RAM)', 'Bar de nuit', 'Bar à cocktails', 'Café / Brasserie', 'Pub', 'Restaurant traditionnel'],
   O: ['Hôtel', 'Hôtel-restaurant', 'Résidence hôtelière', 'Auberge de jeunesse'],
-  L: ['Salle de concert', 'Salle de spectacle vivant', 'Cinéma', 'Salle de conférences', 'Opéra / Théâtre'],
+  L: ['Salle de concert', 'Salle de spectacle vivant', 'Cinéma', 'Salle de conférences'],
   M: ['Centre commercial', 'Grande surface', 'Boutique / Commerce de détail'],
-  R: ['École / Lycée', 'Université', 'Centre de formation', 'Auto-école'],
-  X: ['Salle de sport', 'Piscine couverte', 'Patinoire', 'Salle de boxe / Arts martiaux'],
+  X: ['Salle de sport', 'Piscine couverte', 'Patinoire'],
 };
 
 // Questions per type
@@ -1063,12 +1062,13 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
 
                 <MsgBanner msg={profilMsg} />
 
-                {/* ── A — Activités ── */}
+                {/* ════ A — ACTIVITÉS ════ */}
                 <div className="space-y-4">
                   <p className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2">
                     A — Activités de l'établissement
                   </p>
 
+                  {/* Activité principale */}
                   <Field label="Activité principale">
                     <div className="relative">
                       <select value={data.activite_principale}
@@ -1080,6 +1080,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     </div>
                   </Field>
 
+                  {/* Activités complémentaires */}
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-2">Activités complémentaires</label>
                     {data.activites_complementaires.length > 0 && (
@@ -1101,6 +1102,82 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     </button>
                   </div>
 
+                  {/* Cases à cocher dynamiques par type */}
+                  {(() => {
+                    const typesAvecActivites = activeTypes.filter((t) => ACTIVITES_PAR_TYPE[t]);
+                    if (typesAvecActivites.length === 0) return null;
+                    const toggleActivite = (act: string) => {
+                      setData((d) => ({
+                        ...d,
+                        activites_reelles: d.activites_reelles.includes(act)
+                          ? d.activites_reelles.filter((a) => a !== act)
+                          : [...d.activites_reelles, act],
+                      }));
+                    };
+                    const knownActs = typesAvecActivites.flatMap((t) => ACTIVITES_PAR_TYPE[t]);
+                    const customActs = data.activites_reelles.filter((a) => !knownActs.includes(a));
+                    const addAutre = () => {
+                      const val = autreActivite.trim();
+                      if (!val || data.activites_reelles.includes(val)) return;
+                      setData((d) => ({ ...d, activites_reelles: [...d.activites_reelles, val] }));
+                      setAutreActivite('');
+                    };
+                    return (
+                      <div className="space-y-4 pt-1">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Activités exercées</p>
+                        {typesAvecActivites.map((type) => (
+                          <div key={type} className="space-y-1.5">
+                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Type {type}</p>
+                            {ACTIVITES_PAR_TYPE[type].map((act) => {
+                              const checked = data.activites_reelles.includes(act);
+                              return (
+                                <label key={act} className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all ${checked ? 'border-blue-500/50 bg-blue-500/10' : 'border-slate-700/60 bg-slate-800/30 hover:border-slate-600'}`}>
+                                  <div className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-all ${checked ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
+                                    {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                  </div>
+                                  <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleActivite(act)} />
+                                  <span className={`text-sm ${checked ? 'text-white' : 'text-slate-400'}`}>{act}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ))}
+                        {/* Activités personnalisées existantes */}
+                        {customActs.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Activités personnalisées</p>
+                            {customActs.map((act) => (
+                              <div key={act} className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-blue-500/50 bg-blue-500/10">
+                                <div className="w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center bg-blue-500 border-blue-500">
+                                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                </div>
+                                <span className="text-sm text-white flex-1">{act}</span>
+                                <button type="button" onClick={() => setData((d) => ({ ...d, activites_reelles: d.activites_reelles.filter((a) => a !== act) }))} className="text-slate-500 hover:text-red-400 transition-colors">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* Champ texte libre */}
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={autreActivite}
+                            onChange={(e) => setAutreActivite(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAutre(); } }}
+                            placeholder="Autre activité…"
+                            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          />
+                          <button type="button" onClick={addAutre} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-xl transition-colors font-medium">
+                            Ajouter
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Licence */}
                   <Field label="Licence débit de boissons">
                     <div className="relative">
                       <select value={data.licence_boissons}
@@ -1111,7 +1188,6 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                       <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     </div>
                   </Field>
-
                   {data.licence_boissons === 'petite_restaurant' && (
                     <div className="flex items-start gap-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
@@ -1126,7 +1202,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                   )}
                 </div>
 
-                {/* ── B — Questions dynamiques ── */}
+                {/* ════ B — QUESTIONS DYNAMIQUES ════ */}
                 {activeQuestions.length > 0 && (
                   <div className="space-y-4">
                     <p className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2">
@@ -1169,12 +1245,14 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                   </div>
                 )}
 
-                {/* ── C — Prochaine visite calculée ── */}
+                {/* ════ C — PROCHAINE ÉCHÉANCE ════ */}
                 <div className="space-y-3">
                   <p className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2">
-                    C — Prochaine visite de la commission de sécurité
+                    C — Prochaine échéance de la commission de sécurité
                   </p>
-                  <p className="text-xs text-slate-500">Calculée automatiquement depuis la catégorie ERP et la date de la dernière visite (saisie dans le Registre de sécurité).</p>
+                  <p className="text-xs text-slate-500">
+                    Calculée automatiquement depuis la catégorie ERP et la date de la dernière visite (saisie dans le Registre de sécurité).
+                  </p>
                   <div className="flex items-center gap-3 flex-wrap">
                     {nextVisitBadge() ?? (
                       <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-slate-700 border border-slate-600 text-slate-400">
@@ -1183,14 +1261,14 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     )}
                   </div>
                   {data.categorie_erp === 5 && !hasLocauxSommeil && (
-                    <p className="text-xs text-slate-500">En catégorie 5 sans locaux à sommeil, aucune visite périodique de la commission de sécurité n'est obligatoire.</p>
+                    <p className="text-xs text-slate-500">En catégorie 5 sans locaux à sommeil, aucune visite périodique n'est obligatoire.</p>
                   )}
                 </div>
 
-                {/* ── Save profile ── */}
+                {/* ── Bouton Enregistrer ── */}
                 <SaveRow loading={saveLoading} label="Enregistrer le profil réglementaire" />
 
-                {/* ── Generate / Email ── */}
+                {/* ── Générer mes obligations ── */}
                 <div className="border-t border-slate-800 pt-5 space-y-3">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5" />
@@ -1233,15 +1311,12 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     )}
                   </div>
 
-                  {/* Preview generated document */}
                   {data.document_obligations_html && (
                     <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                          <RefreshCw className="w-3 h-3" />
-                          Aperçu du document généré
-                        </p>
-                      </div>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                        <RefreshCw className="w-3 h-3" />
+                        Aperçu du document généré
+                      </p>
                       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 max-h-80 overflow-y-auto">
                         <div
                           className="prose-sm max-w-none"
