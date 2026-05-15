@@ -13,6 +13,7 @@ type RegistreItem = {
   installation: string;
   reference_reglementaire: string;
   organisme_verificateur: string;
+  email_organisme: string;
   periodicite: string;
   applicable: boolean;
   date_verification: string | null;
@@ -163,7 +164,7 @@ function HistoriquePanel({ item, onClose }: { item: RegistreItem; onClose: () =>
 type AddModalProps = { onClose: () => void; onAdded: (item: RegistreItem) => void };
 
 function AddModal({ onClose, onAdded }: AddModalProps) {
-  const [form, setForm] = useState({ installation: '', reference_reglementaire: '', organisme_verificateur: '', periodicite: 'Annuelle' });
+  const [form, setForm] = useState({ installation: '', reference_reglementaire: '', organisme_verificateur: '', email_organisme: '', periodicite: 'Annuelle' });
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit() {
@@ -196,6 +197,11 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
             <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Organisme vérificateur</label>
             <input value={form.organisme_verificateur} onChange={(e) => setForm(f => ({ ...f, organisme_verificateur: e.target.value }))}
               className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: Technicien compétent" />
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
+            <input type="email" value={form.email_organisme} onChange={(e) => setForm(f => ({ ...f, email_organisme: e.target.value }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="email@organisme.fr" />
           </div>
           <div>
             <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Périodicité</label>
@@ -372,6 +378,17 @@ function RegistreRow({ item, onUpdate, onSaved }: RowProps) {
           />
         </td>
 
+        {/* Email organisme */}
+        <td className="px-3 py-3 min-w-[160px]">
+          <input
+            type="email"
+            value={current.email_organisme}
+            onChange={(e) => patch('email_organisme', e.target.value)}
+            placeholder="email@organisme.fr"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500 w-full"
+          />
+        </td>
+
         {/* Prochaine vérification + statut */}
         <td className="px-3 py-3 min-w-[150px]">
           <div className="space-y-1">
@@ -444,7 +461,7 @@ function RegistreRow({ item, onUpdate, onSaved }: RowProps) {
           </div>
         </td>
       </tr>
-      {showHistorique && <tr><td colSpan={12}></td></tr>}
+      {showHistorique && <tr><td colSpan={13}></td></tr>}
       {showHistorique && <HistoriquePanel item={item} onClose={() => setShowHistorique(false)} />}
     </>
   );
@@ -575,7 +592,7 @@ export default function RegistreSecuritePage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-800/60 border-b border-slate-700">
-                    {['Applic.', 'Installation', 'Référence', 'Organisme', 'Périodicité', 'Dernière vérif.', 'Vérificateur', 'Prochaine vérif.', 'Observations', 'Levée observations', 'Rapport PDF', 'Actions'].map((h) => (
+                    {['Applic.', 'Installation', 'Référence', 'Organisme', 'Périodicité', 'Dernière vérif.', 'Vérificateur', 'Email organisme', 'Prochaine vérif.', 'Observations', 'Levée observations', 'Rapport PDF', 'Actions'].map((h) => (
                       <th key={h} className="px-3 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
