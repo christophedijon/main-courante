@@ -56,50 +56,79 @@ Deno.serve(async (req: Request) => {
       .eq("actif", true)
       .order("ordre", { ascending: true });
 
-    // ── Mode ERP ou Bruit : comportement direct (appelé depuis le back-office) ──
-    if (mode === "erp" || mode === "bruit") {
-      const systemPrompt = mode === "erp"
-        ? (iaSettings.prompt_erp || "")
-        : (iaSettings.prompt_bruit || "");
-      const gptModel = mode === "erp"
-        ? (iaSettings.gpt_model_erp || "gpt-4o")
-        : (iaSettings.gpt_model_bruit || "gpt-4o");
+    let entrepriseContext = "";
+    if (entreprise) {
+      const activitesReelles = Array.isArray(entreprise.activites_reelles)
+        ? entreprise.activites_reelles.join(", ")
+        : "";
+      const activitesCompl = Array.isArray(entreprise.activites_complementaires)
+        ? entreprise.activites_complementaires.join(", ")
+        : "";
+      const licenceLabel: Record<string, string> = {
+        "I": "Licence I — Sans alcool",
+        "II": "Licence II — Bières/vins doux",
+        "III": "Licence III — Vins/bières",
+        "IV": "Licence IV — Tous alcools",
+        "restaurant": "Licence restaurant",
+        "petite_restaurant": "Petite licence restaurant",
+      };
 
-      const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${iaSettings.openai_api_key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: gptModel,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message },
-          ],
-          max_tokens: 4000,
-          temperature: 0.3,
-        }),
-      });
+      const qReponses = entreprise.questionnaire_reponses
+        ? Object.entries(entreprise.questionnaire_reponses)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(", ")
+        : "";
 
-      const openaiData = await openaiRes.json();
-      if (!openaiRes.ok) {
-        return new Response(
-          JSON.stringify({ error: openaiData.error?.message || "Erreur OpenAI" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-        );
-      }
+      const horaires = entreprise.horaires_ouverture
+        ? Object.entries(entreprise.horaires_ouverture as Record<string, {ouvert:boolean;ouverture:string;fermeture:string}>)
+            .filter(([, v]) => v.ouvert)
+            .map(([jour, v]) => `${jour}: ${v.ouverture}-${v.fermeture}`)
+            .join(", ")
+        : "Non renseignés";
 
-      const content = openaiData.choices?.[0]?.message?.content || "";
-      return new Response(
-        JSON.stringify({ response: content, experts: [mode] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      entrepriseContext = `
+
+═══════════════════════════════════════
+CONTEXTE OBLIGATOIRE DE L'ÉTABLISSEMENT
+Tu DOIS utiliser ces informations dans ta réponse.
+Ne donne JAMAIS de réponse générique.
+═══════════════════════════════════════
+Nom : ${entreprise.nom ?? "Non renseigné"}
+Adresse : ${entreprise.adresse ?? "Non renseignée"}
+SIRET : ${entreprise.siret ?? "Non renseigné"}
+Code APE : ${entreprise.code_ape ?? "Non renseigné"}
+Type ERP principal : Type ${entreprise.activite_principale ?? "P"}
+Activités complémentaires : ${activitesCompl || "Aucune"}
+Activités exercées : ${activitesReelles || "Non renseignées"}
+Licence : ${licenceLabel[entreprise.licence_boissons ?? ""] ?? entreprise.licence_boissons ?? "Non renseignée"}
+Catégorie ERP : ${entreprise.categorie_erp ?? "Non renseignée"}
+Effectif public maximum : ${entreprise.effectif_public ?? "Non renseigné"} personnes
+Effectif personnel : ${entreprise.effectif_personnel ?? "Non renseigné"} personnes
+Horaires d'ouverture : ${horaires}
+Profil détaillé : ${qReponses || "Non renseigné"}
+═══════════════════════════════════════
+INSTRUCTION ABSOLUE :
+Adapte TOUJOURS ta réponse à cet établissement.
+Exemple : si c'est une Discothèque Type P,
+ne pose pas de questions pour savoir quel type
+d'établissement c'est — tu le sais déjà.
+═══════════════════════════════════════`;
     }
 
-    // ── Mode terrain avec routage intelligent ──────────────────────────────────
-    let experts: string[] = ["terrain"];
+    let documentContext = "";
+    if (ssiDocs && ssiDocs.length > 0) {
+      documentContext = `
 
+═══════════════════════════════════════
+DOCUMENTS SSI ET PROCÉDURES
+═══════════════════════════════════════
+${ssiDocs.map((doc: {categorie:string;titre:string;contenu:string}) =>
+  `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`
+).join("\n\n")}
+═══════════════════════════════════════`;
+    }
+
+    let experts: string[] = ["terrain"];
     if (iaSettings.prompt_router && iaSettings.prompt_router.trim() !== "") {
       try {
         const routerRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -118,61 +147,39 @@ Deno.serve(async (req: Request) => {
             temperature: 0,
           }),
         });
-
-        if (routerRes.ok) {
-          const routerData = await routerRes.json();
-          const routerText = routerData.choices?.[0]?.message?.content?.trim() ?? '["terrain"]';
-          const parsed = JSON.parse(routerText);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            experts = parsed;
-          }
-        }
+        const routerData = await routerRes.json();
+        const routerText = routerData.choices?.[0]?.message?.content?.trim() ?? '["terrain"]';
+        const parsed = JSON.parse(routerText);
+        if (Array.isArray(parsed)) experts = parsed;
       } catch {
         experts = ["terrain"];
       }
     }
 
-    // ── Construire le prompt combiné selon les experts détectés ────────────────
+    if (mode === "erp") experts = ["erp"];
+    if (mode === "bruit") experts = ["bruit"];
+    if (mode === "terrain") experts = ["terrain"];
+
     const promptParts: string[] = [];
-
     if (experts.includes("terrain") && iaSettings.prompt) {
-      let documentContext = "";
-      if (ssiDocs && ssiDocs.length > 0) {
-        documentContext = `
-
-═══════════════════════════════════════
-DOCUMENTS DE RÉFÉRENCE SSI ET PROCÉDURES
-═══════════════════════════════════════
-Les documents suivants sont les procédures
-officielles de l'établissement.
-Tu DOIS les consulter pour construire
-ta réponse et t'y référer explicitement
-quand c'est pertinent.
-
-${ssiDocs.map((doc) => `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`).join("\n\n")}
-═══════════════════════════════════════`;
-      }
-
-      promptParts.push(`=== EXPERT SÉCURITÉ TERRAIN ===\n${iaSettings.prompt}${documentContext}`);
+      promptParts.push(`=== EXPERT SÉCURITÉ TERRAIN ===\n${iaSettings.prompt}`);
     }
-
     if (experts.includes("erp") && iaSettings.prompt_erp) {
       promptParts.push(`=== EXPERT RÉGLEMENTATION ERP ===\n${iaSettings.prompt_erp}`);
     }
-
     if (experts.includes("bruit") && iaSettings.prompt_bruit) {
       promptParts.push(`=== EXPERT BRUIT ET ACOUSTIQUE ===\n${iaSettings.prompt_bruit}`);
     }
-
-    let combinedPrompt = promptParts.length > 0
-      ? promptParts.join("\n\n")
-      : (iaSettings.prompt || "");
-
-    if (promptParts.length > 1) {
-      combinedPrompt += `\n\n=== INSTRUCTION DE SYNTHÈSE ===\nTu combines les expertises ci-dessus pour répondre à cette question.\nStructure ta réponse en 4 blocs clairs.\nCommence par identifier les dimensions de la question (terrain / ERP / bruit) puis réponds à chacune.`;
+    if (promptParts.length === 0 && iaSettings.prompt) {
+      promptParts.push(iaSettings.prompt);
     }
 
-    const maxTokens = experts.includes("erp") ? 4000 : 1500;
+    let combinedPrompt = promptParts.join("\n\n");
+    if (promptParts.length > 1) {
+      combinedPrompt += `\n\n=== INSTRUCTION DE SYNTHÈSE ===\nCombine les expertises ci-dessus. Structure en 4 blocs clairs.`;
+    }
+
+    combinedPrompt += entrepriseContext + documentContext;
 
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -181,18 +188,21 @@ ${ssiDocs.map((doc) => `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: iaSettings.gpt_model || "gpt-4o",
+        model: experts.includes("erp")
+          ? (iaSettings.gpt_model_erp || iaSettings.gpt_model || "gpt-4o")
+          : experts.includes("bruit")
+          ? (iaSettings.gpt_model_bruit || iaSettings.gpt_model || "gpt-4o")
+          : (iaSettings.gpt_model || "gpt-4o"),
         messages: [
           { role: "system", content: combinedPrompt },
           { role: "user", content: message },
         ],
-        max_tokens: maxTokens,
+        max_tokens: 2000,
         temperature: 0.3,
       }),
     });
 
     const openaiData = await openaiRes.json();
-
     if (!openaiRes.ok) {
       return new Response(
         JSON.stringify({ error: openaiData.error?.message || "Erreur OpenAI" }),
@@ -203,14 +213,14 @@ ${ssiDocs.map((doc) => `--- ${doc.categorie} : ${doc.titre} ---\n${doc.contenu}`
     const content = openaiData.choices?.[0]?.message?.content || "";
 
     return new Response(
-      JSON.stringify({ response: content, experts }),
+      JSON.stringify({ response: content, experts: experts }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Erreur interne";
+    const msg = err instanceof Error ? err.message : "Erreur interne";
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: msg }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
