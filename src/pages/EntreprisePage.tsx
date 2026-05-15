@@ -1272,49 +1272,6 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                   )}
                 </div>
 
-                {/* ════ B — QUESTIONS DYNAMIQUES ════ */}
-                {activeQuestions.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2">
-                      B — Questions spécifiques à votre activité
-                    </p>
-                    {activeTypes.map((type) => {
-                      const qs = QUESTIONS[type];
-                      if (!qs || qs.length === 0) return null;
-                      const typeLabel = TYPES_ERP.find((t) => t.value === type)?.label ?? `Type ${type}`;
-                      return (
-                        <div key={type} className="space-y-3">
-                          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{typeLabel}</p>
-                          {qs.map((q) => {
-                            if (q.type === 'boolean') {
-                              const val = r[q.id];
-                              return (
-                                <BoolQuestion
-                                  key={q.id} q={q}
-                                  value={val === true ? true : val === false ? false : null}
-                                  onChange={(v) => setAnswer(q.id, v)}
-                                />
-                              );
-                            }
-                            if (q.type === 'number') {
-                              return (
-                                <div key={q.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 space-y-2">
-                                  <p className="text-sm text-slate-200 leading-snug">{q.label}</p>
-                                  <input type="number" min={0} placeholder={q.placeholder}
-                                    value={typeof r[q.id] === 'number' ? (r[q.id] as number) : ''}
-                                    onChange={(e) => setAnswer(q.id, e.target.value ? Number(e.target.value) : null)}
-                                    className={inputNumCls} />
-                                </div>
-                              );
-                            }
-                            return null;
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
                 {/* ════ C — PROCHAINE ÉCHÉANCE ════ */}
                 <div className="space-y-3">
                   <p className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2">
