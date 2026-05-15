@@ -4,7 +4,7 @@ import {
   Building2, Save, CheckCircle, AlertCircle, Upload, X,
   Image as ImageIcon, Phone, MapPin, ChevronDown,
   Layers, Scale, Plus, Zap, Mail,
-  FileText, RefreshCw,
+  FileText, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -423,6 +423,14 @@ export default function EntreprisePage() {
   const [generating, setGenerating]     = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  const [iaQuestions, setIaQuestions]   = useState<{ id: string; question: string }[]>([]);
+  const [qReponses, setQReponses]       = useState<Record<string, boolean>>({});
+  const [generatingQ, setGeneratingQ]   = useState(false);
+
+  function setQReponse(id: string, val: boolean) {
+    setQReponses((r) => ({ ...r, [id]: val }));
+  }
+
   useEffect(() => {
     if (!session) { navigate('/'); return; }
     fetchData();
@@ -577,12 +585,74 @@ export default function EntreprisePage() {
 
   async function handleSaveProfil(e: FormEvent) {
     e.preventDefault();
+    const mergedReponses = { ...data.questionnaire_reponses, ...qReponses };
     await saveField({
       activite_principale: data.activite_principale,
       activites_complementaires: data.activites_complementaires,
+      activites_reelles: data.activites_reelles,
       licence_boissons: data.licence_boissons,
-      questionnaire_reponses: data.questionnaire_reponses,
-    }, setProfilMsg, () => {});
+      questionnaire_reponses: mergedReponses,
+    }, setProfilMsg, () => {
+      setData((d) => ({ ...d, questionnaire_reponses: mergedReponses }));
+    });
+  }
+
+  async function handleGenerateQuestions() {
+    setGeneratingQ(true);
+    try {
+      const licenceLabel = LICENCES_BOISSONS.find((l) => l.value === data.licence_boissons)?.label ?? 'Non applicable';
+      const profileMsg = `Tu es un assistant qui aide à compléter la fiche d'identité d'un établissement ERP.
+
+L'établissement a ces caractéristiques :
+- Type ERP principal : ${data.activite_principale}
+- Activités complémentaires : ${data.activites_complementaires.length ? data.activites_complementaires.join(', ') : 'Aucune'}
+- Activités exercées : ${data.activites_reelles.length ? data.activites_reelles.join(', ') : 'Non précisées'}
+- Licence : ${licenceLabel}
+- Catégorie : ${data.categorie_erp}
+
+Génère EXACTEMENT 10 questions fermées (réponse oui/non) pour mieux comprendre le fonctionnement et les spécificités de cet établissement.
+
+Ces questions doivent porter sur :
+- Les caractéristiques physiques du lieu (sous-sol, mezzanine, terrasse, capacité réelle)
+- Les équipements spéciaux (effets pyrotechniques, lasers, brouillard de scène, sono)
+- Les horaires et fréquences d'activité (soirées par semaine, événements spéciaux)
+- Le personnel présent (agent de sécurité obligatoire, SSIAP, personnel de nuit)
+- Les contraintes particulières (voisinage résidentiel, bâtiment classé, zone inondable)
+
+Format de réponse OBLIGATOIRE :
+Retourne UNIQUEMENT un JSON valide :
+[
+  {"id": "q1", "question": "..."},
+  {"id": "q2", "question": "..."},
+  ...
+  {"id": "q10", "question": "..."}
+]
+Aucun texte avant ou après le JSON.`;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ia-assistant`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ message: profileMsg, mode: 'erp' }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || json.error) return;
+      const raw: string = json.response ?? '';
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) return;
+      const parsed = JSON.parse(jsonMatch[0]) as { id: string; question: string }[];
+      setIaQuestions(parsed);
+      setQReponses({});
+    } catch {
+      // silently ignore
+    }
+    setGeneratingQ(false);
   }
 
   // ── Questionnaire helpers ───────────────────────────────────────────────────
@@ -1267,6 +1337,65 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
 
                 {/* ── Bouton Enregistrer ── */}
                 <SaveRow loading={saveLoading} label="Enregistrer le profil réglementaire" />
+
+                {/* ── Questions IA ── */}
+                <div className="border-t border-slate-800 pt-5 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                        Questions de profil générées par l'IA
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">10 questions personnalisées selon votre activité</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGenerateQuestions}
+                      disabled={generatingQ}
+                      className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
+                    >
+                      {generatingQ
+                        ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>Génération…</>
+                        : <><Sparkles className="w-4 h-4" />{iaQuestions.length > 0 ? 'Régénérer' : 'Générer les questions de profil'}</>
+                      }
+                    </button>
+                  </div>
+
+                  {iaQuestions.length > 0 && (
+                    <div className="space-y-2">
+                      {iaQuestions.map((q) => (
+                        <div key={q.id} className="flex items-center justify-between gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                          <p className="text-slate-300 text-sm flex-1 leading-snug">{q.question}</p>
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setQReponse(q.id, true)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                qReponses[q.id] === true
+                                  ? 'bg-green-500/30 text-green-300 border-green-500/40'
+                                  : 'bg-slate-700 text-slate-400 border-slate-600 hover:bg-slate-600'
+                              }`}
+                            >
+                              OUI
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setQReponse(q.id, false)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                qReponses[q.id] === false
+                                  ? 'bg-red-500/30 text-red-300 border-red-500/40'
+                                  : 'bg-slate-700 text-slate-400 border-slate-600 hover:bg-slate-600'
+                              }`}
+                            >
+                              NON
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <p className="text-xs text-slate-500 pt-1">Les réponses seront incluses lors du prochain enregistrement du profil.</p>
+                    </div>
+                  )}
+                </div>
 
                 {/* ── Générer mes obligations ── */}
                 <div className="border-t border-slate-800 pt-5 space-y-3">
