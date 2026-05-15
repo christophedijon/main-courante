@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Building2, Save, CheckCircle, AlertCircle, Upload, X,
   Image as ImageIcon, Phone, MapPin, ChevronDown,
-  ShieldAlert, Users, Layers, Scale, Plus, Zap, Mail,
-  FileText, Calendar, RefreshCw,
+  Layers, Scale, Plus, Zap, Mail,
+  FileText, RefreshCw,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -383,9 +383,7 @@ export default function EntreprisePage() {
 
   const [infoMsg, setInfoMsg]           = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [logoMsg, setLogoMsg]           = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [erpTypeMsg, setErpTypeMsg]     = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [erpCatMsg, setErpCatMsg]       = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [effectifMsg, setEffectifMsg]   = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [profilMsg, setProfilMsg]       = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [genMsg, setGenMsg]             = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -409,9 +407,7 @@ export default function EntreprisePage() {
 
   const [openInfo, setOpenInfo]         = useState(false);
   const [openLogo, setOpenLogo]         = useState(false);
-  const [openErpType, setOpenErpType]   = useState(false);
   const [openErpCat, setOpenErpCat]     = useState(false);
-  const [openEffectif, setOpenEffectif] = useState(false);
   const [openProfil, setOpenProfil]     = useState(false);
 
   const [logoFile, setLogoFile]         = useState<File | null>(null);
@@ -571,19 +567,13 @@ export default function EntreprisePage() {
     }
   }
 
-  async function handleSaveErpType(e: FormEvent) {
-    e.preventDefault();
-    await saveField({ type_erp: data.type_erp, activites_reelles: data.activites_reelles }, setErpTypeMsg, () => setOpenErpType(false));
-  }
-
   async function handleSaveErpCat(e: FormEvent) {
     e.preventDefault();
-    await saveField({ categorie_erp: data.categorie_erp }, setErpCatMsg, () => setOpenErpCat(false));
-  }
-
-  async function handleSaveEffectif(e: FormEvent) {
-    e.preventDefault();
-    await saveField({ effectif_public: data.effectif_public, effectif_personnel: data.effectif_personnel }, setEffectifMsg, () => setOpenEffectif(false));
+    await saveField({
+      categorie_erp: data.categorie_erp,
+      effectif_public: data.effectif_public,
+      effectif_personnel: data.effectif_personnel,
+    }, setErpCatMsg, () => setOpenErpCat(false));
   }
 
   async function handleSaveProfil(e: FormEvent) {
@@ -593,10 +583,6 @@ export default function EntreprisePage() {
       activites_complementaires: data.activites_complementaires,
       licence_boissons: data.licence_boissons,
       questionnaire_reponses: data.questionnaire_reponses,
-      categorie_erp: data.categorie_erp,
-      effectif_public: data.effectif_public,
-      effectif_personnel: data.effectif_personnel,
-      derniere_visite_commission: data.derniere_visite_commission || null,
     }, setProfilMsg, () => {});
   }
 
@@ -806,9 +792,6 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
     : hasPdfLogo ? <p className="text-slate-500 text-xs">logo.pdf</p>
     : <p className="text-slate-500 text-xs italic">Aucun logo</p>;
 
-  const selectedErpType = TYPES_ERP.find((t) => t.value === data.type_erp);
-  const erpTypePreview = <p className="text-slate-500 text-xs">{selectedErpType ? `Type ${selectedErpType.value}` : 'Non renseigné'}</p>;
-
   const selectedCat = CATEGORIES_ERP.find((c) => c.value === data.categorie_erp);
   const catColorCls = CATEGORIE_COLORS[data.categorie_erp] ?? 'text-slate-400 bg-slate-800 border-slate-700';
   const erpCatPreview = selectedCat ? (
@@ -818,12 +801,10 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
   ) : null;
 
   const effectifTotal = data.effectif_public + data.effectif_personnel;
-  const effectifPreview = <p className="text-slate-500 text-xs">{effectifTotal > 0 ? `${effectifTotal} personnes (${data.effectif_public} public + ${data.effectif_personnel} personnel)` : 'Non renseigné'}</p>;
 
   const profilPreview = (
     <p className="text-slate-500 text-xs">
       {activeTypes.length ? `Type ${activeTypes.join(' + ')}` : 'Non configuré'}
-      {data.derniere_visite_commission ? ` · Visite ${new Date(data.derniere_visite_commission).toLocaleDateString('fr-FR')}` : ''}
     </p>
   );
 
@@ -994,131 +975,16 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
               </form>
             </CollapseCard>
 
-            {/* ── Type ERP ── */}
+            {/* ── Catégorie ERP + Effectif ── */}
             <CollapseCard
-              title="Type d'établissement (ERP)" subtitle="Nomenclature selon l'activité exercée — Arrêté du 25 juin 1980"
-              icon={<ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />}
-              accentClass="from-amber-500 to-orange-400" preview={erpTypePreview}
-              open={openErpType} onToggle={() => { setOpenErpType((v) => !v); setErpTypeMsg(null); }}
-            >
-              <form onSubmit={handleSaveErpType} className="space-y-4">
-                <MsgBanner msg={erpTypeMsg} />
-                <Field label="Type d'établissement">
-                  <div className="relative">
-                    <select value={data.type_erp} onChange={(e) => setData((d) => ({ ...d, type_erp: e.target.value }))} className={selectCls}>
-                      {TYPES_ERP.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  </div>
-                </Field>
-                {data.type_erp === 'P' && (
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
-                    <p className="text-amber-300 text-xs leading-relaxed">Votre établissement est soumis aux dispositions particulières du <strong>Type P</strong> (Arrêté du 25 juin 1980, articles P1 à P24). Effectif calculé : <strong>4 personnes pour 3 m²</strong> de surface de salle.</p>
-                  </div>
-                )}
-                {data.type_erp === 'N' && (
-                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
-                    <p className="text-blue-300 text-xs leading-relaxed">Votre établissement est soumis aux dispositions particulières du <strong>Type N</strong>. Seuil 5e catégorie : <strong>moins de 200 personnes</strong> (moins de 100 en sous-sol).</p>
-                  </div>
-                )}
-                {!['P', 'N'].includes(data.type_erp) && (
-                  <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
-                    <p className="text-slate-400 text-xs leading-relaxed">Établissement classé <strong>Type {data.type_erp}</strong>. Consultez les dispositions particulières applicables dans l'arrêté du 25 juin 1980.</p>
-                  </div>
-                )}
-
-                {/* ── Activités exercées ── */}
-                {(() => {
-                  const activeTypes = [data.activite_principale, ...data.activites_complementaires].filter((t) => ACTIVITES_PAR_TYPE[t]);
-                  const toggleActivite = (act: string) => {
-                    setData((d) => ({
-                      ...d,
-                      activites_reelles: d.activites_reelles.includes(act)
-                        ? d.activites_reelles.filter((a) => a !== act)
-                        : [...d.activites_reelles, act],
-                    }));
-                  };
-                  const addAutre = () => {
-                    const val = autreActivite.trim();
-                    if (!val || data.activites_reelles.includes(val)) return;
-                    setData((d) => ({ ...d, activites_reelles: [...d.activites_reelles, val] }));
-                    setAutreActivite('');
-                  };
-                  return (
-                    <div className="pt-2">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Activités exercées</p>
-                      {activeTypes.length > 0 ? (
-                        <div className="space-y-4">
-                          {activeTypes.map((type) => (
-                            <div key={type}>
-                              <p className="text-xs text-slate-500 mb-2">Type {type}</p>
-                              <div className="space-y-1.5">
-                                {ACTIVITES_PAR_TYPE[type].map((act) => {
-                                  const checked = data.activites_reelles.includes(act);
-                                  return (
-                                    <label key={act} className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all ${checked ? 'border-blue-500/50 bg-blue-500/10' : 'border-slate-700/60 bg-slate-800/30 hover:border-slate-600'}`}>
-                                      <div className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-all ${checked ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
-                                        {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                                      </div>
-                                      <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleActivite(act)} />
-                                      <span className={`text-sm ${checked ? 'text-white' : 'text-slate-400'}`}>{act}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-600 italic mb-3">Sélectionnez un type ERP ci-dessus pour voir les activités disponibles.</p>
-                      )}
-                      {data.activites_reelles.filter((a) => !activeTypes.flatMap((t) => ACTIVITES_PAR_TYPE[t] ?? []).includes(a)).length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          <p className="text-xs text-slate-500 mb-2">Activités personnalisées</p>
-                          {data.activites_reelles.filter((a) => !activeTypes.flatMap((t) => ACTIVITES_PAR_TYPE[t] ?? []).includes(a)).map((act) => (
-                            <div key={act} className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-blue-500/50 bg-blue-500/10">
-                              <div className="w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center bg-blue-500 border-blue-500">
-                                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                              </div>
-                              <span className="text-sm text-white flex-1">{act}</span>
-                              <button type="button" onClick={() => setData((d) => ({ ...d, activites_reelles: d.activites_reelles.filter((a) => a !== act) }))} className="text-slate-500 hover:text-red-400 transition-colors">
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-2 mt-3">
-                        <input
-                          type="text"
-                          value={autreActivite}
-                          onChange={(e) => setAutreActivite(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAutre(); } }}
-                          placeholder="Autre activité…"
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        />
-                        <button type="button" onClick={addAutre} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-xl transition-colors font-medium">
-                          Ajouter
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <SaveRow loading={saveLoading} />
-              </form>
-            </CollapseCard>
-
-            {/* ── Catégorie ERP ── */}
-            <CollapseCard
-              title="Catégorie ERP" subtitle="Classement selon la capacité d'accueil — Article R143-19 du CCH"
+              title="Catégorie ERP et effectif" subtitle="Classement selon la capacité d'accueil — Article R143-19 du CCH"
               icon={<Layers className="w-4 h-4 shrink-0 text-blue-400" />}
               accentClass="from-blue-500 to-blue-400" preview={erpCatPreview}
               open={openErpCat} onToggle={() => { setOpenErpCat((v) => !v); setErpCatMsg(null); }}
             >
               <form onSubmit={handleSaveErpCat} className="space-y-4">
                 <MsgBanner msg={erpCatMsg} />
-                <Field label="Catégorie">
+                <Field label="Catégorie ERP">
                   <div className="relative">
                     <select value={data.categorie_erp} onChange={(e) => setData((d) => ({ ...d, categorie_erp: Number(e.target.value) }))} className={selectCls}>
                       {CATEGORIES_ERP.map((c) => <option key={c.value} value={c.value}>{c.label} — {c.description}</option>)}
@@ -1135,21 +1001,8 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     </div>
                   </div>
                 )}
-                <SaveRow loading={saveLoading} />
-              </form>
-            </CollapseCard>
-
-            {/* ── Effectif ── */}
-            <CollapseCard
-              title="Effectif admissible" subtitle="Fixé par l'autorité administrative lors de la dernière visite de la commission de sécurité"
-              icon={<Users className="w-4 h-4 shrink-0 text-emerald-400" />}
-              accentClass="from-emerald-500 to-teal-400" preview={effectifPreview}
-              open={openEffectif} onToggle={() => { setOpenEffectif((v) => !v); setEffectifMsg(null); }}
-            >
-              <form onSubmit={handleSaveEffectif} className="space-y-4">
-                <MsgBanner msg={effectifMsg} />
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Effectif public (Ep)">
+                  <Field label="Effectif public maximum (Ep)">
                     <input type="number" min={0} value={data.effectif_public}
                       onChange={(e) => setData((d) => ({ ...d, effectif_public: Math.max(0, Number(e.target.value)) }))}
                       className={inputNumCls} />
@@ -1316,65 +1169,19 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                   </div>
                 )}
 
-                {/* ── C — Classement & capacité ── */}
-                <div className="space-y-4">
+                {/* ── C — Prochaine visite calculée ── */}
+                <div className="space-y-3">
                   <p className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2">
-                    C — Classement et effectif admissible
+                    C — Prochaine visite de la commission de sécurité
                   </p>
-
-                  <Field label="Catégorie ERP">
-                    <div className="relative">
-                      <select value={data.categorie_erp}
-                        onChange={(e) => setData((d) => ({ ...d, categorie_erp: Number(e.target.value) }))}
-                        className={selectCls}>
-                        {CATEGORIES_ERP.map((c) => <option key={c.value} value={c.value}>{c.label} — {c.description}</option>)}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1.5">Pour connaître votre catégorie, reportez-vous au compte-rendu de la dernière visite de la commission de sécurité ou contactez le SDIS de votre département.</p>
-                  </Field>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Effectif public maximum">
-                      <input type="number" min={0} value={data.effectif_public}
-                        onChange={(e) => setData((d) => ({ ...d, effectif_public: Math.max(0, Number(e.target.value)) }))}
-                        className={inputNumCls} />
-                      <p className="text-xs text-slate-500 mt-1">Nombre de clients admis simultanément, fixé par l'autorité administrative.</p>
-                    </Field>
-                    <Field label="Effectif personnel">
-                      <input type="number" min={0} value={data.effectif_personnel}
-                        onChange={(e) => setData((d) => ({ ...d, effectif_personnel: Math.max(0, Number(e.target.value)) }))}
-                        className={inputNumCls} />
-                    </Field>
+                  <p className="text-xs text-slate-500">Calculée automatiquement depuis la catégorie ERP et la date de la dernière visite (saisie dans le Registre de sécurité).</p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {nextVisitBadge() ?? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-slate-700 border border-slate-600 text-slate-400">
+                        Date de dernière visite non renseignée — à compléter dans le Registre de sécurité
+                      </span>
+                    )}
                   </div>
-
-                  {/* Total */}
-                  <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3 flex items-center justify-between">
-                    <span className="text-slate-400 text-sm">Effectif total</span>
-                    <span className="text-white text-lg font-bold">{effectifTotal} <span className="text-sm font-normal text-slate-500">personnes</span></span>
-                  </div>
-
-                  {/* Alerte incohérence */}
-                  {data.categorie_erp === 5 && activeTypes.includes('P') && effectifTotal > 120 && (
-                    <EffectifAlert text="L'effectif dépasse le seuil de la 5e catégorie pour un ERP Type P (120 personnes max). (Source : Art. R143-19 CCH)" />
-                  )}
-
-                  <Field label="Date de la dernière visite de la commission de sécurité">
-                    <div className="relative">
-                      <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
-                      <input type="date" value={data.derniere_visite_commission}
-                        onChange={(e) => setData((d) => ({ ...d, derniere_visite_commission: e.target.value }))}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
-                    </div>
-                  </Field>
-
-                  {/* Prochaine visite */}
-                  {data.derniere_visite_commission && (
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-xs text-slate-500">Prochaine visite :</span>
-                      {nextVisitBadge()}
-                    </div>
-                  )}
                   {data.categorie_erp === 5 && !hasLocauxSommeil && (
                     <p className="text-xs text-slate-500">En catégorie 5 sans locaux à sommeil, aucune visite périodique de la commission de sécurité n'est obligatoire.</p>
                   )}
