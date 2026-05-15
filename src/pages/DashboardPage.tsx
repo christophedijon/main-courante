@@ -63,6 +63,7 @@ export default function DashboardPage() {
   const [inviteSuccess, setInviteSuccess] = useState<{ email: string; password: string } | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [copiedCredentials, setCopiedCredentials] = useState(false);
+  const [sentInviteMail, setSentInviteMail] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
@@ -154,6 +155,7 @@ export default function DashboardPage() {
     setShowInvite(false);
     setInviteSuccess(null);
     setInviteError(null);
+    setSentInviteMail(false);
     if (inviteSuccess) fetchUsers();
   }
 
@@ -197,6 +199,46 @@ export default function DashboardPage() {
     navigator.clipboard.writeText(`Email : ${inviteSuccess.email}\nMot de passe : ${inviteSuccess.password}`);
     setCopiedCredentials(true);
     setTimeout(() => setCopiedCredentials(false), 2000);
+  }
+
+  async function sendInviteMail() {
+    if (!inviteSuccess) return;
+    const appUrl = window.location.origin;
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#0f172a;color:#f1f5f9;border-radius:12px;">
+        <h2 style="color:#38bdf8;margin-bottom:8px;">Vos identifiants de connexion</h2>
+        <p style="color:#94a3b8;margin-bottom:24px;">Un compte provisoire a été créé pour vous. Connectez-vous avec les identifiants ci-dessous.</p>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+          <tr>
+            <td style="padding:10px 12px;background:#1e293b;border-radius:8px 8px 0 0;color:#94a3b8;font-size:13px;">Email</td>
+            <td style="padding:10px 12px;background:#1e293b;border-radius:8px 8px 0 0;color:#f1f5f9;font-family:monospace;">${inviteSuccess.email}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 12px;background:#0f172a;border:1px solid #1e293b;color:#94a3b8;font-size:13px;">Mot de passe</td>
+            <td style="padding:10px 12px;background:#0f172a;border:1px solid #1e293b;color:#f1f5f9;font-family:monospace;">${inviteSuccess.password}</td>
+          </tr>
+        </table>
+        <div style="margin-bottom:16px;padding:12px 16px;background:#1e293b;border-radius:8px;text-align:center;">
+          <a href="${appUrl}" style="color:#38bdf8;font-size:14px;font-weight:600;text-decoration:none;">${appUrl}</a>
+        </div>
+        <p style="color:#64748b;font-size:12px;">Ce compte est provisoire (valable 48h). Pensez à compléter votre profil dès votre première connexion.</p>
+      </div>
+    `;
+    try {
+      await fetch('https://hook.eu2.make.com/7g0h9yj07m25am6l5gtpvzbd12mkspbt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: inviteSuccess.email,
+          sujet: 'Vos identifiants de connexion',
+          html,
+        }),
+      });
+      setSentInviteMail(true);
+      setTimeout(() => setSentInviteMail(false), 3000);
+    } catch {
+      // silently ignore
+    }
   }
 
   const filtered = users.filter((u) => {
@@ -489,6 +531,12 @@ export default function DashboardPage() {
                       ${copiedCredentials ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'}`}>
                     {copiedCredentials ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     {copiedCredentials ? 'Copié !' : 'Copier les identifiants'}
+                  </button>
+                  <button type="button" onClick={sendInviteMail}
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all
+                      ${sentInviteMail ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'}`}>
+                    {sentInviteMail ? <CheckCircle className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                    {sentInviteMail ? 'Mail envoyé !' : 'Envoyer par mail'}
                   </button>
                   <button type="button" onClick={closeInvite}
                     className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-all">
