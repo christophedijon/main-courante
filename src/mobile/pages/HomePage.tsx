@@ -34,98 +34,137 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-full">
-      {/* Header */}
+    <div className="min-h-full font-exo">
+      {/* ── Header ── */}
       <div className="px-5 pt-8 pb-5">
         <div className="flex items-center gap-4">
-          {/* Octagon avatar — style maquette */}
+          {/* Octagon avatar with hex blue shield */}
           <div className="shrink-0 relative flex items-center justify-center" style={{ width: 60, height: 60 }}>
             <svg viewBox="0 0 60 60" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
               <defs>
-                <linearGradient id="oct-grad" x1="0.3" y1="0" x2="0.7" y2="1">
-                  <stop offset="0%" stopColor="#1a2035" />
-                  <stop offset="100%" stopColor="#0a0e18" />
+                <linearGradient id="oct-grad-hex" x1="0.3" y1="0" x2="0.7" y2="1">
+                  <stop offset="0%" stopColor="#1e2d45" />
+                  <stop offset="100%" stopColor="#0d1421" />
                 </linearGradient>
-                <linearGradient id="oct-rim" x1="0.5" y1="0" x2="0.5" y2="1">
-                  <stop offset="0%" stopColor="rgba(200,215,240,0.6)" />
-                  <stop offset="55%" stopColor="rgba(100,120,180,0.3)" />
+                <linearGradient id="oct-rim-hex" x1="0.5" y1="0" x2="0.5" y2="1">
+                  <stop offset="0%" stopColor="rgba(59,143,232,0.55)" />
+                  <stop offset="55%" stopColor="rgba(59,143,232,0.18)" />
                   <stop offset="100%" stopColor="rgba(10,15,30,0.7)" />
                 </linearGradient>
               </defs>
               <polygon
                 points="17,2 43,2 58,17 58,43 43,58 17,58 2,43 2,17"
-                fill="url(#oct-grad)"
-                stroke="url(#oct-rim)"
+                fill="url(#oct-grad-hex)"
+                stroke="url(#oct-rim-hex)"
                 strokeWidth="2"
               />
             </svg>
-            <Shield className="relative z-10" style={{ width: 26, height: 26, color: '#60a5fa', filter: 'drop-shadow(0 0 6px rgba(96,165,250,0.7))' }} strokeWidth={2.4} />
+            <Shield
+              className="relative z-10"
+              style={{
+                width: 26, height: 26,
+                color: '#3b8fe8',
+                filter: 'drop-shadow(0 0 8px rgba(59,143,232,0.75)) drop-shadow(0 0 14px rgba(59,143,232,0.4))',
+              }}
+              strokeWidth={2.4}
+            />
           </div>
+
           <div className="flex-1 min-w-0">
-            <p className="text-slate-500 text-[11px] leading-tight tracking-[0.12em] uppercase font-medium">Bonjour</p>
+            <p className="text-[11px] leading-tight tracking-[0.14em] uppercase font-semibold" style={{ color: 'rgba(148,163,184,0.65)' }}>Bonjour</p>
             <p className="text-white font-bold text-[17px] leading-tight truncate mt-0.5">{fullName}</p>
           </div>
-          <RoleBadge fonction={userFonction} isSuperAdmin={isSuperAdmin} />
+
+          {/* Role badge — styled as gold outlined pill on mobile */}
+          <div
+            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider"
+            style={{ border: '1px solid #f5a623', color: '#f5a623' }}
+          >
+            {isSuperAdmin ? 'Admin' : (userFonction ?? 'Agent')}
+          </div>
         </div>
 
-        {/* Logo/nom entreprise + stat card */}
+        {/* ── Info cards row ── */}
         <div className="mt-5 flex items-stretch gap-3">
-          <div className="flex-1 flex items-center gap-3 rounded-2xl px-4 py-3 min-h-[76px]"
+          {/* Company card */}
+          <div
+            className="flex-1 flex items-center gap-3 rounded-2xl px-4 py-3 min-h-[76px]"
             style={{
-              background: 'rgba(15,20,30,0.75)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-            }}>
+            }}
+          >
             {logo_url && (
-              <img src={logo_url} alt={entrepriseNom ?? 'Logo'}
-                className="h-12 w-auto max-w-[60px] object-contain rounded-xl shrink-0" />
+              <div className="bg-white rounded-xl p-1 shrink-0">
+                <img src={logo_url} alt={entrepriseNom ?? 'Logo'}
+                  className="h-10 w-auto max-w-[52px] object-contain" />
+              </div>
             )}
             {entrepriseNom && (
-              <p className="text-white text-[15px] font-bold leading-tight">{entrepriseNom}</p>
+              <p className="text-white text-[14px] font-bold leading-tight">{entrepriseNom}</p>
             )}
             {!logo_url && !entrepriseNom && (
               <Shield className="w-8 h-8 text-slate-600" />
             )}
           </div>
 
-          <div className="flex flex-col justify-center min-w-[136px] rounded-2xl px-4 py-3 min-h-[76px]"
+          {/* Today count card */}
+          <div
+            className="flex flex-col justify-center min-w-[130px] rounded-2xl px-4 py-3 min-h-[76px]"
             style={{
-              background: 'rgba(15,20,30,0.75)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-            }}>
-            <div className="flex items-center gap-1.5" style={{ color: 'rgba(180,190,210,0.7)' }}>
+            }}
+          >
+            <div className="flex items-center gap-1.5" style={{ color: 'rgba(148,163,184,0.7)' }}>
               <Clock className="w-3.5 h-3.5" />
-              <span className="text-[11px] tracking-wide">Aujourd'hui</span>
+              <span className="text-[11px] tracking-wide font-medium">Aujourd'hui</span>
             </div>
             <p className="text-white font-black text-4xl mt-1 leading-none">{todayCount}</p>
           </div>
         </div>
       </div>
 
-      {/* Saisie rapide — fond graph_mc.png */}
+      {/* ── Saisie rapide section ── */}
       <div className="relative overflow-hidden" style={{ minHeight: 380 }}>
-        {/* Background image for this section */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'url(/graph_mc.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }} />
-        {/* Overlay to blend with rest of page */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(8,12,20,0.45)' }} />
+        {/* Subtle hex-tinted surface for this section */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(20,27,39,0.6) 30%, rgba(20,27,39,0.85) 100%)' }}
+        />
+        {/* Hex grid pattern accent */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpolygon points='28,2 54,16 54,44 28,58 2,44 2,16' fill='none' stroke='rgba(59%2C143%2C232%2C0.09)' stroke-width='1'/%3E%3Cpolygon points='28,52 54,66 54,94 28,108 2,94 2,66' fill='none' stroke='rgba(59%2C143%2C232%2C0.09)' stroke-width='1'/%3E%3C/svg%3E")`,
+            backgroundSize: '56px 100px',
+            backgroundRepeat: 'repeat',
+          }}
+        />
 
         <div className="relative z-10 px-5 pt-5 pb-10">
+          {/* Section header */}
           <button
             type="button"
             onClick={() => setSaisieOpen((v) => !v)}
             className="w-full flex items-center justify-between mb-6 px-1"
           >
-            <span className="text-[11px] font-bold tracking-[0.22em] uppercase" style={{ color: 'rgba(200,210,230,0.85)' }}>Saisie rapide</span>
-            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${saisieOpen ? 'rotate-180' : ''}`} style={{ color: 'rgba(180,190,210,0.6)' }} />
+            <span
+              className="text-[11px] font-bold tracking-[0.28em] uppercase"
+              style={{ color: 'rgba(255,255,255,0.9)' }}
+            >
+              Saisie rapide
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ${saisieOpen ? 'rotate-180' : ''}`}
+              style={{ color: 'rgba(148,163,184,0.6)' }}
+            />
           </button>
+
           {saisieOpen && (
             <div className="flex items-start justify-center gap-5" style={{ paddingBottom: 8 }}>
               <QuickActionCard
