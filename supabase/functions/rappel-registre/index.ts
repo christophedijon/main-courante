@@ -17,6 +17,7 @@ type RegistreItem = {
   periodicite: string;
   applicable: boolean;
   date_verification: string | null;
+  jours_rappel: number | null;
 };
 
 type EmailRule = {
@@ -27,15 +28,16 @@ type EmailRule = {
   dest_serveur: boolean;
   dest_email_organisme: boolean;
   dest_emails_libres: string[];
-  jours_avant_echeance: number;
   rappel_retard_frequence: "quotidien" | "hebdomadaire" | "mensuel";
 };
 
 function getNextDate(lastDate: string, periodicite: string): Date | null {
   const d = new Date(lastDate);
   switch (periodicite.toLowerCase()) {
-    case "annuelle": d.setFullYear(d.getFullYear() + 1); break;
+    case "mensuelle": d.setMonth(d.getMonth() + 1); break;
+    case "trimestrielle": d.setMonth(d.getMonth() + 3); break;
     case "semestrielle": d.setMonth(d.getMonth() + 6); break;
+    case "annuelle": d.setFullYear(d.getFullYear() + 1); break;
     case "triennale": d.setFullYear(d.getFullYear() + 3); break;
     case "quinquennale": d.setFullYear(d.getFullYear() + 5); break;
     default: return null;
@@ -50,7 +52,7 @@ function formatDate(d: Date): string {
 function shouldSendRetard(frequence: string, now: Date): boolean {
   switch (frequence) {
     case "quotidien": return true;
-    case "hebdomadaire": return now.getDay() === 1; // lundi
+    case "hebdomadaire": return now.getDay() === 1;
     case "mensuel": return now.getDate() === 1;
     default: return false;
   }
@@ -67,7 +69,6 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Charger la règle email pour le registre
     const { data: emailRule } = await supabase
       .from("email_rules")
       .select("*")
@@ -85,10 +86,9 @@ Deno.serve(async (req: Request) => {
     const rule = emailRule as EmailRule;
     const now = new Date();
 
-    // Récupérer toutes les lignes applicables avec date
     const { data: items } = await supabase
       .from("registre_securite")
-      .select("installation, reference_reglementaire, organisme_verificateur, email_organisme, periodicite, applicable, date_verification")
+      .select("installation, reference_reglementaire, organisme_verificateur, email_organisme, periodicite, applicable, date_verification, jours_rappel")
       .eq("applicable", true)
       .not("date_verification", "is", null);
 
@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const retard: { item: RegistreItem; jours: number }[] = [];
-    const bientot: { item: RegistreItem; next: Date }[] = [];
+    const bientot: { item: RegistreItem; next: Date; joursRestants: number }[] = [];
 
     for (const item of items as RegistreItem[]) {
       const next = getNextDate(item.date_verification!, item.periodicite);
@@ -107,12 +107,11 @@ Deno.serve(async (req: Request) => {
       const diff = (next.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
       if (diff < 0) {
         retard.push({ item, jours: Math.abs(Math.ceil(diff)) });
-      } else if (diff <= rule.jours_avant_echeance) {
-        bientot.push({ item, next });
+      } else if (item.jours_rappel !== null && diff <= item.jours_rappel) {
+        bientot.push({ item, next, joursRestants: Math.ceil(diff) });
       }
     }
 
-    // Vérifier s'il faut envoyer les retards aujourd'hui selon la fréquence
     const sendRetard = retard.length > 0 && shouldSendRetard(rule.rappel_retard_frequence, now);
     const sendBientot = bientot.length > 0;
 
@@ -123,7 +122,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Construire la liste des destinataires
     const emailSet = new Set<string>((rule.dest_emails_libres ?? []).filter(Boolean));
     const fonctions: string[] = [];
     if (rule.dest_direction) fonctions.push("Direction");
@@ -139,7 +137,6 @@ Deno.serve(async (req: Request) => {
       (roleUsers ?? []).forEach((u: any) => { if (u.email) emailSet.add(u.email); });
     }
 
-    // Emails organismes des items concernés
     if (rule.dest_email_organisme) {
       const itemsWithOrganisme = [
         ...(sendRetard ? retard.map((r) => r.item) : []),
@@ -156,7 +153,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Récupérer les infos entreprise
     const { data: entreprise } = await supabase
       .from("entreprise")
       .select("nom")
@@ -193,7 +189,7 @@ Deno.serve(async (req: Request) => {
 
     const bientotHtml = sendBientot && bientot.length > 0 ? `
       <h2 style="color:#f59e0b;font-size:16px;margin-bottom:12px;border-bottom:2px solid #f59e0b;padding-bottom:6px;">
-        Échéances dans moins de ${rule.jours_avant_echeance} jours (${bientot.length})
+        Échéances à venir (${bientot.length})
       </h2>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
         <thead>
@@ -201,14 +197,16 @@ Deno.serve(async (req: Request) => {
             <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Installation</th>
             <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Référence</th>
             <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Date limite</th>
+            <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Dans</th>
           </tr>
         </thead>
         <tbody>
-          ${bientot.map(({ item, next }) => `
+          ${bientot.map(({ item, next, joursRestants }) => `
             <tr style="border-bottom:1px solid #2d2d3d;">
               <td style="padding:8px 12px;font-size:13px;color:#f1f5f9;">${item.installation}</td>
               <td style="padding:8px 12px;font-size:12px;color:#94a3b8;">${item.reference_reglementaire}</td>
               <td style="padding:8px 12px;font-size:13px;color:#f59e0b;font-weight:600;">${formatDate(next)}</td>
+              <td style="padding:8px 12px;font-size:13px;color:#f59e0b;">J-${joursRestants}</td>
             </tr>
           `).join("")}
         </tbody>

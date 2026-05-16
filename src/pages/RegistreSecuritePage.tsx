@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardList, Upload, Eye, RefreshCw, History, X, ChevronDown, ChevronUp,
-  Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2,
+  Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2, Pencil,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,7 @@ type RegistreItem = {
   organisme_verificateur: string;
   email_organisme: string;
   periodicite: string;
+  jours_rappel: number | null;
   applicable: boolean;
   date_verification: string | null;
   nom_verificateur: string;
@@ -164,13 +165,22 @@ function HistoriquePanel({ item, onClose }: { item: RegistreItem; onClose: () =>
 type AddModalProps = { onClose: () => void; onAdded: (item: RegistreItem) => void };
 
 function AddModal({ onClose, onAdded }: AddModalProps) {
-  const [form, setForm] = useState({ installation: '', reference_reglementaire: '', organisme_verificateur: '', email_organisme: '', periodicite: 'Annuelle' });
+  const [form, setForm] = useState({ installation: '', reference_reglementaire: '', organisme_verificateur: '', email_organisme: '', periodicite: 'Annuelle', jours_rappel: '' });
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit() {
     if (!form.installation.trim()) return;
     setSaving(true);
-    const { data, error } = await supabase.from('registre_securite').insert({ ...form, applicable: true }).select().single();
+    const payload = {
+      installation: form.installation,
+      reference_reglementaire: form.reference_reglementaire,
+      organisme_verificateur: form.organisme_verificateur,
+      email_organisme: form.email_organisme,
+      periodicite: form.periodicite,
+      jours_rappel: form.jours_rappel !== '' ? parseInt(form.jours_rappel, 10) : null,
+      applicable: true,
+    };
+    const { data, error } = await supabase.from('registre_securite').insert(payload).select().single();
     if (!error && data) onAdded(data as RegistreItem);
     setSaving(false);
   }
@@ -210,6 +220,18 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
               {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans', 'Autre'].map((p) => <option key={p}>{p}</option>)}
             </select>
           </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Rappel (jours avant)</label>
+            <input
+              type="number"
+              min="1"
+              value={form.jours_rappel}
+              onChange={(e) => setForm(f => ({ ...f, jours_rappel: e.target.value.replace(/[^0-9]/g, '') }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+              placeholder="ex: 90 — laisser vide pour désactiver"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
+          </div>
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors">Annuler</button>
@@ -217,6 +239,100 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
             className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Ajouter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type EditModalProps = { item: RegistreItem; onClose: () => void; onSaved: (updated: RegistreItem) => void };
+
+function EditModal({ item, onClose, onSaved }: EditModalProps) {
+  const [form, setForm] = useState({
+    installation: item.installation,
+    reference_reglementaire: item.reference_reglementaire,
+    organisme_verificateur: item.organisme_verificateur,
+    email_organisme: item.email_organisme,
+    periodicite: item.periodicite,
+    jours_rappel: item.jours_rappel !== null ? String(item.jours_rappel) : '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit() {
+    setSaving(true);
+    const patch: Partial<RegistreItem> = {
+      installation: form.installation.trim(),
+      reference_reglementaire: form.reference_reglementaire.trim(),
+      organisme_verificateur: form.organisme_verificateur.trim(),
+      email_organisme: form.email_organisme.trim(),
+      periodicite: form.periodicite,
+      jours_rappel: form.jours_rappel !== '' ? parseInt(form.jours_rappel, 10) : null,
+    };
+    const { data, error } = await supabase
+      .from('registre_securite')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', item.id)
+      .select()
+      .single();
+    setSaving(false);
+    if (!error && data) onSaved(data as RegistreItem);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-white font-bold text-lg">Modifier la vérification</h3>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Installation *</label>
+            <input value={form.installation} onChange={(e) => setForm(f => ({ ...f, installation: e.target.value }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Nom de l'installation" />
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Référence réglementaire</label>
+            <input value={form.reference_reglementaire} onChange={(e) => setForm(f => ({ ...f, reference_reglementaire: e.target.value }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: MS 73" />
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Organisme vérificateur</label>
+            <input value={form.organisme_verificateur} onChange={(e) => setForm(f => ({ ...f, organisme_verificateur: e.target.value }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: Technicien compétent" />
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
+            <input type="email" value={form.email_organisme} onChange={(e) => setForm(f => ({ ...f, email_organisme: e.target.value }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="email@organisme.fr" />
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Périodicité</label>
+            <select value={form.periodicite} onChange={(e) => setForm(f => ({ ...f, periodicite: e.target.value }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+              {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans', 'Autre'].map((p) => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Rappel (jours avant)</label>
+            <input
+              type="number"
+              min="1"
+              value={form.jours_rappel}
+              onChange={(e) => setForm(f => ({ ...f, jours_rappel: e.target.value.replace(/[^0-9]/g, '') }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+              placeholder="ex: 90 — laisser vide pour désactiver"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors">Annuler</button>
+          <button onClick={handleSubmit} disabled={saving || !form.installation.trim()}
+            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Enregistrer
           </button>
         </div>
       </div>
@@ -235,6 +351,7 @@ function RegistreRow({ item, onUpdate, onSaved }: RowProps) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showHistorique, setShowHistorique] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const current = { ...item, ...dirty };
@@ -458,11 +575,16 @@ function RegistreRow({ item, onUpdate, onSaved }: RowProps) {
               className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap">
               <History className="w-3 h-3" />Historique
             </button>
+            <button type="button" onClick={() => setShowEdit(true)}
+              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+              <Pencil className="w-3 h-3" />Modifier
+            </button>
           </div>
         </td>
       </tr>
       {showHistorique && <tr><td colSpan={13}></td></tr>}
       {showHistorique && <HistoriquePanel item={item} onClose={() => setShowHistorique(false)} />}
+      {showEdit && <EditModal item={item} onClose={() => setShowEdit(false)} onSaved={(updated) => { onSaved(updated); setShowEdit(false); }} />}
     </>
   );
 }

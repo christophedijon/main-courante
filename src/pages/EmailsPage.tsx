@@ -18,7 +18,6 @@ type EmailRule = {
   dest_serveur: boolean;
   dest_email_organisme: boolean;
   dest_emails_libres: string[];
-  jours_avant_echeance: number;
   rappel_retard_frequence: 'quotidien' | 'hebdomadaire' | 'mensuel';
 };
 
@@ -116,7 +115,6 @@ export default function EmailsPage() {
         dest_serveur: draft.dest_serveur,
         dest_email_organisme: draft.dest_email_organisme,
         dest_emails_libres: draft.dest_emails_libres,
-        jours_avant_echeance: draft.jours_avant_echeance,
         rappel_retard_frequence: draft.rappel_retard_frequence,
         updated_at: new Date().toISOString(),
       })
@@ -441,30 +439,6 @@ export default function EmailsPage() {
                             </div>
                           </div>
 
-                          {/* Jours avant échéance */}
-                          <div>
-                            <label className="text-xs font-medium text-slate-400 block mb-1.5">
-                              Alerte d'approche d'échéance (jours avant)
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              {[30, 60, 90, 120].map((j) => (
-                                <button
-                                  key={j}
-                                  type="button"
-                                  onClick={() => updateDraft(rule.id, { jours_avant_echeance: j })}
-                                  className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all
-                                    ${draft.jours_avant_echeance === j
-                                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}
-                                >
-                                  {j} jours
-                                </button>
-                              ))}
-                            </div>
-                            <p className="text-xs text-slate-600 mt-1.5">
-                              Un email est envoyé quand une installation atteint ce délai avant son échéance.
-                            </p>
-                          </div>
                         </div>
                       )}
 
