@@ -15,6 +15,7 @@ import PostesPage from './pages/PostesPage';
 import DashboardSignaturesPage from './pages/DashboardSignaturesPage';
 import RapportsPage from './pages/RapportsPage';
 import RegistreSecuritePage from './pages/RegistreSecuritePage';
+import EmailsPage from './pages/EmailsPage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
@@ -120,6 +121,7 @@ export default function App() {
             <Route path="/dashboard-signatures" element={<AdminRoute><DashboardSignaturesPage /></AdminRoute>} />
             <Route path="/rapports" element={<AdminRoute><RapportsPage /></AdminRoute>} />
             <Route path="/registre-securite" element={<AdminRoute><RegistreSecuritePage /></AdminRoute>} />
+            <Route path="/emails" element={<AdminRoute><EmailsPage /></AdminRoute>} />
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
               <Route index element={<HomePage />} />
               <Route path="outils" element={<ToolboxPage />} />

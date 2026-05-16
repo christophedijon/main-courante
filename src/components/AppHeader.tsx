@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2 } from 'lucide-react';
+import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail } from 'lucide-react';
 import { useEntreprise } from '../hooks/useEntreprise';
 import { useAuth } from '../context/AuthContext';
 
@@ -48,6 +48,7 @@ export default function AppHeader({ onSignOut }: Props) {
     { path: '/registre-securite',   label: 'Registre',        icon: ClipboardList,   superOnly: false, adminOnly: true  },
     { path: '/ia',                  label: 'IA',              icon: Bot,             superOnly: false, adminOnly: true  },
     { path: '/dashboard-signatures',label: 'Signatures',      icon: PenLine,         superOnly: false, adminOnly: true  },
+    { path: '/emails',              label: 'Emails',          icon: Mail,            superOnly: true,  adminOnly: false },
   ];
 
   const tabs = allTabs.filter((t) => {

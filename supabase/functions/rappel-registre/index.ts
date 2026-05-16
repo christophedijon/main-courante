@@ -7,23 +7,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const MAKE_WEBHOOK = "https://hook.eu2.make.com/7g0h9yj07m25am6l5gtpvzbd12mkspbt";
+
 type RegistreItem = {
   installation: string;
   reference_reglementaire: string;
   organisme_verificateur: string;
+  email_organisme: string | null;
   periodicite: string;
   applicable: boolean;
   date_verification: string | null;
 };
 
-type ManagedUser = {
-  email: string;
-  fonction: string;
-};
-
-type EntrepriseRow = {
-  nom: string;
-  logo_url: string | null;
+type EmailRule = {
+  active: boolean;
+  dest_direction: boolean;
+  dest_chef_de_poste: boolean;
+  dest_agent_securite: boolean;
+  dest_serveur: boolean;
+  dest_email_organisme: boolean;
+  dest_emails_libres: string[];
+  jours_avant_echeance: number;
+  rappel_retard_frequence: "quotidien" | "hebdomadaire" | "mensuel";
 };
 
 function getNextDate(lastDate: string, periodicite: string): Date | null {
@@ -42,6 +47,15 @@ function formatDate(d: Date): string {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+function shouldSendRetard(frequence: string, now: Date): boolean {
+  switch (frequence) {
+    case "quotidien": return true;
+    case "hebdomadaire": return now.getDay() === 1; // lundi
+    case "mensuel": return now.getDate() === 1;
+    default: return false;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -53,75 +67,109 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    // Charger la règle email pour le registre
+    const { data: emailRule } = await supabase
+      .from("email_rules")
+      .select("*")
+      .eq("type", "registre_securite")
+      .limit(1)
+      .maybeSingle();
+
+    if (!emailRule?.active) {
+      return new Response(
+        JSON.stringify({ message: "Règle email registre inactive — pas d'envoi" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const rule = emailRule as EmailRule;
+    const now = new Date();
 
     // Récupérer toutes les lignes applicables avec date
     const { data: items } = await supabase
       .from("registre_securite")
-      .select("installation, reference_reglementaire, organisme_verificateur, periodicite, applicable, date_verification")
+      .select("installation, reference_reglementaire, organisme_verificateur, email_organisme, periodicite, applicable, date_verification")
       .eq("applicable", true)
       .not("date_verification", "is", null);
 
     if (!items || items.length === 0) {
-      return new Response(JSON.stringify({ message: "Aucune entrée applicable" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ message: "Aucune entrée applicable" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const now = Date.now();
     const retard: { item: RegistreItem; jours: number }[] = [];
     const bientot: { item: RegistreItem; next: Date }[] = [];
 
     for (const item of items as RegistreItem[]) {
-      if (!item.applicable) continue;
-      if (!item.date_verification) continue;
-      const next = getNextDate(item.date_verification, item.periodicite);
+      const next = getNextDate(item.date_verification!, item.periodicite);
       if (!next) continue;
-      const diff = (next.getTime() - now) / (1000 * 60 * 60 * 24);
+      const diff = (next.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
       if (diff < 0) {
         retard.push({ item, jours: Math.abs(Math.ceil(diff)) });
-      } else if (diff <= 90) {
+      } else if (diff <= rule.jours_avant_echeance) {
         bientot.push({ item, next });
       }
-      // diff > 90 : pas d'alerte
     }
 
-    if (retard.length === 0 && bientot.length === 0) {
-      return new Response(JSON.stringify({ message: "Aucune alerte — pas d'email" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Vérifier s'il faut envoyer les retards aujourd'hui selon la fréquence
+    const sendRetard = retard.length > 0 && shouldSendRetard(rule.rappel_retard_frequence, now);
+    const sendBientot = bientot.length > 0;
+
+    if (!sendRetard && !sendBientot) {
+      return new Response(
+        JSON.stringify({ message: "Aucune alerte à envoyer aujourd'hui selon la fréquence configurée" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Récupérer les emails Direction
-    const { data: users } = await supabase
-      .from("managed_users")
-      .select("email, fonction")
-      .in("fonction", ["Direction"]);
+    // Construire la liste des destinataires
+    const emailSet = new Set<string>((rule.dest_emails_libres ?? []).filter(Boolean));
+    const fonctions: string[] = [];
+    if (rule.dest_direction) fonctions.push("Direction");
+    if (rule.dest_chef_de_poste) fonctions.push("Chef de Poste");
+    if (rule.dest_agent_securite) fonctions.push("Agent de Sécurité");
+    if (rule.dest_serveur) fonctions.push("Serveur");
 
-    // Récupérer les super admins
-    const { data: superAdmins } = await supabase
-      .from("super_admins")
-      .select("email");
+    if (fonctions.length > 0) {
+      const { data: roleUsers } = await supabase
+        .from("managed_users")
+        .select("email")
+        .in("fonction", fonctions);
+      (roleUsers ?? []).forEach((u: any) => { if (u.email) emailSet.add(u.email); });
+    }
 
-    const emails = new Set<string>();
-    (users as ManagedUser[] ?? []).forEach((u) => emails.add(u.email));
-    (superAdmins as { email: string }[] ?? []).forEach((u) => emails.add(u.email));
+    // Emails organismes des items concernés
+    if (rule.dest_email_organisme) {
+      const itemsWithOrganisme = [
+        ...(sendRetard ? retard.map((r) => r.item) : []),
+        ...(sendBientot ? bientot.map((b) => b.item) : []),
+      ];
+      itemsWithOrganisme.forEach((item) => {
+        if (item.email_organisme) emailSet.add(item.email_organisme);
+      });
+    }
 
-    if (emails.size === 0) {
-      return new Response(JSON.stringify({ message: "Aucun destinataire trouvé" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (emailSet.size === 0) {
+      return new Response(JSON.stringify({ message: "Aucun destinataire trouvé" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Récupérer les infos entreprise
     const { data: entreprise } = await supabase
       .from("entreprise")
-      .select("nom, logo_url")
+      .select("nom")
       .limit(1)
       .maybeSingle();
 
-    const entrepriseNom = (entreprise as EntrepriseRow | null)?.nom ?? "Votre établissement";
+    const entrepriseNom = (entreprise as any)?.nom ?? "Votre établissement";
+    const nbAlertesTotal = (sendRetard ? retard.length : 0) + (sendBientot ? bientot.length : 0);
+    const sujet = `Registre de sécurité — ${nbAlertesTotal} vérification(s) à traiter — ${entrepriseNom}`;
 
-    const nbAlertesTotal = retard.length + bientot.length;
-    const subject = `⚠ Registre de sécurité — ${nbAlertesTotal} vérification(s) à traiter — ${entrepriseNom}`;
-
-    const retardHtml = retard.length > 0 ? `
+    const retardHtml = sendRetard && retard.length > 0 ? `
       <h2 style="color:#ef4444;font-size:16px;margin-bottom:12px;border-bottom:2px solid #ef4444;padding-bottom:6px;">
-        🚨 En retard (${retard.length})
+        En retard (${retard.length})
       </h2>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
         <thead>
@@ -143,9 +191,9 @@ Deno.serve(async (req: Request) => {
       </table>
     ` : "";
 
-    const bientotHtml = bientot.length > 0 ? `
+    const bientotHtml = sendBientot && bientot.length > 0 ? `
       <h2 style="color:#f59e0b;font-size:16px;margin-bottom:12px;border-bottom:2px solid #f59e0b;padding-bottom:6px;">
-        ⚠ À planifier dans moins de 3 mois (${bientot.length})
+        Échéances dans moins de ${rule.jours_avant_echeance} jours (${bientot.length})
       </h2>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
         <thead>
@@ -187,34 +235,15 @@ Deno.serve(async (req: Request) => {
       </html>
     `;
 
-    if (!RESEND_API_KEY) {
-      return new Response(JSON.stringify({ message: "RESEND_API_KEY non configurée", alertes: retard.length + bientot.length }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const emailResults = await Promise.all(
-      Array.from(emails).map((email) =>
-        fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "Main Courante <noreply@maincourante.app>",
-            to: [email],
-            subject,
-            html,
-          }),
-        })
-      )
-    );
-
-    const sent = emailResults.filter((r) => r.ok).length;
+    const recipients = Array.from(emailSet);
+    await fetch(MAKE_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: recipients, sujet, html }),
+    });
 
     return new Response(
-      JSON.stringify({ message: `${sent} email(s) envoyé(s)`, alertes: retard.length + bientot.length }),
+      JSON.stringify({ message: `Email envoyé à ${recipients.length} destinataire(s)`, alertes: nbAlertesTotal }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

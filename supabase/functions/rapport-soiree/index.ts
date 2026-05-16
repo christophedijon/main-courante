@@ -252,36 +252,41 @@ Deno.serve(async (req: Request) => {
 
     if (insertErr) throw insertErr;
 
-    // Envoyer le rapport par e-mail via Make.com si activé
-    const { data: emailSettings } = await supabase
-      .from("rapport_email_settings")
-      .select("email_enabled")
+    // Envoyer le rapport par e-mail via Make.com si la règle est active
+    const { data: emailRule } = await supabase
+      .from("email_rules")
+      .select("*")
+      .eq("type", "rapport_soiree")
       .limit(1)
       .maybeSingle();
 
     let emailSent = false;
-    if (emailSettings?.email_enabled) {
-      // Récupérer tous les emails des utilisateurs avec la fonction Direction
-      const { data: directionUsers } = await supabase
-        .from("managed_users")
-        .select("email")
-        .eq("fonction", "Direction");
+    if (emailRule?.active) {
+      const emailSet = new Set<string>((emailRule.dest_emails_libres ?? []).filter(Boolean));
+      const fonctions: string[] = [];
+      if (emailRule.dest_direction) fonctions.push("Direction");
+      if (emailRule.dest_chef_de_poste) fonctions.push("Chef de Poste");
+      if (emailRule.dest_agent_securite) fonctions.push("Agent de Sécurité");
+      if (emailRule.dest_serveur) fonctions.push("Serveur");
 
-      const recipients = (directionUsers ?? []).map((u: any) => u.email).filter(Boolean);
+      if (fonctions.length > 0) {
+        const { data: roleUsers } = await supabase
+          .from("managed_users")
+          .select("email")
+          .in("fonction", fonctions);
+        (roleUsers ?? []).forEach((u: any) => { if (u.email) emailSet.add(u.email); });
+      }
 
+      const recipients = Array.from(emailSet);
       if (recipients.length > 0) {
         try {
-          await fetch("https://hook.eu2.make.com/bpqpne75u61bbwd1jklhs06w2ggeekav", {
+          await fetch("https://hook.eu2.make.com/7g0h9yj07m25am6l5gtpvzbd12mkspbt", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               to: recipients,
-              subject: `Rapport de soirée — ${dateSoireeLabel}`,
+              sujet: `Rapport de soirée — ${dateSoireeLabel}`,
               html: contenuHtml,
-              date_soiree: dateSoireeStr,
-              nb_evenements: evenements.length,
-              nb_agents: agentIds.length,
-              entreprise: nomEntreprise,
             }),
           });
           emailSent = true;
