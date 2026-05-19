@@ -133,6 +133,7 @@ export function useBeaconScanner() {
   const [isScanning, setIsScanning] = useState(false);
   const [beaconsLoaded, setBeaconsLoaded] = useState(false);
   const [recentDetections, setRecentDetections] = useState<RecentDetection[]>([]);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   // Refs that survive re-renders without triggering them
   const scanRef = useRef<BluetoothLEScan | null>(null);
@@ -297,44 +298,33 @@ export function useBeaconScanner() {
   // ---------------------------------------------------------------------------
 
   const startScan = useCallback(async () => {
-    if (scanRef.current) return; // already scanning
+    console.log('startScan called');
+    console.log('bluetooth:', !!navigator?.bluetooth);
+    console.log('requestLEScan:', typeof (navigator?.bluetooth as any)?.requestLEScan);
 
-    console.log('[useBeaconScanner] requestLEScan available:', typeof navigator.bluetooth?.requestLEScan === 'function');
-
-    if (!navigator.bluetooth || typeof navigator.bluetooth.requestLEScan !== 'function') {
-      console.warn('[useBeaconScanner] Web Bluetooth Scanning API is not supported in this browser.');
+    if (!navigator?.bluetooth) {
+      console.log('NO BLUETOOTH');
+      setScanError('navigator.bluetooth unavailable');
       return;
     }
 
     try {
-      const filters: BluetoothLEScanFilter[] = [];
-      const seenUuids = new Set<string>();
-
-      for (const beacon of beaconMapRef.current.values()) {
-        const uuid = beacon.uuid_beacon.toLowerCase();
-        if (!seenUuids.has(uuid)) {
-          seenUuids.add(uuid);
-          filters.push({ services: [uuid] });
-        }
-      }
-
-      const scanOptions: RequestLEScanOptions =
-        filters.length > 0
-          ? { filters, keepRepeatedDevices: true }
-          : { acceptAllAdvertisements: true, keepRepeatedDevices: true };
-
-      const scan = await navigator.bluetooth.requestLEScan(scanOptions);
+      setIsScanning(true);
+      setScanError(null);
+      const scan = await (navigator.bluetooth as any).requestLEScan({
+        acceptAllAdvertisements: true,
+      });
+      console.log('scan started:', scan);
       scanRef.current = scan;
 
       navigator.bluetooth.addEventListener(
         'advertisementreceived',
         handleAdvertisement as EventListener
       );
-
-      setIsScanning(true);
-      console.log('[useBeaconScanner] Scan started successfully');
     } catch (err) {
-      console.error('[useBeaconScanner] startScan error:', err);
+      console.error('startScan error:', err);
+      setScanError(err instanceof Error ? err.message : String(err));
+      setIsScanning(false);
     }
   }, [handleAdvertisement]);
 
@@ -382,5 +372,5 @@ export function useBeaconScanner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { isScanning, startScan, stopScan, recentDetections, beaconsLoaded };
+  return { isScanning, startScan, stopScan, recentDetections, beaconsLoaded, scanError };
 }

@@ -23,7 +23,7 @@ function formatTime(d: Date): string {
 
 export function BeaconScannerBanner() {
   const { userFonction, isSuperAdmin } = useAuth();
-  const { isScanning, stopScan, recentDetections } = useBeaconScanner();
+  const { isScanning, stopScan, recentDetections, beaconsLoaded, scanError } = useBeaconScanner();
 
   const [expanded, setExpanded] = useState(false);
   // Tick counter forces a re-render every 30 s so relative timestamps stay fresh
@@ -55,7 +55,20 @@ export function BeaconScannerBanner() {
     return () => clearInterval(id);
   }, []);
 
-  if (!isScanning) return null;
+  const hasLEScan = typeof (navigator?.bluetooth as any)?.requestLEScan === 'function';
+
+  const debugPanel = (
+    <div style={{ position: 'fixed', top: 0, right: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', color: '#0f0', fontSize: 11, padding: '4px 8px', maxWidth: 260, wordBreak: 'break-all', pointerEvents: 'none' }}>
+      <div>bluetooth: {!!navigator?.bluetooth ? 'yes' : 'no'}</div>
+      <div>requestLEScan: {hasLEScan ? 'yes' : 'no'}</div>
+      <div>isScanning: {String(isScanning)}</div>
+      <div>scanError: {scanError ?? 'none'}</div>
+      <div>role: {userFonction ?? 'null'}</div>
+      <div>beacons: {beaconsLoaded ? 'loaded' : 'loading...'}</div>
+    </div>
+  );
+
+  if (!isScanning) return debugPanel;
 
   const lastDetection = recentDetections[0] ?? null;
 
@@ -65,14 +78,7 @@ export function BeaconScannerBanner() {
 
   return (
     <>
-    {/* Debug panel — always visible, all roles */}
-    <div style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', color: '#0f0', fontSize: 11, padding: '4px 8px', maxWidth: 240, wordBreak: 'break-all', pointerEvents: 'none' }}>
-      <div>BT: {!!navigator?.bluetooth ? 'YES' : 'NO'}</div>
-      <div>scanning: {String(isScanning)}</div>
-      <div>role: {userFonction ?? 'null'}</div>
-      <div>isAdmin: {String(isAdmin)}</div>
-      <div>detections: {recentDetections.length}</div>
-    </div>
+    {debugPanel}
     <div className="fixed bottom-20 left-4 right-4 z-40">
       {/* ------------------------------------------------------------------ */}
       {/* Expanded panel — rendered above the bar                             */}
