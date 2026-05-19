@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Clock, Flame, Users, ChevronDown } from 'lucide-react';
+import { Shield, Clock, Flame, Users, ChevronDown, Radio } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useEntreprise } from '../../hooks/useEntreprise';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import { useTodayEventsCount } from '../hooks/useEvenements';
 import { useSaisie } from '../saisie/SaisieContext';
-import RoleBadge from '../components/RoleBadge';
 import QuickActionCard from '../components/QuickActionCard';
 import { BeaconScannerBanner } from '../components/BeaconScannerBanner';
 import { useBeaconScanner } from '../../hooks/useBeaconScanner';
@@ -19,8 +18,9 @@ export default function HomePage() {
   const todayCount = useTodayEventsCount() ?? 0;
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
-  const { isScanning, beaconsLoaded } = useBeaconScanner();
-  const bluetoothAvailable = !!navigator?.bluetooth;
+  const { isActive, startRonde, scanError } = useBeaconScanner();
+
+  const isAgent = !isSuperAdmin && userFonction === 'Agent de Sécurité';
 
   const fullName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
@@ -38,29 +38,11 @@ export default function HomePage() {
   }
 
   return (
-    <>
-    <div style={{position:'fixed',top:0,left:0,width:'100%',background:'red',color:'white',zIndex:99999,padding:'4px',textAlign:'center',fontSize:'11px'}}>
-      v4 - {navigator?.bluetooth ? 'BT-OK' : 'BT-NO'}
-    </div>
-    <div style={{
-      position:'fixed',
-      top:'60px',
-      right:'10px',
-      zIndex:99999,
-      background:'orange',
-      color:'black',
-      padding:'6px 10px',
-      borderRadius:'8px',
-      fontSize:'11px',
-      fontWeight:'bold'
-    }}>
-      HOME OK - {!!navigator?.bluetooth ? 'BT' : 'NO BT'}
-    </div>
     <div className="min-h-full font-exo">
       {/* ── Header ── */}
       <div className="px-5 pt-8 pb-5">
         <div className="flex items-center gap-4">
-          {/* Octagon avatar with hex blue shield */}
+          {/* Octagon avatar */}
           <div className="shrink-0 relative flex items-center justify-center" style={{ width: 60, height: 60 }}>
             <svg viewBox="0 0 60 60" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
               <defs>
@@ -97,7 +79,6 @@ export default function HomePage() {
             <p className="text-white font-bold text-[17px] leading-tight truncate mt-0.5">{fullName}</p>
           </div>
 
-          {/* Role badge — styled as gold outlined pill on mobile */}
           <div
             className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider"
             style={{ border: '1px solid #f5a623', color: '#f5a623' }}
@@ -108,7 +89,6 @@ export default function HomePage() {
 
         {/* ── Info cards row ── */}
         <div className="mt-5 flex items-stretch gap-3">
-          {/* Company card */}
           <div
             className="flex-1 flex items-center gap-3 rounded-2xl px-4 py-3 min-h-[76px]"
             style={{
@@ -132,7 +112,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Today count card */}
           <div
             className="flex flex-col justify-center min-w-[130px] rounded-2xl px-4 py-3 min-h-[76px]"
             style={{
@@ -149,16 +128,36 @@ export default function HomePage() {
             <p className="text-white font-black text-4xl mt-1 leading-none">{todayCount}</p>
           </div>
         </div>
+
+        {/* ── Démarrer la ronde button (Agent de Sécurité only) ── */}
+        {isAgent && !isActive && (
+          <div className="mt-4">
+            <button
+              onClick={startRonde}
+              className="w-full flex items-center justify-center gap-3 rounded-2xl px-5 py-4 font-bold text-sm transition-all active:scale-95"
+              style={{
+                background: 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(5,150,105,0.12) 100%)',
+                border: '1px solid rgba(16,185,129,0.4)',
+                color: '#34d399',
+                boxShadow: '0 0 18px rgba(16,185,129,0.12)',
+              }}
+            >
+              <Radio size={18} />
+              Démarrer la ronde
+            </button>
+            {scanError && (
+              <p className="mt-2 text-xs text-red-400 text-center px-2">{scanError}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Saisie rapide section ── */}
       <div className="relative overflow-hidden" style={{ minHeight: 380 }}>
-        {/* Subtle hex-tinted surface for this section */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(20,27,39,0.6) 30%, rgba(20,27,39,0.85) 100%)' }}
         />
-        {/* Hex grid pattern accent */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -169,7 +168,6 @@ export default function HomePage() {
         />
 
         <div className="relative z-10 px-5 pt-5 pb-10">
-          {/* Section header */}
           <button
             type="button"
             onClick={() => setSaisieOpen((v) => !v)}
@@ -209,23 +207,8 @@ export default function HomePage() {
           )}
         </div>
       </div>
-    </div>
-    <BeaconScannerBanner />
 
-    {/* TEMP DEBUG PANEL */}
-    <div style={{
-      position: 'fixed', top: 12, right: 12, zIndex: 9999,
-      background: 'rgba(0,0,0,0.85)', border: '1px solid #f59e0b',
-      borderRadius: 10, padding: '8px 12px', fontSize: 12,
-      color: '#fcd34d', lineHeight: 1.7, pointerEvents: 'none',
-    }}>
-      <div style={{ fontWeight: 700, marginBottom: 4, color: '#f59e0b' }}>DEBUG</div>
-      <div>bluetooth: <span style={{ color: bluetoothAvailable ? '#4ade80' : '#f87171' }}>{bluetoothAvailable ? 'yes' : 'no'}</span></div>
-      <div>isScanning: <span style={{ color: isScanning ? '#4ade80' : '#f87171' }}>{isScanning ? 'true' : 'false'}</span></div>
-      <div>role: <span style={{ color: '#93c5fd' }}>{isSuperAdmin ? 'SuperAdmin' : (userFonction ?? 'none')}</span></div>
-      <div>beacons: <span style={{ color: '#93c5fd' }}>{beaconsLoaded ? 'loaded' : 'loading...'}</span></div>
+      <BeaconScannerBanner />
     </div>
-
-    </>
   );
 }

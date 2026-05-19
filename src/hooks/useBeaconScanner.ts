@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-// Web Bluetooth type declarations (watchAdvertisements API)
 declare global {
   interface BluetoothDevice {
     watchAdvertisements(options?: { signal?: AbortSignal }): Promise<void>;
@@ -19,10 +18,6 @@ declare global {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 type Beacon = {
   id: string;
   nom: string;
@@ -36,51 +31,20 @@ type Beacon = {
   actif: boolean;
 };
 
-type RecentDetection = {
+export type RecentDetection = {
   beaconNom: string;
   zoneNom: string;
   timestamp: Date;
 };
 
-// ---------------------------------------------------------------------------
-// iBeacon manufacturer data parsing helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a UUID string like '426C7565-4368-6172-6D42-6561636F6E73'
- * into the 16-byte Uint8Array representation.
- */
-function uuidToBytes(uuid: string): Uint8Array {
-  const hex = uuid.replace(/-/g, '');
-  const bytes = new Uint8Array(16);
-  for (let i = 0; i < 16; i++) {
-    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-/**
- * Parse Apple iBeacon manufacturer-specific data.
- *
- * The raw manufacturer data DataView received from the Web Bluetooth Scanning
- * API already has the 2-byte company code stripped by the browser, so the
- * payload we receive is the 23-byte iBeacon sub-type body:
- *   [0x02, 0x15, <16 UUID bytes>, <2 major bytes>, <2 minor bytes>, <tx_power>]
- *
- * Returns { uuid, major, minor } or null if the frame does not look like an
- * iBeacon advertisement.
- */
 function parseIBeacon(
   dataView: DataView
 ): { uuid: string; major: number; minor: number } | null {
-  // Minimum length: 23 bytes (sub-type 0x02, length 0x15 == 21, 16 uuid, 2 major, 2 minor, 1 tx)
   if (dataView.byteLength < 23) return null;
-
   const subType = dataView.getUint8(0);
   const subLen = dataView.getUint8(1);
   if (subType !== 0x02 || subLen !== 0x15) return null;
 
-  // UUID bytes 2..17
   const uuidBytes: string[] = [];
   for (let i = 2; i < 18; i++) {
     uuidBytes.push(dataView.getUint8(i).toString(16).padStart(2, '0'));
@@ -101,43 +65,30 @@ function parseIBeacon(
   return { uuid, major, minor };
 }
 
-// Apple company identifier (little-endian 0x004C)
 const APPLE_COMPANY_ID = 0x004c;
-
-// Cooldown between duplicate detections for the same beacon (milliseconds)
 const DETECTION_COOLDOWN_MS = 60_000;
-
-// Maximum number of recent detections to keep in state
 const MAX_RECENT_DETECTIONS = 5;
-
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
 
 export function useBeaconScanner() {
   const { session } = useAuth();
 
-  const [isScanning, setIsScanning] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const [beaconsLoaded, setBeaconsLoaded] = useState(false);
   const [recentDetections, setRecentDetections] = useState<RecentDetection[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  // Refs that survive re-renders without triggering them
   const watchedDevicesRef = useRef<BluetoothDevice[]>([]);
   const beaconMapRef = useRef<Map<number, Beacon>>(new Map());
+  const beaconsByNameRef = useRef<Map<string, Beacon>>(new Map());
   const lastDetectedRef = useRef<Map<string, Date>>(new Map());
   const agentIdRef = useRef<string | null>(null);
 
-  // ---------------------------------------------------------------------------
   // Load beacons + agent id on mount
-  // ---------------------------------------------------------------------------
-
   useEffect(() => {
     if (!session?.user?.id) return;
 
     async function bootstrap() {
       try {
-        // 1. Fetch active beacons with zone name
         const { data: beaconRows, error: beaconErr } = await supabase
           .from('beacons')
           .select('*, zones(nom)')
@@ -146,13 +97,13 @@ export function useBeaconScanner() {
         if (beaconErr) {
           console.error('[useBeaconScanner] Failed to load beacons:', beaconErr);
         } else if (beaconRows) {
-          const map = new Map<number, Beacon>();
+          const byMinor = new Map<number, Beacon>();
+          const byName = new Map<string, Beacon>();
           for (const row of beaconRows) {
             const beacon: Beacon = {
               id: row.id,
               nom: row.nom,
               zone_id: row.zone_id ?? null,
-              // Supabase join returns zones as an object or array
               zone_nom: Array.isArray(row.zones)
                 ? (row.zones[0]?.nom ?? undefined)
                 : (row.zones?.nom ?? undefined),
@@ -163,13 +114,14 @@ export function useBeaconScanner() {
               is_entree: row.is_entree,
               actif: row.actif,
             };
-            map.set(beacon.minor, beacon);
+            byMinor.set(beacon.minor, beacon);
+            byName.set(beacon.nom.toLowerCase(), beacon);
           }
-          beaconMapRef.current = map;
+          beaconMapRef.current = byMinor;
+          beaconsByNameRef.current = byName;
           setBeaconsLoaded(true);
         }
 
-        // 2. Get agent's managed_users.id
         const { data: mu, error: muErr } = await supabase
           .from('managed_users')
           .select('id')
@@ -177,7 +129,7 @@ export function useBeaconScanner() {
           .maybeSingle();
 
         if (muErr) {
-          console.error('[useBeaconScanner] Failed to load agent managed_users row:', muErr);
+          console.error('[useBeaconScanner] Failed to load managed_users row:', muErr);
         } else if (mu) {
           agentIdRef.current = mu.id;
         }
@@ -189,176 +141,130 @@ export function useBeaconScanner() {
     bootstrap();
   }, [session?.user?.id]);
 
-  // ---------------------------------------------------------------------------
-  // Advertisement handler
-  // ---------------------------------------------------------------------------
+  // Record a passage for a given beacon
+  const recordPassage = useCallback(async (beacon: Beacon, rssi: number | null) => {
+    const agentId = agentIdRef.current;
+    if (!agentId) return;
 
+    const now = new Date();
+    const lastSeen = lastDetectedRef.current.get(beacon.id);
+    if (lastSeen && now.getTime() - lastSeen.getTime() < DETECTION_COOLDOWN_MS) return;
+
+    const timestamp = now.toISOString();
+
+    try {
+      const { error: passageErr } = await supabase.from('rondes_passages').insert({
+        agent_id: agentId,
+        beacon_id: beacon.id,
+        rssi: rssi ?? null,
+        timestamp,
+      });
+
+      if (passageErr) {
+        console.error('[useBeaconScanner] Failed to insert passage:', passageErr);
+        return;
+      }
+
+      if (beacon.is_entree) {
+        const dateNuit = now.toISOString().slice(0, 10);
+        const { data: existing } = await supabase
+          .from('rondes_rapports')
+          .select('id')
+          .eq('agent_id', agentId)
+          .eq('date_nuit', dateNuit)
+          .maybeSingle();
+
+        if (!existing) {
+          await supabase.from('rondes_rapports').upsert(
+            { agent_id: agentId, date_nuit: dateNuit, heure_prise_poste: timestamp },
+            { onConflict: 'agent_id,date_nuit' }
+          );
+        }
+      }
+
+      lastDetectedRef.current.set(beacon.id, now);
+      setRecentDetections((prev) =>
+        [{ beaconNom: beacon.nom, zoneNom: beacon.zone_nom ?? '', timestamp: now }, ...prev].slice(0, MAX_RECENT_DETECTIONS)
+      );
+    } catch (err) {
+      console.error('[useBeaconScanner] recordPassage error:', err);
+    }
+  }, []);
+
+  // Advertisement handler for watchAdvertisements events
   const handleAdvertisement = useCallback(
-    async (event: BluetoothAdvertisingEvent) => {
-      const agentId = agentIdRef.current;
-      if (!agentId) return;
-
-      // iBeacon manufacturer data is under the Apple company ID
+    (event: BluetoothAdvertisingEvent) => {
       const manufacturerData = event.manufacturerData?.get(APPLE_COMPANY_ID);
       if (!manufacturerData) return;
-
       const parsed = parseIBeacon(manufacturerData);
       if (!parsed) return;
-
       const beacon = beaconMapRef.current.get(parsed.minor);
       if (!beacon) return;
-
-      // RSSI threshold check (e.g. rssi_seuil = -72 means we need rssi >= -72)
       if (event.rssi == null || event.rssi < beacon.rssi_seuil) return;
-
-      // Cooldown check
-      const now = new Date();
-      const lastSeen = lastDetectedRef.current.get(beacon.id);
-      if (lastSeen && now.getTime() - lastSeen.getTime() < DETECTION_COOLDOWN_MS) return;
-
-      const timestamp = now.toISOString();
-
-      try {
-        // a. Insert passage
-        const { error: passageErr } = await supabase.from('rondes_passages').insert({
-          agent_id: agentId,
-          beacon_id: beacon.id,
-          rssi: event.rssi,
-          timestamp,
-        });
-
-        if (passageErr) {
-          console.error('[useBeaconScanner] Failed to insert rondes_passages:', passageErr);
-          return;
-        }
-
-        // b. If entrance beacon, ensure today's rapport exists
-        if (beacon.is_entree) {
-          const dateNuit = now.toISOString().slice(0, 10); // YYYY-MM-DD
-
-          const { data: existing, error: checkErr } = await supabase
-            .from('rondes_rapports')
-            .select('id')
-            .eq('agent_id', agentId)
-            .eq('date_nuit', dateNuit)
-            .maybeSingle();
-
-          if (checkErr) {
-            console.error('[useBeaconScanner] Failed to check rondes_rapports:', checkErr);
-          } else if (!existing) {
-            const { error: upsertErr } = await supabase.from('rondes_rapports').upsert(
-              {
-                agent_id: agentId,
-                date_nuit: dateNuit,
-                heure_prise_poste: timestamp,
-              },
-              { onConflict: 'agent_id,date_nuit' }
-            );
-
-            if (upsertErr) {
-              console.error('[useBeaconScanner] Failed to upsert rondes_rapports:', upsertErr);
-            }
-          }
-        }
-
-        // c. Update last-detected map
-        lastDetectedRef.current.set(beacon.id, now);
-
-        // d. Add to recent detections (newest first, cap at 5)
-        const detection: RecentDetection = {
-          beaconNom: beacon.nom,
-          zoneNom: beacon.zone_nom ?? '',
-          timestamp: now,
-        };
-        setRecentDetections((prev) =>
-          [detection, ...prev].slice(0, MAX_RECENT_DETECTIONS)
-        );
-      } catch (err) {
-        console.error('[useBeaconScanner] handleAdvertisement error:', err);
-      }
+      recordPassage(beacon, event.rssi);
     },
-    []
+    [recordPassage]
   );
 
-  // ---------------------------------------------------------------------------
-  // startScan — uses watchAdvertisements() (Chrome Android 148+)
-  // ---------------------------------------------------------------------------
-
-  const startScan = useCallback(async () => {
-    console.log('startScan called');
-    console.log('bluetooth:', !!navigator?.bluetooth);
-    console.log('API: watchAdvertisements');
-
+  // startRonde — triggered by user tap, opens Chrome device picker
+  const startRonde = useCallback(async () => {
     if (!navigator?.bluetooth) {
-      console.log('NO BLUETOOTH');
-      setScanError('navigator.bluetooth unavailable');
+      setScanError('Bluetooth non disponible sur cet appareil.');
       return;
     }
 
-    try {
-      setIsScanning(true);
-      setScanError(null);
+    setScanError(null);
 
-      // requestDevice requires a user gesture — must be called from startScan
-      // which is triggered by beaconsLoaded (after user logs in, on mount)
+    try {
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [],
       });
 
-      await device.watchAdvertisements();
+      // Try to match the selected device name to a known beacon
+      const beaconByName = beaconsByNameRef.current.get(device.name?.toLowerCase() ?? '');
 
-      device.addEventListener('advertisementreceived', (event: any) => {
-        console.log('advertisement received:', event);
-        handleAdvertisement(event);
-      });
+      // Record a passage immediately on device selection
+      if (beaconByName) {
+        await recordPassage(beaconByName, null);
+      }
 
-      watchedDevicesRef.current.push(device);
-      console.log('watching device:', device.name);
+      // Also watch for advertisement events (bonus — may not fire in all browsers)
+      try {
+        await device.watchAdvertisements();
+        device.addEventListener('advertisementreceived', handleAdvertisement as EventListener);
+        watchedDevicesRef.current.push(device);
+      } catch {
+        // watchAdvertisements may not be available; passage already recorded above
+      }
+
+      setIsActive(true);
     } catch (err: any) {
-      console.error('scan error:', err);
-      setScanError(err.message);
-      setIsScanning(false);
+      if (err?.name === 'NotFoundError') return; // user cancelled picker — not an error
+      console.error('[useBeaconScanner] startRonde error:', err);
+      setScanError(err.message ?? 'Erreur Bluetooth');
     }
-  }, [handleAdvertisement]);
+  }, [handleAdvertisement, recordPassage]);
 
-  // ---------------------------------------------------------------------------
-  // Auto-start when beacons are loaded and user is authenticated
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    if (!beaconsLoaded) return;
-    console.log('[useBeaconScanner] beaconsLoaded=true, triggering auto-start');
-    startScan();
-  }, [beaconsLoaded, session?.user?.id, startScan]);
-
-  // ---------------------------------------------------------------------------
-  // stopScan
-  // ---------------------------------------------------------------------------
-
-  const stopScan = useCallback(() => {
+  const stopRonde = useCallback(() => {
     for (const device of watchedDevicesRef.current) {
       try {
         device.unwatchAdvertisements();
-      } catch (err) {
-        console.error('[useBeaconScanner] unwatchAdvertisements error:', err);
+        device.removeEventListener('advertisementreceived', handleAdvertisement as EventListener);
+      } catch {
+        // ignore
       }
     }
     watchedDevicesRef.current = [];
-    setIsScanning(false);
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Cleanup on unmount
-  // ---------------------------------------------------------------------------
+    setIsActive(false);
+  }, [handleAdvertisement]);
 
   useEffect(() => {
     return () => {
-      stopScan();
+      stopRonde();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { isScanning, startScan, stopScan, recentDetections, beaconsLoaded, scanError };
+  return { isActive, startRonde, stopRonde, recentDetections, beaconsLoaded, scanError };
 }
