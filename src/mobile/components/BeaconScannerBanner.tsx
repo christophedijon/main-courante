@@ -23,13 +23,12 @@ function formatTime(d: Date): string {
 
 export function BeaconScannerBanner() {
   const { userFonction, isSuperAdmin } = useAuth();
-  const { isScanning, startScan, stopScan, recentDetections } = useBeaconScanner();
+  const { isScanning, stopScan, recentDetections } = useBeaconScanner();
 
   const [expanded, setExpanded] = useState(false);
   // Tick counter forces a re-render every 30 s so relative timestamps stay fresh
   const [, setTick] = useState(0);
 
-  // Only render for non-admin field agents
   const isAdmin =
     userFonction === 'Direction' ||
     userFonction === 'Chef de poste' ||
@@ -42,9 +41,8 @@ export function BeaconScannerBanner() {
     role: userFonction,
   });
 
-  // Auto-start on mount, stop on unmount
+  // Stop scan on unmount only
   useEffect(() => {
-    startScan();
     return () => {
       stopScan();
     };

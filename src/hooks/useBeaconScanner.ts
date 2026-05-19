@@ -297,7 +297,9 @@ export function useBeaconScanner() {
   // ---------------------------------------------------------------------------
 
   const startScan = useCallback(async () => {
-    if (isScanning) return;
+    if (scanRef.current) return; // already scanning
+
+    console.log('[useBeaconScanner] requestLEScan available:', typeof navigator.bluetooth?.requestLEScan === 'function');
 
     if (!navigator.bluetooth || typeof navigator.bluetooth.requestLEScan !== 'function') {
       console.warn('[useBeaconScanner] Web Bluetooth Scanning API is not supported in this browser.');
@@ -305,9 +307,6 @@ export function useBeaconScanner() {
     }
 
     try {
-      // Collect all unique service UUIDs to filter on.
-      // iBeacon proximity UUIDs are advertised as 16-byte (128-bit) service UUIDs.
-      // We build filters from the beacon map that has already been loaded.
       const filters: BluetoothLEScanFilter[] = [];
       const seenUuids = new Set<string>();
 
@@ -319,7 +318,6 @@ export function useBeaconScanner() {
         }
       }
 
-      // Fall back to scanning everything if no beacons are loaded yet
       const scanOptions: RequestLEScanOptions =
         filters.length > 0
           ? { filters, keepRepeatedDevices: true }
@@ -334,10 +332,22 @@ export function useBeaconScanner() {
       );
 
       setIsScanning(true);
+      console.log('[useBeaconScanner] Scan started successfully');
     } catch (err) {
       console.error('[useBeaconScanner] startScan error:', err);
     }
-  }, [isScanning, handleAdvertisement]);
+  }, [handleAdvertisement]);
+
+  // ---------------------------------------------------------------------------
+  // Auto-start when beacons are loaded and user is authenticated
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    if (!beaconsLoaded) return;
+    console.log('[useBeaconScanner] beaconsLoaded=true, triggering auto-start');
+    startScan();
+  }, [beaconsLoaded, session?.user?.id, startScan]);
 
   // ---------------------------------------------------------------------------
   // stopScan
