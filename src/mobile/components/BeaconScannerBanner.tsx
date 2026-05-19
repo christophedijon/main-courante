@@ -35,6 +35,11 @@ export function BeaconScannerBanner() {
     userFonction === 'Chef de poste' ||
     isSuperAdmin;
 
+  // Debug logs
+  console.log('user role:', userFonction, 'isSuperAdmin:', isSuperAdmin, 'isAdmin:', isAdmin);
+  console.log('bluetooth available:', !!navigator?.bluetooth);
+  console.log('isScanning:', isScanning);
+
   // Auto-start on mount, stop on unmount
   useEffect(() => {
     startScan();
@@ -50,8 +55,9 @@ export function BeaconScannerBanner() {
     return () => clearInterval(id);
   }, []);
 
-  // Don't render for admins or when scanning is not active / not supported
-  if (isAdmin || !isScanning) return null;
+  // TEMP: role condition removed to confirm rendering on mobile
+  // if (isAdmin || !isScanning) return null;
+  if (!isScanning) return null;
 
   const lastDetection = recentDetections[0] ?? null;
 
