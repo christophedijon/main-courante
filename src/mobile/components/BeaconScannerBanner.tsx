@@ -35,10 +35,12 @@ export function BeaconScannerBanner() {
     userFonction === 'Chef de poste' ||
     isSuperAdmin;
 
-  // Debug logs
-  console.log('user role:', userFonction, 'isSuperAdmin:', isSuperAdmin, 'isAdmin:', isAdmin);
-  console.log('bluetooth available:', !!navigator?.bluetooth);
-  console.log('isScanning:', isScanning);
+  // Debug log on every render
+  console.log('DEBUG BANNER RENDER', {
+    bluetooth: !!navigator?.bluetooth,
+    isScanning,
+    role: userFonction,
+  });
 
   // Auto-start on mount, stop on unmount
   useEffect(() => {
@@ -55,8 +57,6 @@ export function BeaconScannerBanner() {
     return () => clearInterval(id);
   }, []);
 
-  // TEMP: role condition removed to confirm rendering on mobile
-  // if (isAdmin || !isScanning) return null;
   if (!isScanning) return null;
 
   const lastDetection = recentDetections[0] ?? null;
@@ -66,6 +66,15 @@ export function BeaconScannerBanner() {
     : 'Ronde active — en attente de balise';
 
   return (
+    <>
+    {/* Debug panel — always visible, all roles */}
+    <div style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', color: '#0f0', fontSize: 11, padding: '4px 8px', maxWidth: 240, wordBreak: 'break-all', pointerEvents: 'none' }}>
+      <div>BT: {!!navigator?.bluetooth ? 'YES' : 'NO'}</div>
+      <div>scanning: {String(isScanning)}</div>
+      <div>role: {userFonction ?? 'null'}</div>
+      <div>isAdmin: {String(isAdmin)}</div>
+      <div>detections: {recentDetections.length}</div>
+    </div>
     <div className="fixed bottom-20 left-4 right-4 z-40">
       {/* ------------------------------------------------------------------ */}
       {/* Expanded panel — rendered above the bar                             */}
@@ -153,5 +162,6 @@ export function BeaconScannerBanner() {
         </span>
       </button>
     </div>
+    </>
   );
 }
