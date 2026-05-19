@@ -1,4 +1,4 @@
-const CACHE = 'mc-assets-v2';
+const CACHE = 'mc-assets-v4';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
