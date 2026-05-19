@@ -357,16 +357,21 @@ function BeaconModal({ beacon, zones, onClose, onSaved, notify }: {
       rssi_seuil: rssi, is_entree: isEntree, actif,
     };
 
-    if (isEntree) {
-      await supabase.from('beacons').update({ is_entree: false }).neq('id', beacon?.id ?? '');
+    if (beacon) {
+      if (isEntree) {
+        await supabase.from('beacons').update({ is_entree: false }).eq('is_entree', true).neq('id', beacon.id);
+      }
+      const { error } = await supabase.from('beacons').update(payload).eq('id', beacon.id);
+      setSaving(false);
+      if (error) { notify('error', 'Erreur lors de la sauvegarde'); return; }
+    } else {
+      const { data: inserted, error } = await supabase.from('beacons').insert(payload).select('id').single();
+      if (error || !inserted) { setSaving(false); notify('error', 'Erreur lors de la sauvegarde'); return; }
+      if (isEntree) {
+        await supabase.from('beacons').update({ is_entree: false }).eq('is_entree', true).neq('id', inserted.id);
+      }
+      setSaving(false);
     }
-
-    const { error } = beacon
-      ? await supabase.from('beacons').update(payload).eq('id', beacon.id)
-      : await supabase.from('beacons').insert(payload);
-
-    setSaving(false);
-    if (error) { notify('error', 'Erreur lors de la sauvegarde'); return; }
     onSaved();
   }
 
