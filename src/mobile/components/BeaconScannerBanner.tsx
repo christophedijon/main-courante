@@ -55,12 +55,10 @@ export function BeaconScannerBanner() {
     return () => clearInterval(id);
   }, []);
 
-  const hasLEScan = typeof (navigator?.bluetooth as any)?.requestLEScan === 'function';
-
   const debugPanel = (
     <div style={{ position: 'fixed', top: 0, right: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', color: '#0f0', fontSize: 11, padding: '4px 8px', maxWidth: 260, wordBreak: 'break-all', pointerEvents: 'none' }}>
       <div>bluetooth: {!!navigator?.bluetooth ? 'yes' : 'no'}</div>
-      <div>requestLEScan: {hasLEScan ? 'yes' : 'no'}</div>
+      <div>API: watchAdvertisements</div>
       <div>isScanning: {String(isScanning)}</div>
       <div>scanError: {scanError ?? 'none'}</div>
       <div>role: {userFonction ?? 'null'}</div>

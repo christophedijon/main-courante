@@ -2,26 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-// Web Bluetooth Scanning API type declarations (not in standard lib)
+// Web Bluetooth type declarations (watchAdvertisements API)
 declare global {
-  interface Bluetooth {
-    requestLEScan(options?: RequestLEScanOptions): Promise<BluetoothLEScan>;
+  interface BluetoothDevice {
+    watchAdvertisements(options?: { signal?: AbortSignal }): Promise<void>;
+    unwatchAdvertisements(): void;
     addEventListener(type: 'advertisementreceived', listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
     removeEventListener(type: 'advertisementreceived', listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
-  }
-  interface BluetoothLEScan {
-    stop(): void;
-    active: boolean;
-  }
-  interface RequestLEScanOptions {
-    filters?: BluetoothLEScanFilter[];
-    keepRepeatedDevices?: boolean;
-    acceptAllAdvertisements?: boolean;
-  }
-  interface BluetoothLEScanFilter {
-    services?: string[];
-    name?: string;
-    namePrefix?: string;
   }
   interface BluetoothAdvertisingEvent extends Event {
     device: BluetoothDevice;
@@ -136,7 +123,7 @@ export function useBeaconScanner() {
   const [scanError, setScanError] = useState<string | null>(null);
 
   // Refs that survive re-renders without triggering them
-  const scanRef = useRef<BluetoothLEScan | null>(null);
+  const watchedDevicesRef = useRef<BluetoothDevice[]>([]);
   const beaconMapRef = useRef<Map<number, Beacon>>(new Map());
   const lastDetectedRef = useRef<Map<string, Date>>(new Map());
   const agentIdRef = useRef<string | null>(null);
@@ -294,13 +281,13 @@ export function useBeaconScanner() {
   );
 
   // ---------------------------------------------------------------------------
-  // startScan
+  // startScan — uses watchAdvertisements() (Chrome Android 148+)
   // ---------------------------------------------------------------------------
 
   const startScan = useCallback(async () => {
     console.log('startScan called');
     console.log('bluetooth:', !!navigator?.bluetooth);
-    console.log('requestLEScan:', typeof (navigator?.bluetooth as any)?.requestLEScan);
+    console.log('API: watchAdvertisements');
 
     if (!navigator?.bluetooth) {
       console.log('NO BLUETOOTH');
@@ -311,19 +298,26 @@ export function useBeaconScanner() {
     try {
       setIsScanning(true);
       setScanError(null);
-      const scan = await (navigator.bluetooth as any).requestLEScan({
-        acceptAllAdvertisements: true,
-      });
-      console.log('scan started:', scan);
-      scanRef.current = scan;
 
-      navigator.bluetooth.addEventListener(
-        'advertisementreceived',
-        handleAdvertisement as EventListener
-      );
-    } catch (err) {
-      console.error('startScan error:', err);
-      setScanError(err instanceof Error ? err.message : String(err));
+      // requestDevice requires a user gesture — must be called from startScan
+      // which is triggered by beaconsLoaded (after user logs in, on mount)
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [],
+      });
+
+      await device.watchAdvertisements();
+
+      device.addEventListener('advertisementreceived', (event: any) => {
+        console.log('advertisement received:', event);
+        handleAdvertisement(event);
+      });
+
+      watchedDevicesRef.current.push(device);
+      console.log('watching device:', device.name);
+    } catch (err: any) {
+      console.error('scan error:', err);
+      setScanError(err.message);
       setIsScanning(false);
     }
   }, [handleAdvertisement]);
@@ -344,22 +338,16 @@ export function useBeaconScanner() {
   // ---------------------------------------------------------------------------
 
   const stopScan = useCallback(() => {
-    if (scanRef.current) {
+    for (const device of watchedDevicesRef.current) {
       try {
-        scanRef.current.stop();
+        device.unwatchAdvertisements();
       } catch (err) {
-        console.error('[useBeaconScanner] stopScan error:', err);
+        console.error('[useBeaconScanner] unwatchAdvertisements error:', err);
       }
-      scanRef.current = null;
     }
-
-    navigator.bluetooth?.removeEventListener?.(
-      'advertisementreceived',
-      handleAdvertisement as EventListener
-    );
-
+    watchedDevicesRef.current = [];
     setIsScanning(false);
-  }, [handleAdvertisement]);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Cleanup on unmount
