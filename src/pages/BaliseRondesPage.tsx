@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Radio, Plus, Pencil, Trash2, Star, ToggleLeft, ToggleRight,
   Shuffle, List, Clock, ChevronDown, GripVertical, X, Save,
-  Loader2, CheckCircle, AlertTriangle, Info,
+  Loader2, CheckCircle, AlertTriangle, Info, Download, User,
+  ChevronRight, MapPin,
 } from 'lucide-react';
 import {
   DndContext,
@@ -149,11 +150,7 @@ export default function BaliseRondesPage() {
 
         {tab === 'balises' && <BaliseTab notify={notify} />}
         {tab === 'rondes' && <RondeTab notify={notify} />}
-        {tab === 'rapports' && (
-          <div className="flex items-center justify-center h-48 text-slate-500 text-sm">
-            Onglet Rapports — bientôt disponible
-          </div>
-        )}
+        {tab === 'rapports' && <RapportTab notify={notify} />}
       </div>
     </div>
   );
@@ -846,3 +843,292 @@ function RondeModal({ ronde, beacons, onClose, onSaved, notify }: {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 3 — RAPPORTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type AgentOption = { id: string; email: string; label: string };
+
+type PassageRow = {
+  beacon_id: string;
+  beacon_nom: string;
+  zone_nom: string | null;
+  count: number;
+  last_ts: string;
+};
+
+type AgentRapport = {
+  agent_id: string;
+  agent_label: string;
+  prise_de_poste: string | null;
+  passages: PassageRow[];
+  chronologie: { ts: string; beacon_nom: string; zone_nom: string | null }[];
+};
+
+function fmt(ts: string) {
+  return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function RapportTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => void }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [rapports, setRapports] = useState<AgentRapport[]>([]);
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('managed_users')
+        .select('id, email, fonction')
+        .order('email');
+      setAgents((data ?? []).map((u: any) => ({ id: u.id, email: u.email, label: `${u.email} (${u.fonction})` })));
+    })();
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    setRapports([]);
+
+    const start = `${date}T00:00:00.000Z`;
+    const end = `${date}T23:59:59.999Z`;
+
+    let query = supabase
+      .from('rondes_passages')
+      .select('agent_id, beacon_id, rssi, timestamp, beacons(nom, is_entree, zone_id, zones(nom)), managed_users(id, email, fonction)')
+      .gte('timestamp', start)
+      .lte('timestamp', end)
+      .order('timestamp', { ascending: true });
+
+    if (selectedAgent) query = query.eq('agent_id', selectedAgent);
+
+    const { data: rows, error } = await query;
+    if (error) { notify('error', 'Erreur lors du chargement des rapports'); setLoading(false); return; }
+
+    const byAgent = new Map<string, any[]>();
+    for (const row of (rows ?? []) as any[]) {
+      if (!byAgent.has(row.agent_id)) byAgent.set(row.agent_id, []);
+      byAgent.get(row.agent_id)!.push(row);
+    }
+
+    const agentIds = [...byAgent.keys()];
+    const priseMap = new Map<string, string>();
+    if (agentIds.length > 0) {
+      const { data: rr } = await supabase
+        .from('rondes_rapports')
+        .select('agent_id, heure_prise_poste')
+        .in('agent_id', agentIds)
+        .eq('date_nuit', date);
+      for (const r of (rr ?? []) as any[]) {
+        if (r.heure_prise_poste) priseMap.set(r.agent_id, r.heure_prise_poste);
+      }
+    }
+
+    const result: AgentRapport[] = [];
+    for (const [agentId, agentRows] of byAgent.entries()) {
+      const firstRow = agentRows[0];
+      const mu = firstRow.managed_users as any;
+      const agentLabel = mu?.email ?? agentId;
+
+      const entrieTs = agentRows
+        .filter((r: any) => r.beacons?.is_entree)
+        .map((r: any) => r.timestamp as string);
+      const priseDePoste = priseMap.get(agentId) ?? (entrieTs.length > 0 ? entrieTs.sort()[0] : null);
+
+      const beaconMap = new Map<string, PassageRow>();
+      for (const row of agentRows) {
+        const b = row.beacons as any;
+        if (!b) continue;
+        const bid = row.beacon_id;
+        if (!beaconMap.has(bid)) {
+          beaconMap.set(bid, { beacon_id: bid, beacon_nom: b.nom ?? bid, zone_nom: b.zones?.nom ?? null, count: 0, last_ts: row.timestamp });
+        }
+        const pr = beaconMap.get(bid)!;
+        pr.count++;
+        if (row.timestamp > pr.last_ts) pr.last_ts = row.timestamp;
+      }
+
+      const chronologie = agentRows.map((r: any) => ({
+        ts: r.timestamp,
+        beacon_nom: r.beacons?.nom ?? r.beacon_id,
+        zone_nom: r.beacons?.zones?.nom ?? null,
+      }));
+
+      result.push({
+        agent_id: agentId,
+        agent_label: agentLabel,
+        prise_de_poste: priseDePoste,
+        passages: [...beaconMap.values()].sort((a, b) => a.beacon_nom.localeCompare(b.beacon_nom)),
+        chronologie,
+      });
+    }
+
+    setRapports(result);
+    setLoading(false);
+  }
+
+  function toggleExpand(agentId: string) {
+    setExpandedAgents(prev => {
+      const next = new Set(prev);
+      next.has(agentId) ? next.delete(agentId) : next.add(agentId);
+      return next;
+    });
+  }
+
+  function exportCSV(rapport: AgentRapport) {
+    const lines = [
+      `Agent;${rapport.agent_label}`,
+      `Date;${date}`,
+      `Prise de poste;${rapport.prise_de_poste ? fmt(rapport.prise_de_poste) : '—'}`,
+      '',
+      'Balise;Zone;Passages;Dernier passage',
+      ...rapport.passages.map(p => `${p.beacon_nom};${p.zone_nom ?? ''};${p.count};${fmt(p.last_ts)}`),
+      '',
+      'Chronologie',
+      ...rapport.chronologie.map(c => `${fmt(c.ts)};${c.beacon_nom};${c.zone_nom ?? ''}`),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ronde_${date}_${rapport.agent_label.split('@')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div>
+      {/* Controls */}
+      <div className="flex flex-wrap gap-3 items-end mb-6">
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Date</label>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" />
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Agent (optionnel)</label>
+          <div className="relative">
+            <select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors appearance-none pr-9">
+              <option value="">— Tous les agents —</option>
+              {agents.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
+        <button onClick={load} disabled={loading}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 transition-all">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+          Afficher
+        </button>
+      </div>
+
+      {!loading && rapports.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-slate-500 gap-3">
+          <Radio className="w-10 h-10 opacity-30" />
+          <p className="text-sm">Aucun passage enregistré pour cette nuit.</p>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {rapports.map(rapport => {
+          const isExpanded = expandedAgents.has(rapport.agent_id);
+          const chrono = rapport.chronologie;
+          const visible = isExpanded ? chrono : chrono.slice(0, 5);
+
+          return (
+            <div key={rapport.agent_id} className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden">
+              {/* Agent header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold text-sm">{rapport.agent_label}</p>
+                    <p className="text-slate-400 text-xs mt-0.5">
+                      Prise de poste :{' '}
+                      {rapport.prise_de_poste
+                        ? <span className="text-emerald-400 font-semibold">{fmt(rapport.prise_de_poste)}</span>
+                        : <span className="text-slate-600">—</span>}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => exportCSV(rapport)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-all border border-slate-700">
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </button>
+              </div>
+
+              <div className="p-5 flex flex-col gap-5">
+                {/* Passage summary table */}
+                {rapport.passages.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Résumé par balise</p>
+                    <div className="bg-slate-800/50 rounded-xl overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-700">
+                            <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Balise</th>
+                            <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 hidden sm:table-cell">Zone</th>
+                            <th className="text-center px-4 py-2.5 text-xs font-semibold text-slate-400">Passages</th>
+                            <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-400">Dernier</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rapport.passages.map(p => (
+                            <tr key={p.beacon_id} className="border-b border-slate-700/50 last:border-0">
+                              <td className="px-4 py-2.5 text-slate-200 font-medium">{p.beacon_nom}</td>
+                              <td className="px-4 py-2.5 text-slate-400 hidden sm:table-cell">
+                                {p.zone_nom
+                                  ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.zone_nom}</span>
+                                  : <span className="text-slate-600">—</span>}
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/15 text-blue-400 text-xs font-bold">{p.count}</span>
+                              </td>
+                              <td className="px-4 py-2.5 text-right text-slate-300 font-mono text-xs">{fmt(p.last_ts)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Chronologie */}
+                {chrono.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Chronologie</p>
+                    <div className="flex flex-col gap-1.5">
+                      {visible.map((c, i) => (
+                        <div key={i} className="flex items-center gap-3 text-sm">
+                          <span className="text-slate-500 font-mono text-xs w-12 shrink-0">{fmt(c.ts)}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400/60 shrink-0" />
+                          <span className="text-slate-200">{c.beacon_nom}</span>
+                          {c.zone_nom && <span className="text-slate-500 text-xs">({c.zone_nom})</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {chrono.length > 5 && (
+                      <button onClick={() => toggleExpand(rapport.agent_id)}
+                        className="mt-3 text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">
+                        {isExpanded ? 'Réduire ▲' : `Voir tout (${chrono.length}) ▼`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+export default BaliseRondesPage

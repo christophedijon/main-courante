@@ -8,6 +8,7 @@ import { useTodayEventsCount } from '../hooks/useEvenements';
 import { useSaisie } from '../saisie/SaisieContext';
 import RoleBadge from '../components/RoleBadge';
 import QuickActionCard from '../components/QuickActionCard';
+import { BeaconScannerBanner } from '../components/BeaconScannerBanner';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export default function HomePage() {
   }
 
   return (
+    <>
     <div className="min-h-full font-exo">
       {/* ── Header ── */}
       <div className="px-5 pt-8 pb-5">
@@ -188,5 +190,7 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+    <BeaconScannerBanner />
+    </>
   );
 }
