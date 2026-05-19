@@ -111,7 +111,7 @@ function SortableBeaconRow({ item, onRemove }: { item: BeaconInRonde; onRemove: 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function BaliseRondesPage() {
+function BaliseRondesPage() {
   const { signOut } = useAuth();
   const [tab, setTab] = useState<'balises' | 'rondes' | 'rapports'>('balises');
   const [toast, setToast] = useState<ToastMsg | null>(null);
