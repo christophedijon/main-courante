@@ -42,6 +42,20 @@ export default function HomePage() {
     <div style={{position:'fixed',top:0,left:0,width:'100%',background:'red',color:'white',zIndex:99999,padding:'4px',textAlign:'center',fontSize:'11px'}}>
       v4 - {navigator?.bluetooth ? 'BT-OK' : 'BT-NO'}
     </div>
+    <div style={{
+      position:'fixed',
+      top:'60px',
+      right:'10px',
+      zIndex:99999,
+      background:'orange',
+      color:'black',
+      padding:'6px 10px',
+      borderRadius:'8px',
+      fontSize:'11px',
+      fontWeight:'bold'
+    }}>
+      HOME OK - {!!navigator?.bluetooth ? 'BT' : 'NO BT'}
+    </div>
     <div className="min-h-full font-exo">
       {/* ── Header ── */}
       <div className="px-5 pt-8 pb-5">
