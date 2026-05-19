@@ -9,6 +9,7 @@ import { useSaisie } from '../saisie/SaisieContext';
 import RoleBadge from '../components/RoleBadge';
 import QuickActionCard from '../components/QuickActionCard';
 import { BeaconScannerBanner } from '../components/BeaconScannerBanner';
+import { useBeaconScanner } from '../../hooks/useBeaconScanner';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -18,6 +19,8 @@ export default function HomePage() {
   const todayCount = useTodayEventsCount() ?? 0;
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
+  const { isScanning, beaconsLoaded } = useBeaconScanner();
+  const bluetoothAvailable = !!navigator?.bluetooth;
 
   const fullName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
@@ -191,6 +194,21 @@ export default function HomePage() {
       </div>
     </div>
     <BeaconScannerBanner />
+
+    {/* TEMP DEBUG PANEL */}
+    <div style={{
+      position: 'fixed', top: 12, right: 12, zIndex: 9999,
+      background: 'rgba(0,0,0,0.85)', border: '1px solid #f59e0b',
+      borderRadius: 10, padding: '8px 12px', fontSize: 12,
+      color: '#fcd34d', lineHeight: 1.7, pointerEvents: 'none',
+    }}>
+      <div style={{ fontWeight: 700, marginBottom: 4, color: '#f59e0b' }}>DEBUG</div>
+      <div>bluetooth: <span style={{ color: bluetoothAvailable ? '#4ade80' : '#f87171' }}>{bluetoothAvailable ? 'yes' : 'no'}</span></div>
+      <div>isScanning: <span style={{ color: isScanning ? '#4ade80' : '#f87171' }}>{isScanning ? 'true' : 'false'}</span></div>
+      <div>role: <span style={{ color: '#93c5fd' }}>{isSuperAdmin ? 'SuperAdmin' : (userFonction ?? 'none')}</span></div>
+      <div>beacons: <span style={{ color: '#93c5fd' }}>{beaconsLoaded ? 'loaded' : 'loading...'}</span></div>
+    </div>
+
     </>
   );
 }
