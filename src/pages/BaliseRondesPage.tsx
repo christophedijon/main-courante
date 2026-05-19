@@ -903,7 +903,7 @@ function RapportTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => 
 
     let query = supabase
       .from('rondes_passages')
-      .select('agent_id, beacon_id, rssi, timestamp, beacons(nom, is_entree, zone_id, zones(nom)), managed_users(id, email, fonction)')
+      .select('agent_id, beacon_id, rssi, timestamp, beacons(nom, is_entree, zones(nom))')
       .gte('timestamp', start)
       .lte('timestamp', end)
       .order('timestamp', { ascending: true });
@@ -911,7 +911,12 @@ function RapportTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => 
     if (selectedAgent) query = query.eq('agent_id', selectedAgent);
 
     const { data: rows, error } = await query;
-    if (error) { notify('error', 'Erreur lors du chargement des rapports'); setLoading(false); return; }
+    if (error) {
+      console.error('[RapportTab] Supabase error:', error);
+      notify('error', `Erreur lors du chargement des rapports: ${error.message}`);
+      setLoading(false);
+      return;
+    }
 
     const byAgent = new Map<string, any[]>();
     for (const row of (rows ?? []) as any[]) {
@@ -934,9 +939,7 @@ function RapportTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => 
 
     const result: AgentRapport[] = [];
     for (const [agentId, agentRows] of byAgent.entries()) {
-      const firstRow = agentRows[0];
-      const mu = firstRow.managed_users as any;
-      const agentLabel = mu?.email ?? agentId;
+      const agentLabel = agents.find(a => a.id === agentId)?.label ?? agentId;
 
       const entrieTs = agentRows
         .filter((r: any) => r.beacons?.is_entree)
