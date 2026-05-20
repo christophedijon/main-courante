@@ -27,6 +27,7 @@
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => {
           regs.forEach(reg => reg.unregister());
+          if (regs.length > 0) window.location.reload();
         });
       }
     </script>
