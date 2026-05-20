@@ -253,9 +253,9 @@ export default function EventDetailPage() {
               <Row icon={Clock} label="Heure" value={timeStr} />
               <Row icon={UserIcon} label="Utilisateur" value={`${event.created_by_email}${event.user_fonction ? ` · ${event.user_fonction}` : ''}`} />
               <Row icon={Building2} label="Établissement" value={event.etablissement_nom || '—'} />
-              <Row icon={MapPin} label="Espace" value={event.espace_nom || '—'} />
+              {!ssi && <Row icon={MapPin} label="Espace" value={event.espace_nom || '—'} />}
               <Row icon={MapPin} label="Zone" value={event.zone_nom || '—'} />
-              <Row icon={Layers} label="Niveau" value={event.niveau_label || '—'} valueClass="text-amber-300" />
+              {!ssi && <Row icon={Layers} label="Niveau" value={event.niveau_label || '—'} valueClass="text-amber-300" />}
               <Row icon={Tag} label="Motifs" value={motifs.join(', ') || '—'} />
               <Row icon={FileText} label="Commentaire" value={event.commentaire || '—'} />
             </div>
