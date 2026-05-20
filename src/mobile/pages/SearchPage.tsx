@@ -12,18 +12,25 @@ export default function SearchPage() {
 
   useEffect(() => {
     const trimmed = q.trim();
-    if (!trimmed) { setResults([]); setTouched(false); return; }
+    if (trimmed.length < 2) { setResults([]); setTouched(false); return; }
     setTouched(true);
     setLoading(true);
     const handle = setTimeout(async () => {
-      const like = `%${trimmed}%`;
+      // Keep exact case for short ALL-CAPS input (e.g. "SSI"), lowercase otherwise
+      const normalizedQuery = trimmed.length <= 4 && trimmed === trimmed.toUpperCase()
+        ? trimmed
+        : trimmed.toLowerCase();
+      const like = `%${normalizedQuery}%`;
       const { data } = await supabase
         .from('evenements')
         .select('id, numero, type, espace_nom, zone_nom, niveau_label, date_evenement, created_by_email')
         .or(
-          `numero.ilike.${like},commentaire.ilike.${like},espace_nom.ilike.${like},zone_nom.ilike.${like},niveau_label.ilike.${like},created_by_email.ilike.${like}`
+          `type.ilike.${like},` +
+          `espace_nom.ilike.${like},` +
+          `zone_nom.ilike.${like},` +
+          `niveau_label.ilike.${like}`
         )
-        .order('date_evenement', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(50);
       setResults((data ?? []) as EventItem[]);
       setLoading(false);
