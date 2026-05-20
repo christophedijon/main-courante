@@ -7,8 +7,10 @@ import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import { useTodayEventsCount } from '../hooks/useEvenements';
 import { useSaisie } from '../saisie/SaisieContext';
 import QuickActionCard from '../components/QuickActionCard';
+import HexagonJauge from '../components/HexagonJauge';
 import { BeaconScannerBanner } from '../components/BeaconScannerBanner';
 import { useBeaconScanner } from '../../hooks/useBeaconScanner';
+import { useJauge } from '../../hooks/useJauge';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -20,6 +22,7 @@ export default function HomePage() {
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
   const { isActive, startRonde, scanError } = useBeaconScanner();
+  const { count, Ep, taux, niveau, loading: jaugeLoading } = useJauge();
 
   const isAgent = !isSuperAdmin && userFonction === 'Agent de Sécurité';
 
@@ -208,6 +211,13 @@ export default function HomePage() {
                 Icon={Users}
                 onClick={() => start('securite_personnes')}
                 offsetTop={52}
+              />
+              <HexagonJauge
+                count={count}
+                Ep={Ep}
+                taux={taux}
+                niveau={niveau}
+                loading={jaugeLoading}
               />
             </div>
           )}
