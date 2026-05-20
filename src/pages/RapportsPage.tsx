@@ -1,9 +1,9 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useRef, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText, ChevronDown, ChevronUp, RefreshCw, Calendar, Users,
   AlertTriangle, Play, Mail, ToggleLeft, ToggleRight, Save, CheckCircle,
-  AlertCircle, Settings, X,
+  AlertCircle, Settings, X, TrendingUp, Clock, UserCheck,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +24,137 @@ type EmailSettings = {
   id: string;
   email_enabled: boolean;
 };
+
+type JaugeAction = {
+  action: string;
+  delta: number;
+  created_at: string;
+};
+
+type JaugeStatsData = {
+  totalVisiteurs: number;
+  heurePointe: string | null;
+  countMax: number;
+};
+
+function computeJaugeStats(actions: JaugeAction[]): JaugeStatsData {
+  const sorted = [...actions].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+
+  let running = 0;
+  let countMax = 0;
+  let heurePointe: string | null = null;
+  let totalVisiteurs = 0;
+
+  for (const a of sorted) {
+    if (a.action === 'entree') totalVisiteurs += a.delta;
+    running += a.delta;
+    if (running > countMax) {
+      countMax = running;
+      heurePointe = a.created_at;
+    }
+  }
+
+  return { totalVisiteurs, heurePointe, countMax };
+}
+
+function JaugeVisiteursSection({ rapportId, dateDebut, dateFin, entrepriseId }: {
+  rapportId: string;
+  dateDebut: string;
+  dateFin: string;
+  entrepriseId: string | null;
+}) {
+  const [stats, setStats] = useState<JaugeStatsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const fetchedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!entrepriseId || fetchedFor.current === rapportId) return;
+    fetchedFor.current = rapportId;
+
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('jauge_actions')
+        .select('action, delta, created_at')
+        .eq('entreprise_id', entrepriseId)
+        .gte('created_at', dateDebut)
+        .lte('created_at', dateFin);
+
+      setStats(data && data.length > 0 ? computeJaugeStats(data as JaugeAction[]) : null);
+      setLoading(false);
+    })();
+  }, [rapportId, entrepriseId, dateDebut, dateFin]);
+
+  const heurePointeFormatted = stats?.heurePointe
+    ? new Date(stats.heurePointe).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  return (
+    <div className="border-t border-slate-800 px-5 py-5">
+      <div className="flex items-center gap-2 mb-4">
+        <TrendingUp className="w-4 h-4 text-blue-400" />
+        <p className="text-white font-semibold text-sm">Fréquentation de la soirée</p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-500 text-sm py-2">
+          <RefreshCw className="w-4 h-4 animate-spin" />
+          <span>Chargement des données…</span>
+        </div>
+      ) : !stats ? (
+        <p className="text-slate-500 text-sm italic">
+          Données de jauge non disponibles pour cette soirée.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Total visiteurs */}
+          <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <p className="text-slate-400 text-xs font-medium">Total visiteurs reçus</p>
+            </div>
+            <p className="text-3xl font-bold text-emerald-400 tabular-nums">
+              {stats.totalVisiteurs.toLocaleString('fr-FR')}
+            </p>
+            <p className="text-slate-500 text-[11px] mt-1.5 leading-snug">
+              Nombre total de personnes entrées (entrées uniquement)
+            </p>
+          </div>
+
+          {/* Heure de pointe */}
+          <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <p className="text-slate-400 text-xs font-medium">Heure de pointe</p>
+            </div>
+            <p className="text-3xl font-bold text-amber-400 tabular-nums">
+              {heurePointeFormatted ?? '—'}
+            </p>
+            <p className="text-slate-500 text-[11px] mt-1.5 leading-snug">
+              Moment où la fréquentation était la plus haute
+            </p>
+          </div>
+
+          {/* Maximum en salle */}
+          <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <p className="text-slate-400 text-xs font-medium">Maximum en salle simultanément</p>
+            </div>
+            <p className="text-3xl font-bold text-blue-400 tabular-nums">
+              {stats.countMax.toLocaleString('fr-FR')}
+            </p>
+            <p className="text-slate-500 text-[11px] mt-1.5 leading-snug">
+              Personnes présentes au pic de fréquentation
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatDateSoiree(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('fr-FR', {
@@ -46,6 +177,7 @@ export default function RapportsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [entrepriseId, setEntrepriseId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
@@ -88,6 +220,9 @@ export default function RapportsPage() {
   useEffect(() => {
     load();
     if (isSuperAdmin) loadEmailSettings();
+    supabase.from('entreprise').select('id').limit(1).maybeSingle().then(({ data }) => {
+      if (data) setEntrepriseId(data.id);
+    });
   }, [isSuperAdmin]);
 
   useEffect(() => {
@@ -377,7 +512,7 @@ export default function RapportsPage() {
                   {isOpen && rapport.contenu_html && (
                     <div className="border-t border-slate-800">
                       <div
-                        className="w-full overflow-auto bg-white rounded-b-2xl"
+                        className="w-full overflow-auto bg-white"
                         style={{ maxHeight: '80vh' }}
                         dangerouslySetInnerHTML={{ __html: rapport.contenu_html }}
                       />
@@ -389,6 +524,15 @@ export default function RapportsPage() {
                       <AlertTriangle className="w-5 h-5 shrink-0" />
                       <span className="text-sm">Aucun contenu HTML disponible pour ce rapport.</span>
                     </div>
+                  )}
+
+                  {isOpen && (
+                    <JaugeVisiteursSection
+                      rapportId={rapport.id}
+                      dateDebut={rapport.debut_soiree}
+                      dateFin={rapport.fin_soiree}
+                      entrepriseId={entrepriseId}
+                    />
                   )}
                 </div>
               );
