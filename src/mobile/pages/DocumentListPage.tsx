@@ -33,22 +33,34 @@ export default function DocumentListPage() {
   const { userFonction } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const cat = (categorie?.toUpperCase() ?? '') as Categorie;
   const meta = META[cat];
 
   useEffect(() => {
-    if (!cat || !meta) return;
+    if (!cat || !meta) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
     (async () => {
-      const { data } = await supabase
+      const { data, error: queryError } = await supabase
         .from('toolbox_documents')
         .select('id, titre, description, ordre, destinataires, signature_requise')
         .eq('categorie', cat)
         .eq('actif', true)
         .order('ordre', { ascending: true });
 
+      if (queryError) {
+        console.error('[DocumentListPage] Supabase error:', queryError);
+        setError(queryError.message);
+        setLoading(false);
+        return;
+      }
+
       const all = (data ?? []) as Doc[];
-      // Filtrer selon les destinataires : si vide → visible par tous
       const visible = all.filter((doc) =>
         !doc.destinataires || doc.destinataires.length === 0 || (userFonction && doc.destinataires.includes(userFonction))
       );
@@ -98,6 +110,16 @@ export default function DocumentListPage() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
             <span className="text-sm">Chargement…</span>
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-red-900/20 border border-red-500/20 flex items-center justify-center">
+              <FileX className="w-7 h-7 text-red-400" />
+            </div>
+            <p className="text-slate-300 font-semibold">Erreur de chargement</p>
+            <p className="text-slate-500 text-sm px-4">{error}</p>
           </div>
         )}
 
