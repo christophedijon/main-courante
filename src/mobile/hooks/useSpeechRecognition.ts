@@ -10,87 +10,81 @@ export function useSpeechRecognition(initialText = '') {
   const [recording, setRecording] = useState(false);
   const [supported, setSupported] = useState(true);
 
-  const recRef = useRef<any>(null);
   const isListeningRef = useRef(false);
-  const lastResultIndexRef = useRef(0);
-  const finalTranscriptRef = useRef('');
-
-  useEffect(() => {
-    // Sync finalTranscriptRef when transcript is set externally (e.g. initial draft value)
-    finalTranscriptRef.current = initialText;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const accumulatedRef = useRef(initialText);
+  const SRRef = useRef<any>(null);
 
   useEffect(() => {
     const w = window as unknown as AnyWindow;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) { setSupported(false); return; }
+    SRRef.current = SR;
+  }, []);
 
-    const rec = new SR();
-    rec.lang = 'fr-FR';
-    rec.continuous = true;
-    rec.interimResults = true;
+  function createAndStart() {
+    const SR = SRRef.current;
+    if (!SR) return;
 
-    rec.onresult = (e: any) => {
-      let interimTranscript = '';
+    const recognition = new SR();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = false; // prevents Android echo bug
+    recognition.interimResults = true;
 
-      // Start from lastResultIndexRef to avoid replaying already-processed results on Android
-      for (let i = lastResultIndexRef.current; i < e.results.length; i++) {
-        const result = e.results[i];
-        if (result.isFinal) {
-          const text = result[0].transcript;
-          finalTranscriptRef.current = finalTranscriptRef.current
-            ? finalTranscriptRef.current + ' ' + text.trim()
-            : text.trim();
-          lastResultIndexRef.current = i + 1;
+    // Accumulates final results within a single recognition session.
+    // Reset to '' each time createAndStart() is called so Android can't
+    // replay stale results from a previous session.
+    let sessionFinal = '';
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          sessionFinal += event.results[i][0].transcript + ' ';
         } else {
-          interimTranscript += result[0].transcript;
+          interim += event.results[i][0].transcript;
         }
       }
-
-      setTranscript(
-        interimTranscript
-          ? finalTranscriptRef.current + ' ' + interimTranscript
-          : finalTranscriptRef.current,
-      );
+      setTranscript(accumulatedRef.current + sessionFinal + interim);
     };
 
-    rec.onend = () => {
-      // On Android, continuous mode fires onend between sentences and auto-restarts.
-      // Only restart if we're still supposed to be listening; do NOT reset refs.
+    recognition.onend = () => {
+      accumulatedRef.current += sessionFinal;
+      sessionFinal = '';
       if (isListeningRef.current) {
-        try { rec.start(); } catch {}
+        try { recognition.start(); } catch {}
       } else {
         setRecording(false);
       }
     };
 
-    recRef.current = rec;
-    return () => {
-      isListeningRef.current = false;
-      try { rec.stop(); } catch {}
+    recognition.onerror = (event: any) => {
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        isListeningRef.current = false;
+        setRecording(false);
+      }
+      // Other errors (no-speech, network, aborted) let onend handle restart
     };
-  }, []);
 
-  function start() {
-    if (!recRef.current || isListeningRef.current) return;
-    // Reset accumulation only on a fresh explicit start
-    lastResultIndexRef.current = 0;
-    finalTranscriptRef.current = transcript;
-    isListeningRef.current = true;
     try {
-      recRef.current.start();
-      setRecording(true);
+      recognition.start();
     } catch {
       isListeningRef.current = false;
       setRecording(false);
     }
   }
 
+  function start() {
+    if (isListeningRef.current) return;
+    // Sync accumulatedRef with any manual edits to transcript before recording
+    accumulatedRef.current = transcript;
+    isListeningRef.current = true;
+    setRecording(true);
+    createAndStart();
+  }
+
   function stop() {
     isListeningRef.current = false;
-    try { recRef.current?.stop(); } catch {}
-    setRecording(false);
+    // setRecording(false) will be called by onend
   }
 
   function toggle() {
@@ -98,7 +92,7 @@ export function useSpeechRecognition(initialText = '') {
   }
 
   function setTranscriptExternal(value: string) {
-    finalTranscriptRef.current = value;
+    accumulatedRef.current = value;
     setTranscript(value);
   }
 
