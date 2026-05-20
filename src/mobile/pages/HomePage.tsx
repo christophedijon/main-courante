@@ -14,7 +14,8 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { userFonction, isSuperAdmin } = useAuth();
   const { profile } = useCurrentProfile();
-  const { nom: entrepriseNom, logo_url } = useEntreprise();
+  const { nom: entrepriseNom, logo_url, loading: entrepriseLoading } = useEntreprise();
+  const [logoError, setLogoError] = useState(false);
   const todayCount = useTodayEventsCount() ?? 0;
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
@@ -98,17 +99,22 @@ export default function HomePage() {
               WebkitBackdropFilter: 'blur(12px)',
             }}
           >
-            {logo_url && (
+            {entrepriseLoading ? (
+              <div className="h-10 w-[52px] rounded-xl bg-white/10 shrink-0 animate-pulse" />
+            ) : logo_url && !logoError ? (
               <div className="bg-white rounded-xl p-1 shrink-0">
-                <img src={logo_url} alt={entrepriseNom ?? 'Logo'}
-                  className="h-10 w-auto max-w-[52px] object-contain" />
+                <img
+                  src={logo_url}
+                  alt={entrepriseNom ?? 'Logo'}
+                  className="h-10 w-auto max-w-[52px] object-contain"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; setLogoError(true); }}
+                />
               </div>
-            )}
+            ) : !entrepriseNom ? (
+              <Shield className="w-8 h-8 text-slate-600" />
+            ) : null}
             {entrepriseNom && (
               <p className="text-white text-[14px] font-bold leading-tight">{entrepriseNom}</p>
-            )}
-            {!logo_url && !entrepriseNom && (
-              <Shield className="w-8 h-8 text-slate-600" />
             )}
           </div>
 
