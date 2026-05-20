@@ -44,6 +44,7 @@ import StepLocalisation from './mobile/saisie/StepLocalisation';
 import StepDescription from './mobile/saisie/StepDescription';
 import StepSsiZone from './mobile/saisie/StepSsiZone';
 import StepSsiMotifs from './mobile/saisie/StepSsiMotifs';
+import { RoleRoute } from './mobile/components/RoleRoute';
 
 function OfflineSignatureSync() {
   useEffect(() => {
@@ -102,13 +103,6 @@ function MobileRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AdminMobileRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaReady, hasAdminAccess } = useAuth();
-  if (loading || !userMetaReady) return <Spinner />;
-  if (!session) return <Navigate to="/" replace />;
-  if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
-  return <>{children}</>;
-}
 
 export default function App() {
   return (
@@ -134,30 +128,97 @@ export default function App() {
             <Route path="/emails" element={<AdminRoute><EmailsPage /></AdminRoute>} />
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
+              {/* ALL roles */}
               <Route index element={<HomePage />} />
               <Route path="outils" element={<ToolboxPage />} />
               <Route path="historique" element={<HistoryPage />} />
               <Route path="recherche" element={<SearchPage />} />
               <Route path="profil" element={<MobileProfilePage />} />
-              <Route path="admin" element={<AdminMobileRoute><MobileAdminPage /></AdminMobileRoute>} />
               <Route path="postes" element={<PostesMobilePage />} />
-              <Route path="assignation" element={<AdminMobileRoute><AssignationPage /></AdminMobileRoute>} />
               <Route path="evenement/:id" element={<EventDetailPage />} />
+              {/* ALL roles — content filtered inside the page for Serveur */}
+              {/* TODO: filter documents by role inside DocumentsPage */}
               <Route path="outils/documents/:categorie" element={<DocumentListPage />} />
               <Route path="outils/documents/:categorie/:id" element={<DocumentDetailPage />} />
-              <Route path="assistant-ia" element={<AssistantIAPage />} />
-              <Route path="registre-securite" element={<RegistreMobilePage />} />
-              <Route path="saisie/:type/etablissement" element={<StepEtablissement />} />
-              <Route path="saisie/:type/espace" element={<StepEspace />} />
-              <Route path="saisie/:type/zone" element={<StepZone />} />
-              <Route path="saisie/:type/niveau" element={<StepNiveau />} />
-              <Route path="saisie/:type/motifs" element={<StepMotifs />} />
-              <Route path="saisie/:type/commentaire" element={<StepCommentaire />} />
-              <Route path="saisie/ssi/ssi-zone" element={<StepSsiZone />} />
-              <Route path="saisie/ssi/ssi-motifs" element={<StepSsiMotifs />} />
-              <Route path="saisie/:type/localisation" element={<StepLocalisation />} />
-              <Route path="saisie/:type/description" element={<StepDescription />} />
-              <Route path="saisie/:type/recap" element={<StepRecap />} />
+
+              {/* SuperAdmin, Direction, Chef de poste */}
+              <Route path="admin" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste']}>
+                  <MobileAdminPage />
+                </RoleRoute>
+              } />
+              <Route path="assignation" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste']}>
+                  <AssignationPage />
+                </RoleRoute>
+              } />
+
+              {/* SuperAdmin, Direction, Chef de poste, Agent de Sécurité */}
+              <Route path="assistant-ia" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <AssistantIAPage />
+                </RoleRoute>
+              } />
+              <Route path="registre-securite" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <RegistreMobilePage />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/etablissement" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepEtablissement />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/espace" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepEspace />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/zone" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepZone />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/niveau" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepNiveau />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/motifs" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepMotifs />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/commentaire" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepCommentaire />
+                </RoleRoute>
+              } />
+              <Route path="saisie/ssi/ssi-zone" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepSsiZone />
+                </RoleRoute>
+              } />
+              <Route path="saisie/ssi/ssi-motifs" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepSsiMotifs />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/localisation" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepLocalisation />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/description" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepDescription />
+                </RoleRoute>
+              } />
+              <Route path="saisie/:type/recap" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <StepRecap />
+                </RoleRoute>
+              } />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
