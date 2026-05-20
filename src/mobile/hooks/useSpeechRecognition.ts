@@ -51,7 +51,9 @@ export function useSpeechRecognition(initialText = '') {
       accumulatedRef.current += sessionFinal;
       sessionFinal = '';
       if (isListeningRef.current) {
-        try { recognition.start(); } catch {}
+        // 300ms delay aligns restart with natural speech pauses, masking the
+        // Android system beep that fires on every stop/start cycle.
+        setTimeout(createAndStart, 300);
       } else {
         setRecording(false);
       }
