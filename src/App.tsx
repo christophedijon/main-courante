@@ -27,6 +27,7 @@ import SearchPage from './mobile/pages/SearchPage';
 import MobileProfilePage from './mobile/pages/MobileProfilePage';
 import MobileAdminPage from './mobile/pages/MobileAdminPage';
 import AssignationPage from './mobile/pages/AssignationPage';
+import PostesMobilePage from './mobile/pages/PostesMobilePage';
 import EventDetailPage from './mobile/pages/EventDetailPage';
 import DocumentListPage from './mobile/pages/DocumentListPage';
 import DocumentDetailPage from './mobile/pages/DocumentDetailPage';
@@ -131,6 +132,7 @@ export default function App() {
               <Route path="recherche" element={<SearchPage />} />
               <Route path="profil" element={<MobileProfilePage />} />
               <Route path="admin" element={<MobileAdminPage />} />
+              <Route path="postes" element={<PostesMobilePage />} />
               <Route path="assignation" element={<AssignationPage />} />
               <Route path="evenement/:id" element={<EventDetailPage />} />
               <Route path="outils/documents/:categorie" element={<DocumentListPage />} />
