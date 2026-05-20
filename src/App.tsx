@@ -102,6 +102,14 @@ function MobileRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminMobileRoute({ children }: { children: React.ReactNode }) {
+  const { session, loading, userMetaReady, hasAdminAccess } = useAuth();
+  if (loading || !userMetaReady) return <Spinner />;
+  if (!session) return <Navigate to="/" replace />;
+  if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -131,9 +139,9 @@ export default function App() {
               <Route path="historique" element={<HistoryPage />} />
               <Route path="recherche" element={<SearchPage />} />
               <Route path="profil" element={<MobileProfilePage />} />
-              <Route path="admin" element={<MobileAdminPage />} />
+              <Route path="admin" element={<AdminMobileRoute><MobileAdminPage /></AdminMobileRoute>} />
               <Route path="postes" element={<PostesMobilePage />} />
-              <Route path="assignation" element={<AssignationPage />} />
+              <Route path="assignation" element={<AdminMobileRoute><AssignationPage /></AdminMobileRoute>} />
               <Route path="evenement/:id" element={<EventDetailPage />} />
               <Route path="outils/documents/:categorie" element={<DocumentListPage />} />
               <Route path="outils/documents/:categorie/:id" element={<DocumentDetailPage />} />
