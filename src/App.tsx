@@ -18,6 +18,7 @@ import RegistreSecuritePage from './pages/RegistreSecuritePage';
 import EmailsPage from './pages/EmailsPage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
 import BaliseRondesPage from './pages/BaliseRondesPage';
+import JaugeConfigPage from './pages/JaugeConfigPage';
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
 import HomePage from './mobile/pages/HomePage';
@@ -127,6 +128,7 @@ export default function App() {
             <Route path="/registre-securite" element={<AdminRoute><RegistreSecuritePage /></AdminRoute>} />
             <Route path="/emails" element={<AdminRoute><EmailsPage /></AdminRoute>} />
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
+            <Route path="/jauge" element={<AdminRoute><JaugeConfigPage /></AdminRoute>} />
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
               {/* ALL roles */}
               <Route index element={<HomePage />} />
