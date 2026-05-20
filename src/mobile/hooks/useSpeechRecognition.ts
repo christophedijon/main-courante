@@ -13,12 +13,19 @@ export function useSpeechRecognition(initialText = '') {
   const isListeningRef = useRef(false);
   const accumulatedRef = useRef(initialText);
   const SRRef = useRef<any>(null);
+  const activeRecognitionRef = useRef<any>(null);
 
   useEffect(() => {
     const w = window as unknown as AnyWindow;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) { setSupported(false); return; }
     SRRef.current = SR;
+
+    return () => {
+      isListeningRef.current = false;
+      try { activeRecognitionRef.current?.stop(); } catch {}
+      activeRecognitionRef.current = null;
+    };
   }, []);
 
   function createAndStart() {
@@ -29,6 +36,8 @@ export function useSpeechRecognition(initialText = '') {
     recognition.lang = 'fr-FR';
     recognition.continuous = false; // prevents Android echo bug
     recognition.interimResults = true;
+
+    activeRecognitionRef.current = recognition;
 
     // Accumulates final results within a single recognition session.
     // Reset to '' each time createAndStart() is called so Android can't
@@ -48,6 +57,9 @@ export function useSpeechRecognition(initialText = '') {
     };
 
     recognition.onend = () => {
+      if (activeRecognitionRef.current === recognition) {
+        activeRecognitionRef.current = null;
+      }
       accumulatedRef.current += sessionFinal;
       sessionFinal = '';
       if (isListeningRef.current) {
@@ -86,6 +98,7 @@ export function useSpeechRecognition(initialText = '') {
 
   function stop() {
     isListeningRef.current = false;
+    try { activeRecognitionRef.current?.stop(); } catch {}
     // setRecording(false) will be called by onend
   }
 
