@@ -4,6 +4,8 @@ import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen } from 'l
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import EntrepriseBadge from '../components/EntrepriseBadge';
+import CarteJauge from '../components/CarteJauge';
+import { useJauge } from '../../hooks/useJauge';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -21,10 +23,23 @@ const CAT_TO_ROUTE: Record<string, Categorie> = {
   RADIO:     'RADIO',
 };
 
+const JAUGE_ROLES = new Set(['Direction', 'Chef de poste', 'Agent de Sécurité']);
+
 export default function ToolboxPage() {
   const navigate = useNavigate();
   const { isSuperAdmin, userFonction, session } = useAuth();
   const canAssign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
+
+  const jauge = useJauge();
+  const [jaugeCount, setJaugeCount] = useState<number | null>(null);
+  const showJauge =
+    !jauge.loading &&
+    jauge.mode_jauge === 'sortie' &&
+    jauge.entrepriseId !== null &&
+    (isSuperAdmin || (userFonction !== null && JAUGE_ROLES.has(userFonction)));
+
+  // Sync local override with realtime count from hook
+  const displayCount = jaugeCount !== null ? jaugeCount : jauge.count;
 
   const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
 
@@ -88,6 +103,16 @@ export default function ToolboxPage() {
           <EntrepriseBadge />
         </div>
       </div>
+
+      {/* Jauge billetterie card — sortie mode only, allowed roles */}
+      {showJauge && (
+        <CarteJauge
+          count={displayCount}
+          Ep={jauge.Ep}
+          entrepriseId={jauge.entrepriseId!}
+          onCountUpdate={(n) => setJaugeCount(n)}
+        />
+      )}
 
       {/* IA banner */}
       <button

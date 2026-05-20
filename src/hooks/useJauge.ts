@@ -18,6 +18,7 @@ export type UseJaugeReturn = {
   niveau: Niveau;
   mode_jauge: ModeJauge;
   loading: boolean;
+  entrepriseId: string | null;
   incrementJauge: (delta: number, source: 'app' | 'flic' | 'manuel') => Promise<void>;
   resetJauge: () => Promise<void>;
 };
@@ -129,6 +130,7 @@ export function useJauge(): UseJaugeReturn {
     niveau,
     mode_jauge: config?.mode_jauge ?? 'sortie',
     loading,
+    entrepriseId: config?.id ?? null,
     incrementJauge,
     resetJauge,
   };
