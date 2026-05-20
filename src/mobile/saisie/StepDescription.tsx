@@ -3,14 +3,10 @@ import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { ArrowLeft, X, Mic, MicOff, Paperclip, Image, Music, Video, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSaisie, SaisieType } from './SaisieContext';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 type Niveau = { id: string; label: string; description: string | null; ordre: number };
 type Motif = { id: string; nom: string };
-
-type AnyWindow = Window & {
-  SpeechRecognition?: any;
-  webkitSpeechRecognition?: any;
-};
 
 type NiveauStyle = {
   num: string;
@@ -115,10 +111,8 @@ export default function StepDescription() {
   const [motifs, setMotifs] = useState<Motif[]>([]);
   const [loadingNiveaux, setLoadingNiveaux] = useState(true);
   const [loadingMotifs, setLoadingMotifs] = useState(true);
-  const [transcription, setTranscription] = useState(draft.commentaire);
-  const [recording, setRecording] = useState(false);
-  const [supported, setSupported] = useState(true);
-  const recRef = useRef<any>(null);
+  const { transcript: transcription, setTranscript: setTranscription, recording, supported, toggle: toggleRec } =
+    useSpeechRecognition(draft.commentaire);
 
   useEffect(() => {
     supabase.from('niveaux_intervention').select('id, label, description, ordre')
@@ -128,26 +122,6 @@ export default function StepDescription() {
     supabase.from('motifs').select('id, nom, ordre')
       .order('ordre')
       .then(({ data }) => { setMotifs(data ?? []); setLoadingMotifs(false); });
-  }, []);
-
-  useEffect(() => {
-    const w = window as unknown as AnyWindow;
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) { setSupported(false); return; }
-    const rec = new SR();
-    rec.lang = 'fr-FR';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = (e: any) => {
-      let finalText = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-      }
-      if (finalText) setTranscription((t) => (t ? t + ' ' : '') + finalText.trim());
-    };
-    rec.onend = () => setRecording(false);
-    recRef.current = rec;
-    return () => { try { rec.stop(); } catch {} };
   }, []);
 
   if (!type) return <Navigate to="/mobile" replace />;
@@ -165,17 +139,6 @@ export default function StepDescription() {
       ? draft.motifs.filter((m) => m.id !== id)
       : [...draft.motifs, { id, label: nom }]
     );
-  }
-
-  function toggleRec() {
-    if (!recRef.current) return;
-    if (recording) {
-      recRef.current.stop();
-      setRecording(false);
-    } else {
-      try { recRef.current.start(); setRecording(true); }
-      catch { setRecording(false); }
-    }
   }
 
   function next() {

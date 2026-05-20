@@ -1,60 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { Mic, MicOff } from 'lucide-react';
 import { useSaisie, SaisieType } from './SaisieContext';
 import StepHeader from '../components/StepHeader';
-
-type AnyWindow = Window & {
-  SpeechRecognition?: any;
-  webkitSpeechRecognition?: any;
-};
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 export default function StepCommentaire() {
   const { type } = useParams<{ type: SaisieType }>();
   const navigate = useNavigate();
   const { draft, setField } = useSaisie();
-  const [text, setText] = useState(draft.commentaire);
-  const [recording, setRecording] = useState(false);
-  const [supported, setSupported] = useState(true);
-  const recRef = useRef<any>(null);
-
-  useEffect(() => {
-    const w = window as unknown as AnyWindow;
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) { setSupported(false); return; }
-    const rec = new SR();
-    rec.lang = 'fr-FR';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = (e: any) => {
-      let finalText = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-      }
-      if (finalText) setText((t) => (t ? t + ' ' : '') + finalText.trim());
-    };
-    rec.onend = () => setRecording(false);
-    recRef.current = rec;
-    return () => { try { rec.stop(); } catch {} };
-  }, []);
+  const { transcript: text, setTranscript: setText, recording, supported, toggle: toggleRec } =
+    useSpeechRecognition(draft.commentaire);
 
   if (!type) return <Navigate to="/mobile" replace />;
   if (draft.motifs.length === 0) return <Navigate to={`/mobile/saisie/${type}/motifs`} replace />;
-
-  function toggleRec() {
-    if (!recRef.current) return;
-    if (recording) {
-      recRef.current.stop();
-      setRecording(false);
-    } else {
-      try {
-        recRef.current.start();
-        setRecording(true);
-      } catch {
-        setRecording(false);
-      }
-    }
-  }
 
   function next() {
     setField('commentaire', text.trim());

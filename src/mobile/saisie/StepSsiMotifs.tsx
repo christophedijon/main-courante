@@ -1,25 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { Flame, Mic, MicOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSaisie } from './SaisieContext';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 type MotifRow = { id: string; nom: string; description: string | null };
-
-type AnyWindow = Window & {
-  SpeechRecognition?: any;
-  webkitSpeechRecognition?: any;
-};
 
 export default function StepSsiMotifs() {
   const navigate = useNavigate();
   const { draft, setField } = useSaisie();
   const [items, setItems] = useState<MotifRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [transcription, setTranscription] = useState(draft.commentaire ?? '');
-  const [recording, setRecording] = useState(false);
-  const [supported, setSupported] = useState(true);
-  const recRef = useRef<any>(null);
+  const { transcript: transcription, setTranscript: setTranscription, recording, supported, toggle: toggleRec } =
+    useSpeechRecognition(draft.commentaire ?? '');
 
   useEffect(() => {
     supabase
@@ -32,26 +26,6 @@ export default function StepSsiMotifs() {
       });
   }, []);
 
-  useEffect(() => {
-    const w = window as unknown as AnyWindow;
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) { setSupported(false); return; }
-    const rec = new SR();
-    rec.lang = 'fr-FR';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = (e: any) => {
-      let finalText = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-      }
-      if (finalText) setTranscription((t) => (t ? t + ' ' : '') + finalText.trim());
-    };
-    rec.onend = () => setRecording(false);
-    recRef.current = rec;
-    return () => { try { rec.stop(); } catch {} };
-  }, []);
-
   if (!draft.zone) return <Navigate to="/mobile/saisie/ssi/ssi-zone" replace />;
 
   function toggle(id: string, nom: string) {
@@ -60,17 +34,6 @@ export default function StepSsiMotifs() {
       ? draft.motifs.filter((m) => m.id !== id)
       : [...draft.motifs, { id, label: nom }];
     setField('motifs', next);
-  }
-
-  function toggleRec() {
-    if (!recRef.current) return;
-    if (recording) {
-      recRef.current.stop();
-      setRecording(false);
-    } else {
-      try { recRef.current.start(); setRecording(true); }
-      catch { setRecording(false); }
-    }
   }
 
   const canContinue = draft.motifs.length > 0;
