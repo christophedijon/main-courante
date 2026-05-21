@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Clock, Flame, Users, ChevronDown, Radio } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -22,11 +22,7 @@ export default function HomePage() {
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
   const { isActive, startRonde, scanError } = useBeaconScanner();
-  const { count, Ep, taux, niveau, loading: jaugeLoading, entrepriseId } = useJauge();
-
-  useEffect(() => {
-    console.log('[HomePage] jauge state:', { count, Ep, taux, niveau, loading: jaugeLoading, entrepriseId });
-  }, [count, Ep, taux, niveau, jaugeLoading, entrepriseId]);
+  const { count, Ep, taux, niveau, loading: jaugeLoading } = useJauge();
 
   const isAgent = !isSuperAdmin && userFonction === 'Agent de Sécurité';
 
@@ -208,6 +204,14 @@ export default function HomePage() {
                 onClick={() => start('ssi')}
                 offsetTop={0}
               />
+              <HexagonJauge
+                count={count}
+                Ep={Ep}
+                taux={taux}
+                niveau={niveau}
+                loading={jaugeLoading}
+                offsetTop={26}
+              />
               <QuickActionCard
                 variant="personnes"
                 title="Gestion client"
@@ -216,20 +220,6 @@ export default function HomePage() {
                 onClick={() => start('securite_personnes')}
                 offsetTop={52}
               />
-              <div className="flex flex-col items-center gap-1">
-                <HexagonJauge
-                  count={count}
-                  Ep={Ep}
-                  taux={taux}
-                  niveau={niveau}
-                  loading={jaugeLoading}
-                />
-                {/* DEBUG — remove after diagnosis */}
-                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, fontFamily: 'monospace', textAlign: 'center', lineHeight: 1.4 }}>
-                  count:{count} Ep:{Ep}<br />
-                  id:{entrepriseId ? entrepriseId.slice(0, 8) : 'null'}
-                </p>
-              </div>
             </div>
           )}
         </div>

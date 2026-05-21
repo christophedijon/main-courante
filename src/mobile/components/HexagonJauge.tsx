@@ -6,6 +6,7 @@ type Props = {
   taux: number;
   niveau: Niveau;
   loading: boolean;
+  offsetTop?: number;
 };
 
 const W = 96;
@@ -43,13 +44,13 @@ const GRAY = {
   glow: 'transparent',
 };
 
-export default function HexagonJauge({ count, Ep, taux, niveau, loading }: Props) {
+export default function HexagonJauge({ count, Ep, taux, niveau, loading, offsetTop = 26 }: Props) {
   const unconfigured = !loading && Ep === 0;
   const c = (loading || unconfigured) ? GRAY : COLORS[niveau];
   const isPulsing = !loading && !unconfigured && niveau === 'rouge';
 
   return (
-    <div className="flex flex-col items-center select-none" style={{ marginTop: 104 }}>
+    <div className="flex flex-col items-center select-none" style={{ marginTop: offsetTop }}>
       <div
         style={{ width: W, height: H + DEPTH, position: 'relative' }}
         title={unconfigured ? 'Ep non configuré' : undefined}
