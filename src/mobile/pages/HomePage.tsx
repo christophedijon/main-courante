@@ -195,31 +195,37 @@ export default function HomePage() {
           </button>
 
           {saisieOpen && (
-            <div className="flex items-start justify-center gap-5" style={{ paddingBottom: 8 }}>
-              <QuickActionCard
-                variant="ssi"
-                title="SSI"
-                subtitle="Sécurité Incendie"
-                Icon={Flame}
-                onClick={() => start('ssi')}
-                offsetTop={0}
-              />
-              <HexagonJauge
-                count={count}
-                Ep={Ep}
-                taux={taux}
-                niveau={niveau}
-                loading={jaugeLoading}
-                offsetTop={26}
-              />
-              <QuickActionCard
-                variant="personnes"
-                title="Gestion client"
-                subtitle="Sécurité des personnes"
-                Icon={Users}
-                onClick={() => start('securite_personnes')}
-                offsetTop={52}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', paddingBottom: 8 }}>
+              {/* Top row */}
+              <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', gap: '8px' }}>
+                <QuickActionCard
+                  variant="ssi"
+                  title="SSI"
+                  subtitle="Sécurité Incendie"
+                  Icon={Flame}
+                  onClick={() => start('ssi')}
+                  offsetTop={0}
+                />
+                <QuickActionCard
+                  variant="personnes"
+                  title="Gestion client"
+                  subtitle="Sécurité des personnes"
+                  Icon={Users}
+                  onClick={() => start('securite_personnes')}
+                  offsetTop={0}
+                />
+              </div>
+              {/* Bottom center — honeycomb overlap */}
+              <div style={{ marginTop: '-62px' }}>
+                <HexagonJauge
+                  count={count}
+                  Ep={Ep}
+                  taux={taux}
+                  niveau={niveau}
+                  loading={jaugeLoading}
+                  offsetTop={0}
+                />
+              </div>
             </div>
           )}
         </div>
