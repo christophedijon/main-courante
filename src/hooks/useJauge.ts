@@ -7,7 +7,7 @@ type Niveau = 'vert' | 'orange' | 'rouge';
 
 type EntrepriseJaugeConfig = {
   id: string;
-  effectif_public_maximum: number;
+  effectif_public: number;
   mode_jauge: ModeJauge;
 };
 
@@ -56,7 +56,7 @@ export function useJauge(): UseJaugeReturn {
     async function load() {
       const { data: cfg, error: cfgError } = await supabase
         .from('entreprise')
-        .select('id, effectif_public_maximum, mode_jauge')
+        .select('id, effectif_public, mode_jauge')
         .limit(1)
         .maybeSingle();
 
@@ -163,7 +163,7 @@ export function useJauge(): UseJaugeReturn {
     });
   }
 
-  const Ep = config?.effectif_public_maximum ?? 0;
+  const Ep = config?.effectif_public ?? 0;
   const taux = Ep > 0 ? Math.round((count / Ep) * 100) : 0;
   const niveau: Niveau = taux >= 90 ? 'rouge' : taux >= 75 ? 'orange' : 'vert';
 

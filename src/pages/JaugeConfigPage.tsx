@@ -13,7 +13,7 @@ type ModeJauge = 'entree_sortie' | 'sortie';
 type EntrepriseJauge = {
   id: string;
   mode_jauge: ModeJauge;
-  effectif_public_maximum: number;
+  effectif_public: number;
 };
 
 type JaugeEtat = {
@@ -43,7 +43,7 @@ export default function JaugeConfigPage() {
     const [entrepriseRes, etatRes] = await Promise.all([
       supabase
         .from('entreprise')
-        .select('id, mode_jauge, effectif_public_maximum')
+        .select('id, mode_jauge, effectif_public')
         .limit(1)
         .maybeSingle(),
       supabase
@@ -117,7 +117,7 @@ export default function JaugeConfigPage() {
   }
 
   const count = jaugeEtat?.count_actuel ?? 0;
-  const max = entreprise?.effectif_public_maximum ?? 0;
+  const max = entreprise?.effectif_public ?? 0;
   const occupancyPct = max > 0 ? Math.min(100, (count / max) * 100) : 0;
   const occupancyColor =
     occupancyPct >= 90 ? 'bg-red-500' :
