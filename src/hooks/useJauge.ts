@@ -54,18 +54,34 @@ export function useJauge(): UseJaugeReturn {
     let cancelled = false;
 
     async function load() {
-      const { data: cfg } = await supabase
+      const { data: cfg, error: cfgError } = await supabase
         .from('entreprise')
         .select('id, effectif_public_maximum, mode_jauge')
         .limit(1)
         .maybeSingle();
+
+      console.log('[jauge] entreprise fetch:', cfg, cfgError);
 
       if (cancelled) return;
 
       if (cfg) {
         setConfig(cfg as EntrepriseJaugeConfig);
         entrepriseIdRef.current = cfg.id;
-        await fetchCount(cfg.id);
+
+        const { data: etat, error: etatError } = await supabase
+          .from('jauge_etat')
+          .select('count_actuel')
+          .eq('entreprise_id', cfg.id)
+          .eq('date_soiree', TODAY())
+          .maybeSingle();
+
+        console.log('[jauge] initial fetch result:', etat, etatError, '| today:', TODAY());
+
+        if (!cancelled && etat != null) {
+          setCount(etat.count_actuel);
+        }
+      } else {
+        console.warn('[jauge] no entreprise row found');
       }
 
       if (!cancelled) setLoading(false);
