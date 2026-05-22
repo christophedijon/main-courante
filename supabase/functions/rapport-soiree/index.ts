@@ -226,37 +226,67 @@ Deno.serve(async (req: Request) => {
     </div>
 
     <!-- Stats -->
-    <div style="background:#f1f5f9;padding:24px 40px;border-bottom:1px solid #e2e8f0">
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px;">
-        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-          <div style="color:#1e293b;font-size:32px;font-weight:700;line-height:1;">${evenements.length}</div>
-          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Événements</div>
-        </div>
-        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-          <div style="color:#ef4444;font-size:32px;font-weight:700;line-height:1;">${nbSSI}</div>
-          <div style="color:#6b7280;font-size:13px;margin-top:6px;">SSI</div>
-        </div>
-        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-          <div style="color:#3b82f6;font-size:32px;font-weight:700;line-height:1;">${nbPersonnes}</div>
-          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Sécu</div>
-        </div>
-        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-          <div style="color:#22c55e;font-size:32px;font-weight:700;line-height:1;">${agentIds.length}</div>
-          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Agents</div>
-        </div>
-        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-          <div style="color:#22c55e;font-size:32px;font-weight:700;line-height:1;">${totalVisiteurs}</div>
-          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Visiteurs</div>
-        </div>
-        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-          <div style="color:#f59e0b;font-size:32px;font-weight:700;line-height:1;">${countMax}</div>
-          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Max en salle</div>
-        </div>
-        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-          <div style="color:#60a5fa;font-size:28px;font-weight:700;line-height:1;">${heurePointe}</div>
-          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Heure de pointe</div>
-        </div>
-      </div>
+    <div style="background:#f1f5f9;padding:20px 40px;border-bottom:1px solid #e2e8f0">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="14%" style="padding:4px;">
+            <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
+              <tr><td>
+                <div style="color:#1e293b;font-size:28px;font-weight:700;line-height:1;">${evenements.length}</div>
+                <div style="color:#6b7280;font-size:12px;margin-top:6px;">Événements</div>
+              </td></tr>
+            </table>
+          </td>
+          <td width="14%" style="padding:4px;">
+            <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
+              <tr><td>
+                <div style="color:#ef4444;font-size:28px;font-weight:700;line-height:1;">${nbSSI}</div>
+                <div style="color:#6b7280;font-size:12px;margin-top:6px;">SSI</div>
+              </td></tr>
+            </table>
+          </td>
+          <td width="14%" style="padding:4px;">
+            <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
+              <tr><td>
+                <div style="color:#3b82f6;font-size:28px;font-weight:700;line-height:1;">${nbPersonnes}</div>
+                <div style="color:#6b7280;font-size:12px;margin-top:6px;">Sécu</div>
+              </td></tr>
+            </table>
+          </td>
+          <td width="14%" style="padding:4px;">
+            <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
+              <tr><td>
+                <div style="color:#22c55e;font-size:28px;font-weight:700;line-height:1;">${agentIds.length}</div>
+                <div style="color:#6b7280;font-size:12px;margin-top:6px;">Agents</div>
+              </td></tr>
+            </table>
+          </td>
+          <td width="14%" style="padding:4px;">
+            <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
+              <tr><td>
+                <div style="color:#22c55e;font-size:28px;font-weight:700;line-height:1;">${totalVisiteurs}</div>
+                <div style="color:#6b7280;font-size:12px;margin-top:6px;">Visiteurs</div>
+              </td></tr>
+            </table>
+          </td>
+          <td width="14%" style="padding:4px;">
+            <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
+              <tr><td>
+                <div style="color:#f59e0b;font-size:28px;font-weight:700;line-height:1;">${countMax}</div>
+                <div style="color:#6b7280;font-size:12px;margin-top:6px;">Max en salle</div>
+              </td></tr>
+            </table>
+          </td>
+          <td width="16%" style="padding:4px;">
+            <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
+              <tr><td>
+                <div style="color:#60a5fa;font-size:28px;font-weight:700;line-height:1;">${heurePointe}</div>
+                <div style="color:#6b7280;font-size:12px;margin-top:6px;">Heure de pointe</div>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </div>
 
     <!-- Tableau des événements -->
