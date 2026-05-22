@@ -16,16 +16,34 @@ const TODAY = () => new Date().toISOString().split('T')[0];
 
 export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: Props) {
   const { session } = useAuth();
-  const [inputValue, setInputValue] = useState(String(count));
+  // inputValue represents total tickets sold (cumulative entries), not current occupancy
+  const [inputValue, setInputValue] = useState('');
+  const [lastEntrees, setLastEntrees] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Keep input in sync when count changes externally (realtime)
   const isFocused = useRef(false);
+
+  // On mount: fetch the last manual entry total for today so the input is pre-filled
   useEffect(() => {
-    if (!isFocused.current) setInputValue(String(count));
-  }, [count]);
+    supabase
+      .from('jauge_actions')
+      .select('delta')
+      .eq('entreprise_id', entrepriseId)
+      .eq('action', 'entree')
+      .eq('source', 'manuel')
+      .gte('created_at', TODAY() + 'T00:00:00Z')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        const val = data?.delta ?? null;
+        setLastEntrees(val);
+        if (!isFocused.current) {
+          setInputValue(val !== null ? String(val) : '');
+        }
+      });
+  }, [entrepriseId]);
 
   function showToast(msg: string, type: Toast['type']) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -34,51 +52,39 @@ export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: P
   }
 
   async function handleSubmit() {
-    const newValue = parseInt(inputValue, 10);
-    if (isNaN(newValue) || newValue < 0) return;
-    if (newValue === count) return;
+    const entrees = parseInt(inputValue, 10);
+    if (isNaN(entrees) || entrees < 0) return;
+    if (!session?.user) return;
 
     setSaving(true);
-    const delta = newValue - count;
-    const today = TODAY();
 
-    const [upsertRes, logRes] = await Promise.all([
-      supabase.from('jauge_etat').upsert(
-        {
-          entreprise_id: entrepriseId,
-          date_soiree: today,
-          count_actuel: newValue,
-          updated_by: session?.user?.email ?? '',
-        },
-        { onConflict: 'entreprise_id,date_soiree' },
-      ),
-      supabase.from('jauge_actions').insert({
-        entreprise_id: entrepriseId,
-        action: 'entree',
-        delta,
-        source: 'manuel',
-        created_by: session?.user?.id ?? null,
-      }),
-    ]);
+    const { data, error } = await supabase.rpc('set_entrees_manuelles', {
+      p_entreprise_id: entrepriseId,
+      p_entrees: entrees,
+      p_user_id: session.user.id,
+    });
 
     setSaving(false);
 
-    if (upsertRes.error || logRes.error) {
+    if (error) {
       showToast('Erreur lors de la mise à jour', 'warning');
       return;
     }
 
-    onCountUpdate(newValue);
+    const newCount = data as number;
+    setLastEntrees(entrees);
+    onCountUpdate(newCount);
 
-    if (Ep > 0 && newValue > Ep) {
+    if (Ep > 0 && newCount > Ep) {
       showToast(`Attention : dépasse l'Ep (${Ep} personnes)`, 'warning');
     } else {
-      showToast(`Jauge mise à jour : ${newValue} personnes`, 'success');
+      showToast(`Jauge mise à jour : ${newCount} présents`, 'success');
     }
   }
 
   const parsedValue = parseInt(inputValue, 10);
   const overCapacity = Ep > 0 && !isNaN(parsedValue) && parsedValue > Ep;
+  const unchanged = lastEntrees !== null && parsedValue === lastEntrees;
 
   return (
     <div className="mx-5 mb-4 rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
@@ -111,7 +117,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: P
         {/* Input */}
         <div>
           <label className="block text-slate-400 text-xs font-medium mb-1.5 tracking-wide">
-            Nombre de billets vendus
+            Total billets vendus (cumulatif)
           </label>
           <input
             type="number"
@@ -119,6 +125,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: P
             inputMode="numeric"
             pattern="[0-9]*"
             value={inputValue}
+            placeholder="0"
             onFocus={() => { isFocused.current = true; }}
             onBlur={() => { isFocused.current = false; }}
             onChange={(e) => setInputValue(e.target.value)}
@@ -137,7 +144,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: P
           )}
         </div>
 
-        {/* Current count */}
+        {/* Current occupancy */}
         <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
           <span className="text-slate-400 text-sm">En salle</span>
           <span className="text-white font-bold text-lg tabular-nums">
@@ -150,7 +157,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: P
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={saving || isNaN(parsedValue) || parsedValue < 0}
+          disabled={saving || isNaN(parsedValue) || parsedValue < 0 || unchanged}
           className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-semibold text-[15px] transition-all disabled:opacity-50"
         >
           {saving ? 'Enregistrement…' : 'Valider'}
