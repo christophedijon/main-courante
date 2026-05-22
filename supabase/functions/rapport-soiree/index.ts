@@ -109,9 +109,88 @@ Deno.serve(async (req: Request) => {
     // Récupérer les infos entreprise
     const { data: entreprise } = await supabase
       .from("entreprise")
-      .select("nom, logo_url")
+      .select("nom, logo_url, effectif_public")
       .limit(1)
       .maybeSingle();
+
+    // Récupérer les actions jauge pour la soirée
+    const { data: jaugeActions } = await supabase
+      .from("jauge_actions")
+      .select("action, delta, created_at")
+      .gte("created_at", debutSoiree.toISOString())
+      .lte("created_at", finSoiree.toISOString())
+      .order("created_at", { ascending: true });
+
+    // Calculer les stats de fréquentation
+    let jaugeSectionHtml = "";
+    const Ep: number | null = entreprise?.effectif_public ?? null;
+
+    if (jaugeActions && jaugeActions.length > 0) {
+      const totalVisiteurs = (jaugeActions as any[])
+        .filter((a) => a.action === "entree")
+        .reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
+
+      const totalSorties = Math.abs(
+        (jaugeActions as any[])
+          .filter((a) => a.action === "sortie")
+          .reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0)
+      );
+
+      let running = 0;
+      let countMax = 0;
+      let heurePointeDate: Date | null = null;
+      for (const a of jaugeActions as any[]) {
+        running = Math.max(0, running + (a.delta ?? 0));
+        if (running > countMax) {
+          countMax = running;
+          heurePointeDate = new Date(a.created_at);
+        }
+      }
+
+      const heurePointe = heurePointeDate
+        ? heurePointeDate.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Europe/Paris",
+          }).replace(":", "h")
+        : "—";
+
+      const epRow = Ep !== null
+        ? `<div style="margin-top:8px;padding:12px;background:#0f172a;border-radius:8px;display:flex;justify-content:space-between;">
+            <span style="color:#94a3b8;font-size:13px;">Capacité maximum (Ep)</span>
+            <span style="color:#f1f5f9;font-size:13px;font-weight:600;">${Ep} personnes</span>
+           </div>`
+        : "";
+
+      jaugeSectionHtml = `
+        <div style="margin:24px 40px;padding:20px;background:#1e293b;border-radius:12px;border:1px solid #334155;">
+          <h2 style="color:#f1f5f9;font-size:16px;font-weight:600;margin:0 0 16px 0;">Fréquentation de la soirée</h2>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            <div style="background:#0f172a;padding:16px;border-radius:8px;text-align:center;">
+              <div style="color:#22c55e;font-size:28px;font-weight:700;">${totalVisiteurs}</div>
+              <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Total visiteurs</div>
+            </div>
+            <div style="background:#0f172a;padding:16px;border-radius:8px;text-align:center;">
+              <div style="color:#f59e0b;font-size:28px;font-weight:700;">${countMax}</div>
+              <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Maximum en salle</div>
+            </div>
+            <div style="background:#0f172a;padding:16px;border-radius:8px;text-align:center;">
+              <div style="color:#60a5fa;font-size:28px;font-weight:700;">${heurePointe}</div>
+              <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Heure de pointe</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:12px;background:#0f172a;border-radius:8px;display:flex;justify-content:space-between;">
+            <span style="color:#94a3b8;font-size:13px;">Sorties enregistrées</span>
+            <span style="color:#f1f5f9;font-size:13px;font-weight:600;">${totalSorties} personnes</span>
+          </div>
+          ${epRow}
+        </div>`;
+    } else {
+      jaugeSectionHtml = `
+        <div style="margin:24px 40px;">
+          <p style="color:#64748b;font-style:italic;">Aucune donnée de jauge pour cette soirée.</p>
+        </div>`;
+    }
 
     // Stats
     const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
@@ -207,6 +286,8 @@ Deno.serve(async (req: Request) => {
         <p style="font-size:12px;color:#64748b;margin:4px 0 0;font-weight:500">Agents</p>
       </div>
     </div>
+
+    ${jaugeSectionHtml}
 
     <!-- Tableau des événements -->
     <div style="background:#ffffff;border-radius:0 0 16px 16px;overflow:hidden">
