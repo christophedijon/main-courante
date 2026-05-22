@@ -114,14 +114,14 @@ export default function ToolboxPage() {
         >
           <div
             ref={modalRef}
-            className="bg-slate-950 rounded-t-3xl border-t border-slate-800 w-full max-h-[90vh] overflow-y-auto"
+            className="bg-slate-950 rounded-t-3xl border-t border-slate-800 w-full max-h-[90vh] overflow-y-auto flex flex-col"
           >
             {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-1">
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 rounded-full bg-slate-700" />
             </div>
             {/* Modal header */}
-            <div className="flex items-center gap-3 px-5 pt-3 pb-4 border-b border-slate-800">
+            <div className="flex items-center gap-3 px-5 pt-3 pb-4 border-b border-slate-800 shrink-0">
               <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
                 <Gauge className="w-4 h-4 text-blue-400" />
               </div>
@@ -136,8 +136,8 @@ export default function ToolboxPage() {
                 onCountUpdate={(n) => { setJaugeCount(n); setJaugeModalOpen(false); }}
               />
             </div>
-            {/* Fermer button */}
-            <div className="px-5 pb-8">
+            {/* Fermer button — sticky above mobile nav */}
+            <div className="sticky bottom-0 px-5 pt-3 bg-slate-950" style={{ paddingBottom: '80px' }}>
               <button
                 type="button"
                 onClick={() => setJaugeModalOpen(false)}
