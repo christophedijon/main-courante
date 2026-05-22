@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen, Gauge, X } from 'lucide-react';
+import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen, Gauge } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import EntrepriseBadge from '../components/EntrepriseBadge';
@@ -116,29 +116,35 @@ export default function ToolboxPage() {
             ref={modalRef}
             className="bg-slate-950 rounded-t-3xl border-t border-slate-800 w-full max-h-[90vh] overflow-y-auto"
           >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-slate-700" />
+            </div>
             {/* Modal header */}
-            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
-                  <Gauge className="w-4 h-4 text-blue-400" />
-                </div>
-                <p className="text-white font-semibold text-base">Jauge billetterie</p>
+            <div className="flex items-center gap-3 px-5 pt-3 pb-4 border-b border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
+                <Gauge className="w-4 h-4 text-blue-400" />
               </div>
-              <button
-                onClick={() => setJaugeModalOpen(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <p className="text-white font-semibold text-base">Jauge billetterie</p>
             </div>
             {/* Modal body */}
-            <div className="pt-3 pb-6">
+            <div className="pt-3 pb-2">
               <CarteJauge
                 count={displayCount}
                 Ep={jauge.Ep}
                 entrepriseId={jauge.entrepriseId!}
                 onCountUpdate={(n) => { setJaugeCount(n); setJaugeModalOpen(false); }}
               />
+            </div>
+            {/* Fermer button */}
+            <div className="px-5 pb-8">
+              <button
+                type="button"
+                onClick={() => setJaugeModalOpen(false)}
+                className="w-full py-3.5 rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 hover:border-slate-600 active:scale-[0.99] transition-all text-slate-300 font-semibold text-[15px]"
+              >
+                Fermer
+              </button>
             </div>
           </div>
         </div>
