@@ -121,16 +121,21 @@ Deno.serve(async (req: Request) => {
       .lte("created_at", finSoiree.toISOString())
       .order("created_at", { ascending: true });
 
-    // Calculer les stats de fréquentation
-    let jaugeSectionHtml = "";
+    // Stats événements
+    const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
+    const nbPersonnes = evenements.filter((e: any) => e.type !== "ssi").length;
+
+    // Stats jauge (defaults si pas de données)
+    let totalVisiteurs = 0;
+    let countMax = 0;
+    let heurePointe = "—";
 
     if (jaugeActions && jaugeActions.length > 0) {
-      const totalVisiteurs = (jaugeActions as any[])
+      totalVisiteurs = (jaugeActions as any[])
         .filter((a) => a.action === "entree")
         .reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
 
       let running = 0;
-      let countMax = 0;
       let heurePointeDate: Date | null = null;
       for (const a of jaugeActions as any[]) {
         running = Math.max(0, running + (a.delta ?? 0));
@@ -140,39 +145,14 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const heurePointe = heurePointeDate
-        ? heurePointeDate.toLocaleTimeString("fr-FR", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "Europe/Paris",
-          }).replace(":", "h")
-        : "—";
-
-      jaugeSectionHtml = `
-        <div style="margin:24px 0;">
-          <p style="color:#94a3b8;font-size:12px;font-weight:600;letter-spacing:0.05em;margin:0 0 12px 0;text-transform:uppercase;">Fréquentation de la soirée</p>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-            <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-              <div style="color:#22c55e;font-size:32px;font-weight:700;line-height:1;">${totalVisiteurs}</div>
-              <div style="color:#6b7280;font-size:13px;margin-top:6px;">Visiteurs</div>
-            </div>
-            <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-              <div style="color:#f59e0b;font-size:32px;font-weight:700;line-height:1;">${countMax}</div>
-              <div style="color:#6b7280;font-size:13px;margin-top:6px;">Max en salle</div>
-            </div>
-            <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
-              <div style="color:#60a5fa;font-size:28px;font-weight:700;line-height:1;">${heurePointe}</div>
-              <div style="color:#6b7280;font-size:13px;margin-top:6px;">Heure de pointe</div>
-            </div>
-          </div>
-        </div>`;
-    } else {
-      jaugeSectionHtml = `<p style="color:#94a3b8;font-style:italic;font-size:13px;">Aucune donnée de jauge pour cette soirée.</p>`;
+      if (heurePointeDate) {
+        heurePointe = heurePointeDate.toLocaleTimeString("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Europe/Paris",
+        }).replace(":", "h");
+      }
     }
-
-    // Stats
-    const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
-    const nbPersonnes = evenements.filter((e: any) => e.type !== "ssi").length;
 
     // Formater la date de la soirée
     const dateSoireeLabel = debutSoiree.toLocaleDateString("fr-FR", {
@@ -246,26 +226,38 @@ Deno.serve(async (req: Request) => {
     </div>
 
     <!-- Stats -->
-    <div style="background:#f1f5f9;padding:24px 40px;display:flex;gap:16px;border-bottom:1px solid #e2e8f0">
-      <div style="flex:1;background:#fff;border-radius:12px;padding:20px;text-align:center;border:1px solid #e2e8f0">
-        <p style="font-size:32px;font-weight:800;color:#0f172a;margin:0">${evenements.length}</p>
-        <p style="font-size:12px;color:#64748b;margin:4px 0 0;font-weight:500">Événements</p>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:12px;padding:20px;text-align:center;border:1px solid #e2e8f0">
-        <p style="font-size:32px;font-weight:800;color:#ef4444;margin:0">${nbSSI}</p>
-        <p style="font-size:12px;color:#64748b;margin:4px 0 0;font-weight:500">SSI</p>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:12px;padding:20px;text-align:center;border:1px solid #e2e8f0">
-        <p style="font-size:32px;font-weight:800;color:#3b82f6;margin:0">${nbPersonnes}</p>
-        <p style="font-size:12px;color:#64748b;margin:4px 0 0;font-weight:500">Sécu</p>
-      </div>
-      <div style="flex:1;background:#fff;border-radius:12px;padding:20px;text-align:center;border:1px solid #e2e8f0">
-        <p style="font-size:32px;font-weight:800;color:#10b981;margin:0">${agentIds.length}</p>
-        <p style="font-size:12px;color:#64748b;margin:4px 0 0;font-weight:500">Agents</p>
+    <div style="background:#f1f5f9;padding:24px 40px;border-bottom:1px solid #e2e8f0">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px;">
+        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
+          <div style="color:#1e293b;font-size:32px;font-weight:700;line-height:1;">${evenements.length}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Événements</div>
+        </div>
+        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
+          <div style="color:#ef4444;font-size:32px;font-weight:700;line-height:1;">${nbSSI}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:6px;">SSI</div>
+        </div>
+        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
+          <div style="color:#3b82f6;font-size:32px;font-weight:700;line-height:1;">${nbPersonnes}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Sécu</div>
+        </div>
+        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
+          <div style="color:#22c55e;font-size:32px;font-weight:700;line-height:1;">${agentIds.length}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Agents</div>
+        </div>
+        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
+          <div style="color:#22c55e;font-size:32px;font-weight:700;line-height:1;">${totalVisiteurs}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Visiteurs</div>
+        </div>
+        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
+          <div style="color:#f59e0b;font-size:32px;font-weight:700;line-height:1;">${countMax}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Max en salle</div>
+        </div>
+        <div style="background:#ffffff;border-radius:12px;padding:20px;text-align:center;">
+          <div style="color:#60a5fa;font-size:28px;font-weight:700;line-height:1;">${heurePointe}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:6px;">Heure de pointe</div>
+        </div>
       </div>
     </div>
-
-    ${jaugeSectionHtml}
 
     <!-- Tableau des événements -->
     <div style="background:#ffffff;border-radius:0 0 16px 16px;overflow:hidden">
