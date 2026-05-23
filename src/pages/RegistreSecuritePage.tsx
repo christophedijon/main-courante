@@ -23,6 +23,16 @@ type RegistreItem = {
   observations_levees: string;
   rapport_url: string;
   updated_at: string;
+  confirme_par_organisme: boolean;
+  confirme_at: string | null;
+  confirme_organisme_email: string | null;
+};
+
+type ConfirmationEntry = {
+  installation: string;
+  organisme_verificateur: string;
+  confirme_at: string;
+  confirme_organisme_email: string | null;
 };
 
 type HistoriqueEntry = {
@@ -156,6 +166,105 @@ function HistoriquePanel({ item, onClose }: { item: RegistreItem; onClose: () =>
               {e.observations_levees && <p className="text-xs text-emerald-400">Levée : {e.observations_levees}</p>}
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Confirmations Organisme Modal ──────────────────────────────────────────
+
+function ConfirmationsModal({ onClose }: { onClose: () => void }) {
+  const [entries, setEntries] = useState<ConfirmationEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    supabase
+      .from('registre_securite')
+      .select('installation, organisme_verificateur, confirme_at, confirme_organisme_email')
+      .eq('confirme_par_organisme', true)
+      .order('confirme_at', { ascending: false })
+      .then(({ data }) => {
+        setEntries((data ?? []) as ConfirmationEntry[]);
+        setLoading(false);
+      });
+  }, []);
+
+  function scroll(dir: 'up' | 'down') {
+    scrollRef.current?.scrollBy({ top: dir === 'down' ? 120 : -120, behavior: 'smooth' });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '85vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1 rounded-full bg-slate-600" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 shrink-0">
+          <div>
+            <h3 className="text-white font-bold text-[17px]">Confirmations organisme</h3>
+            {!loading && (
+              <p className="text-slate-500 text-xs mt-0.5">{entries.length} confirmation{entries.length !== 1 ? 's' : ''} reçue{entries.length !== 1 ? 's' : ''}</p>
+            )}
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pb-4 min-h-0">
+          {loading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
+          {!loading && entries.length === 0 && (
+            <p className="text-slate-500 text-sm italic text-center py-10">Aucune confirmation reçue pour le moment</p>
+          )}
+          <div className="space-y-3">
+            {entries.map((e, i) => {
+              const d = new Date(e.confirme_at);
+              const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+              const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+              return (
+                <div key={i} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white font-semibold text-sm leading-snug truncate">{e.installation}</p>
+                    {e.organisme_verificateur && (
+                      <p className="text-slate-400 text-xs mt-0.5 truncate">{e.organisme_verificateur}</p>
+                    )}
+                    {e.confirme_organisme_email && (
+                      <p className="text-slate-500 text-xs mt-0.5 truncate">{e.confirme_organisme_email}</p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-blue-400 text-xs font-semibold whitespace-nowrap">{dateStr}</p>
+                    <p className="text-slate-500 text-xs">à {timeStr}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bottom actions */}
+        <div className="shrink-0 px-6 pb-6 pt-2 border-t border-slate-800 flex items-center gap-3">
+          <div className="flex gap-2">
+            <button onClick={() => scroll('up')} className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <ChevronUp className="w-4 h-4" />
+            </button>
+            <button onClick={() => scroll('down')} className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+          <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+            Fermer
+          </button>
         </div>
       </div>
     </div>
@@ -686,10 +795,25 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onHistoriqueCou
         </td>
 
         {/* Prochaine vérification + statut */}
-        <td className="px-3 py-3 min-w-[150px]">
+        <td className="px-3 py-3 min-w-[160px]">
           <div className="space-y-1">
-            <StatutBadge statut={statut} nextDate={nextDate} />
-            {nextDate && <p className="text-slate-500 text-[10px]">{nextDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>}
+            {item.confirme_par_organisme ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25 whitespace-nowrap">
+                  <CheckCircle className="w-3 h-3" />Confirmé par l'organisme
+                </span>
+                {item.confirme_at && (
+                  <p className="text-slate-500 text-[10px]">
+                    le {new Date(item.confirme_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <StatutBadge statut={statut} nextDate={nextDate} />
+                {nextDate && <p className="text-slate-500 text-[10px]">{nextDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>}
+              </>
+            )}
           </div>
         </td>
 
@@ -911,7 +1035,7 @@ function MobileCardView({ items, historiqueCounts }: { items: RegistreItem[]; hi
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function RegistreSecuritePage() {
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
   const { nom, logo_url } = useEntreprise();
   const [items, setItems] = useState<RegistreItem[]>([]);
   const [historiqueCounts, setHistoriqueCounts] = useState<Record<string, number>>({});
@@ -919,6 +1043,18 @@ export default function RegistreSecuritePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [collapseNonApp, setCollapseNonApp] = useState(true);
+  const [showConfirmations, setShowConfirmations] = useState(false);
+  const [userFonction, setUserFonction] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    supabase
+      .from('managed_users')
+      .select('fonction')
+      .eq('email', session.user.email)
+      .maybeSingle()
+      .then(({ data }) => setUserFonction((data as any)?.fonction ?? null));
+  }, [session]);
 
   useEffect(() => {
     (async () => {
@@ -1106,11 +1242,28 @@ export default function RegistreSecuritePage() {
         )}
       </div>
 
+      {/* Confirmations history button — SuperAdmin / Direction only */}
+      {(userFonction === 'Direction' || userFonction === null) && !loading && !loadError && (
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 pb-10 mt-2">
+          <button
+            onClick={() => setShowConfirmations(true)}
+            className="flex items-center gap-2 text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 bg-slate-900 hover:bg-slate-800 px-4 py-2.5 rounded-xl transition-colors font-medium"
+          >
+            <History className="w-4 h-4" />
+            Historique des confirmations organisme
+          </button>
+        </div>
+      )}
+
       {showAddModal && (
         <AddModal
           onClose={() => setShowAddModal(false)}
           onAdded={(item) => { setItems((prev) => [...prev, item]); setShowAddModal(false); }}
         />
+      )}
+
+      {showConfirmations && (
+        <ConfirmationsModal onClose={() => setShowConfirmations(false)} />
       )}
     </div>
   );

@@ -18,6 +18,7 @@ type RegistreItem = {
   applicable: boolean;
   date_verification: string | null;
   jours_rappel: number | null;
+  confirmation_token: string;
 };
 
 type EmailRule = {
@@ -129,10 +130,27 @@ function buildOrganismeHtml(
         </tr>
         ${rows}
       </table>
-      <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">
+      <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
         Nous restons à votre disposition pour convenir d'une date d'intervention.
       </p>
-      <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0;">
+      ${entries.map((entry) => {
+        const token = entry.item.confirmation_token;
+        const confirmUrl = `https://wliobldgrzjjchfknqju.supabase.co/functions/v1/confirm-registre?token=${token}`;
+        return `
+      <div style="text-align: center; margin: 16px 0;">
+        <p style="color: #64748b; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">${entry.item.installation}</p>
+        <a href="${confirmUrl}"
+           style="display: inline-block; background: #1e293b; color: #ffffff;
+                  font-size: 15px; font-weight: 600; padding: 14px 32px;
+                  border-radius: 8px; text-decoration: none; letter-spacing: 0.01em;">
+          ✓ Confirmer la prise en compte
+        </a>
+        <p style="color: #94a3b8; font-size: 12px; margin: 12px 0 0 0;">
+          Ce lien est unique et personnel à votre établissement
+        </p>
+      </div>`;
+      }).join("")}
+      <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 24px 0 0 0;">
         Cordialement,<br>
         <strong>${entrepriseNom}</strong>
       </p>
@@ -204,7 +222,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: items } = await supabase
       .from("registre_securite")
-      .select("installation, reference_reglementaire, organisme_verificateur, email_organisme, periodicite, applicable, date_verification, jours_rappel")
+      .select("installation, reference_reglementaire, organisme_verificateur, email_organisme, periodicite, applicable, date_verification, jours_rappel, confirmation_token")
       .eq("applicable", true)
       .not("date_verification", "is", null);
 
