@@ -62,7 +62,14 @@ function shouldSendRetard(frequence: string, now: Date): boolean {
   }
 }
 
-function buildOrganismeHtml(entries: AlertEntry[], entrepriseNom: string): string {
+function buildOrganismeHtml(
+  entries: AlertEntry[],
+  entrepriseNom: string,
+  enseigne: string | null,
+  adresse: string | null,
+  telephone: string | null,
+  emailContact: string | null,
+): string {
   const rows = entries.map((entry) => {
     const nextDate = entry.kind === "retard"
       ? (getNextDate(entry.item.date_verification!, entry.item.periodicite) ?? null)
@@ -129,6 +136,33 @@ function buildOrganismeHtml(entries: AlertEntry[], entrepriseNom: string): strin
         Cordialement,<br>
         <strong>${entrepriseNom}</strong>
       </p>
+      <div style="margin-top: 24px; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #1e293b;">
+        <p style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">
+          Coordonnées de l'établissement
+        </p>
+        <table cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="padding: 3px 16px 3px 0; color: #64748b; font-size: 13px; font-weight: 600; white-space: nowrap;">Raison sociale</td>
+            <td style="padding: 3px 0; color: #1e293b; font-size: 13px;">${entrepriseNom}</td>
+          </tr>
+          ${enseigne ? `<tr>
+            <td style="padding: 3px 16px 3px 0; color: #64748b; font-size: 13px; font-weight: 600; white-space: nowrap;">Enseigne</td>
+            <td style="padding: 3px 0; color: #1e293b; font-size: 13px;">${enseigne}</td>
+          </tr>` : ""}
+          ${adresse ? `<tr>
+            <td style="padding: 3px 16px 3px 0; color: #64748b; font-size: 13px; font-weight: 600; white-space: nowrap;">Adresse</td>
+            <td style="padding: 3px 0; color: #1e293b; font-size: 13px;">${adresse.replace(/\n/g, ", ")}</td>
+          </tr>` : ""}
+          ${telephone ? `<tr>
+            <td style="padding: 3px 16px 3px 0; color: #64748b; font-size: 13px; font-weight: 600; white-space: nowrap;">Téléphone</td>
+            <td style="padding: 3px 0; color: #1e293b; font-size: 13px;">${telephone}</td>
+          </tr>` : ""}
+          ${emailContact ? `<tr>
+            <td style="padding: 3px 16px 3px 0; color: #64748b; font-size: 13px; font-weight: 600; white-space: nowrap;">Email</td>
+            <td style="padding: 3px 0; color: #60a5fa; font-size: 13px;"><a href="mailto:${emailContact}" style="color: #60a5fa; text-decoration: none;">${emailContact}</a></td>
+          </tr>` : ""}
+        </table>
+      </div>
     </div>
     <div style="background: #f8fafc; padding: 16px 32px; border-top: 1px solid #e2e8f0;">
       <p style="color: #94a3b8; font-size: 12px; margin: 0; text-align: center;">
@@ -222,11 +256,15 @@ Deno.serve(async (req: Request) => {
 
     const { data: entreprise } = await supabase
       .from("entreprise")
-      .select("nom")
+      .select("nom, enseigne, adresse, telephone, email")
       .limit(1)
       .maybeSingle();
 
-    const entrepriseNom = (entreprise as any)?.nom ?? "Votre établissement";
+    const entrepriseNom      = (entreprise as any)?.nom       ?? "Votre établissement";
+    const entrepriseEnseigne = (entreprise as any)?.enseigne  ?? null;
+    const entrepriseAdresse  = (entreprise as any)?.adresse   ?? null;
+    const entrepriseTel      = (entreprise as any)?.telephone ?? null;
+    const entrepriseEmail    = (entreprise as any)?.email     ?? null;
     const nbAlertesTotal = (sendRetard ? retard.length : 0) + (sendBientot ? bientot.length : 0);
 
     // ── Send main internal email ───────────────────────────────────────────────
@@ -350,7 +388,7 @@ Deno.serve(async (req: Request) => {
           ? `Rappel de visite périodique — ${installationNames[0]} — ${entrepriseNom}`
           : `Rappel de visites périodiques — ${installationNames.length} installations — ${entrepriseNom}`;
 
-        const html = buildOrganismeHtml(entries, entrepriseNom);
+        const html = buildOrganismeHtml(entries, entrepriseNom, entrepriseEnseigne, entrepriseAdresse, entrepriseTel, entrepriseEmail);
 
         await fetch(MAKE_WEBHOOK, {
           method: "POST",
