@@ -129,8 +129,10 @@ const HORAIRES_EMPTY: HorairesOuverture = {
 type EntrepriseData = {
   id?: string;
   nom: string;
+  enseigne: string;
   adresse: string;
   telephone: string;
+  email: string;
   siret: string;
   code_ape: string;
   horaires_ouverture: HorairesOuverture;
@@ -151,7 +153,7 @@ type EntrepriseData = {
 };
 
 const EMPTY: EntrepriseData = {
-  nom: '', adresse: '', telephone: '', siret: '', code_ape: '', horaires_ouverture: HORAIRES_EMPTY, logo_url: null,
+  nom: '', enseigne: '', adresse: '', telephone: '', email: '', siret: '', code_ape: '', horaires_ouverture: HORAIRES_EMPTY, logo_url: null,
   type_erp: 'P', categorie_erp: 4, effectif_public: 0, effectif_personnel: 0,
   activite_principale: 'P', activites_complementaires: [], activites_reelles: [], licence_boissons: '',
   questionnaire_reponses: {}, derniere_visite_commission: '',
@@ -442,8 +444,10 @@ export default function EntreprisePage() {
     if (rows) {
       setData({
         nom: rows.nom ?? '',
+        enseigne: rows.enseigne ?? '',
         adresse: rows.adresse ?? '',
         telephone: rows.telephone ?? '',
+        email: rows.email ?? '',
         siret: rows.siret ?? '',
         code_ape: rows.code_ape ?? '',
         horaires_ouverture: { ...HORAIRES_EMPTY, ...(rows.horaires_ouverture ?? {}) } as HorairesOuverture,
@@ -542,7 +546,7 @@ export default function EntreprisePage() {
     e.preventDefault();
     const siret = data.siret.trim();
     if (siret && !/^\d{14}$/.test(siret)) { setInfoMsg({ type: 'error', text: 'Le SIRET doit contenir exactement 14 chiffres.' }); return; }
-    await saveField({ nom: data.nom.trim(), adresse: data.adresse.trim(), telephone: data.telephone.trim(), siret, code_ape: data.code_ape.trim(), horaires_ouverture: data.horaires_ouverture }, setInfoMsg, () => setOpenInfo(false));
+    await saveField({ nom: data.nom.trim(), enseigne: data.enseigne.trim(), adresse: data.adresse.trim(), telephone: data.telephone.trim(), email: data.email.trim(), siret, code_ape: data.code_ape.trim(), horaires_ouverture: data.horaires_ouverture }, setInfoMsg, () => setOpenInfo(false));
   }
 
   async function handleSaveLogo(e: FormEvent) {
@@ -922,6 +926,15 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
                   </div>
                 </Field>
+                <Field label="Enseigne">
+                  <div className="relative">
+                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                    <input type="text" value={data.enseigne}
+                      onChange={(e) => setData((d) => ({ ...d, enseigne: e.target.value }))}
+                      placeholder="Nom commercial / enseigne"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                  </div>
+                </Field>
                 <Field label="Adresse">
                   <div className="relative">
                     <MapPin className="absolute left-3.5 top-3.5 w-3.5 h-3.5 text-slate-500" />
@@ -937,6 +950,15 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     <input type="tel" value={data.telephone}
                       onChange={(e) => setData((d) => ({ ...d, telephone: e.target.value }))}
                       placeholder="+33 1 23 45 67 89"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                  </div>
+                </Field>
+                <Field label="Email">
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                    <input type="email" value={data.email}
+                      onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))}
+                      placeholder="contact@entreprise.fr"
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
                   </div>
                 </Field>
