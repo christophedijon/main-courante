@@ -512,6 +512,7 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
     email_organisme: item.email_organisme,
     periodicite: item.periodicite,
     jours_rappel: item.jours_rappel !== null ? String(item.jours_rappel) : '',
+    date_verification: item.date_verification ?? '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -524,6 +525,7 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
       email_organisme: form.email_organisme.trim(),
       periodicite: form.periodicite,
       jours_rappel: form.jours_rappel !== '' ? parseInt(form.jours_rappel, 10) : null,
+      date_verification: form.date_verification !== '' ? form.date_verification : null,
     };
     const { data, error } = await supabase
       .from('registre_securite')
@@ -581,6 +583,15 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
               placeholder="ex: 90 — laisser vide pour désactiver"
             />
             <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Dernière vérification</label>
+            <input
+              type="date"
+              value={form.date_verification}
+              onChange={(e) => setForm(f => ({ ...f, date_verification: e.target.value }))}
+              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+            />
           </div>
         </div>
         <div className="flex gap-3 mt-6">
@@ -715,7 +726,7 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onHistoriqueCou
               className="flex items-center gap-1 text-[11px] text-white bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap font-semibold"
             >
               <CheckCircle className="w-3 h-3" />
-              Enregistrer une vérification
+              Nouvelle visite
             </button>
             <button type="button" onClick={() => setShowHistorique(true)}
               className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap">
@@ -997,7 +1008,7 @@ export default function RegistreSecuritePage() {
             onClick={() => setShowAddModal(true)}
             className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
           >
-            <Plus className="w-4 h-4" />Nouvelle installation
+            <Plus className="w-4 h-4" />Nouvelle visite périodique
           </button>
         </div>
 
