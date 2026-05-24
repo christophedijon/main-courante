@@ -616,6 +616,7 @@ type EditModalProps = {
   onClose: () => void;
   onSaved: (updated: RegistreItem) => void;
   onDeleted: (id: string) => void;
+  onDeleteRequest: () => void;
 };
 
 function DeleteConfirmModal({ item, onCancel, onConfirm }: { item: RegistreItem; onCancel: () => void; onConfirm: () => void }) {
@@ -641,10 +642,11 @@ function DeleteConfirmModal({ item, onCancel, onConfirm }: { item: RegistreItem;
           Cette action est irréversible. Toutes les données associées à <span className="text-white font-semibold">{item.installation}</span> seront définitivement supprimées.
         </p>
         <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+          <button type="button" onClick={onCancel} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
             Annuler
           </button>
           <button
+            type="button"
             onClick={handleConfirm}
             disabled={deleting}
             className="flex-1 bg-red-600 hover:bg-red-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
@@ -658,7 +660,7 @@ function DeleteConfirmModal({ item, onCancel, onConfirm }: { item: RegistreItem;
   );
 }
 
-function EditModal({ item, onClose, onSaved, onDeleted }: EditModalProps) {
+function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditModalProps) {
   const [form, setForm] = useState({
     installation: item.installation,
     reference_reglementaire: item.reference_reglementaire,
@@ -669,7 +671,6 @@ function EditModal({ item, onClose, onSaved, onDeleted }: EditModalProps) {
     date_verification: item.date_verification ?? '',
   });
   const [saving, setSaving] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   async function handleSubmit() {
     setSaving(true);
@@ -693,8 +694,7 @@ function EditModal({ item, onClose, onSaved, onDeleted }: EditModalProps) {
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
         <div
           className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
           style={{ maxHeight: '90vh' }}
@@ -763,16 +763,18 @@ function EditModal({ item, onClose, onSaved, onDeleted }: EditModalProps) {
           {/* Footer — fixed */}
           <div className="shrink-0 px-6 py-4 border-t border-slate-800 flex gap-3">
             <button
-              onClick={() => { onClose(); setShowDeleteConfirm(true); }}
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); onDeleteRequest(); }}
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500/60 transition-colors text-sm font-semibold shrink-0"
             >
               <Trash2 className="w-4 h-4" />
               Supprimer
             </button>
-            <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+            <button type="button" onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
               Annuler
             </button>
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={saving || !form.installation.trim()}
               className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
@@ -783,18 +785,6 @@ function EditModal({ item, onClose, onSaved, onDeleted }: EditModalProps) {
           </div>
         </div>
       </div>
-
-      {showDeleteConfirm && (
-        <DeleteConfirmModal
-          item={item}
-          onCancel={() => setShowDeleteConfirm(false)}
-          onConfirm={() => {
-            setShowDeleteConfirm(false);
-            onDeleted(item.id);
-          }}
-        />
-      )}
-    </>
   );
 }
 
@@ -813,6 +803,7 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onDeleted, onHi
   const [showHistorique, setShowHistorique] = useState(false);
   const [showVerif, setShowVerif] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const statut = getStatut(item.date_verification, item.periodicite, item.applicable);
   const nextDate = item.date_verification ? getNextDate(item.date_verification, item.periodicite) : null;
@@ -955,7 +946,22 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onDeleted, onHi
 
       {showHistorique && <HistoriquePanel item={item} onClose={() => setShowHistorique(false)} />}
       {showVerif && <VerifModal item={item} onClose={() => setShowVerif(false)} onSaved={handleVerifSaved} />}
-      {showEdit && <EditModal item={item} onClose={() => setShowEdit(false)} onSaved={(updated) => { onSaved(updated); setShowEdit(false); }} onDeleted={onDeleted} />}
+      {showEdit && (
+        <EditModal
+          item={item}
+          onClose={() => setShowEdit(false)}
+          onSaved={(updated) => { onSaved(updated); setShowEdit(false); }}
+          onDeleted={onDeleted}
+          onDeleteRequest={() => { setShowEdit(false); setShowDeleteConfirm(true); }}
+        />
+      )}
+      {showDeleteConfirm && (
+        <DeleteConfirmModal
+          item={item}
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={() => { setShowDeleteConfirm(false); onDeleted(item.id); }}
+        />
+      )}
     </>
   );
 }
