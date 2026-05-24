@@ -20,6 +20,7 @@ import CompleteProfilePage from './pages/CompleteProfilePage';
 import BaliseRondesPage from './pages/BaliseRondesPage';
 import JaugeConfigPage from './pages/JaugeConfigPage';
 import ConfirmRegistrePage from './pages/ConfirmRegistrePage';
+import BackupPage from './pages/BackupPage';
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
 import HomePage from './mobile/pages/HomePage';
@@ -224,6 +225,7 @@ export default function App() {
               } />
             </Route>
             <Route path="/confirm-registre" element={<ConfirmRegistrePage />} />
+            <Route path="/backup" element={<AdminRoute><BackupPage /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </SaisieProvider>
