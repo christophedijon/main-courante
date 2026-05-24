@@ -615,18 +615,24 @@ type EditModalProps = {
   item: RegistreItem;
   onClose: () => void;
   onSaved: (updated: RegistreItem) => void;
-  onDeleted: (id: string) => void;
+  onDeleted: (id: string, status: 'success' | 'error') => void;
   onDeleteRequest: () => void;
 };
 
-function DeleteConfirmModal({ item, onCancel, onConfirm }: { item: RegistreItem; onCancel: () => void; onConfirm: () => void }) {
+function DeleteConfirmModal({ item, onCancel, onConfirm }: { item: RegistreItem; onCancel: () => void; onConfirm: (status: 'success' | 'error') => void }) {
   const [deleting, setDeleting] = useState(false);
 
   async function handleConfirm() {
+    console.log('[delete] deleting registre id:', item.id);
     setDeleting(true);
-    await supabase.from('registre_securite').delete().eq('id', item.id);
+    const { error } = await supabase.from('registre_securite').delete().eq('id', item.id);
     setDeleting(false);
-    onConfirm();
+    if (error) {
+      console.error('Delete error:', error);
+      onConfirm('error');
+      return;
+    }
+    onConfirm('success');
   }
 
   return (
@@ -795,7 +801,7 @@ type RowProps = {
   historiqueCount: number;
   onUpdate: (id: string, patch: Partial<RegistreItem>) => void;
   onSaved: (updated: RegistreItem) => void;
-  onDeleted: (id: string) => void;
+  onDeleted: (id: string, status: 'success' | 'error') => void;
   onHistoriqueCountChange: (id: string, delta: number) => void;
 };
 
@@ -959,7 +965,7 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onDeleted, onHi
         <DeleteConfirmModal
           item={item}
           onCancel={() => setShowDeleteConfirm(false)}
-          onConfirm={() => { setShowDeleteConfirm(false); onDeleted(item.id); }}
+          onConfirm={(status) => { setShowDeleteConfirm(false); onDeleted(item.id, status); }}
         />
       )}
     </>
@@ -1184,7 +1190,12 @@ export default function RegistreSecuritePage() {
 
   const [toast, setToast] = useState<string | null>(null);
 
-  function handleDeleted(id: string) {
+  function handleDeleted(id: string, status: 'success' | 'error') {
+    if (status === 'error') {
+      setToast('Erreur lors de la suppression');
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
     setItems((prev) => prev.filter((it) => it.id !== id));
     setToast('Visite périodique supprimée');
     setTimeout(() => setToast(null), 3000);
