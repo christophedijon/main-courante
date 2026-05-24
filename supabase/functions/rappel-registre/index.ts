@@ -135,7 +135,10 @@ function buildOrganismeHtml(
       </p>
       ${entries.map((entry) => {
         const token = entry.item.confirmation_token;
-        const confirmUrl = `https://wliobldgrzjjchfknqju.supabase.co/functions/v1/confirm-registre?token=${token}`;
+        const appUrl = Deno.env.get("APP_URL") ?? "https://wliobldgrzjjchfknqju.supabase.co/functions/v1/confirm-registre";
+        const confirmUrl = appUrl.includes("/confirm-registre")
+          ? `${appUrl}?token=${token}`
+          : `${appUrl}/confirm-registre?token=${token}`;
         return `
       <div style="text-align: center; margin: 16px 0;">
         <p style="color: #64748b; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">${entry.item.installation}</p>
