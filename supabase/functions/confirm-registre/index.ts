@@ -20,7 +20,7 @@ function htmlPage(title: string, body: string): Response {
   ${body}
 </body>
 </html>`,
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", ...corsHeaders } }
+    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
   );
 }
 
