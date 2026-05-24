@@ -89,7 +89,7 @@ function SuccessCard({ data }: { data: ConfirmData }) {
       {data.installation && (
         <div className="bg-slate-50 rounded-xl px-5 py-4 text-left mb-4">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-            Installation concernée
+            Visite périodique concernée
           </p>
           <p className="text-sm font-medium text-slate-800">{data.installation}</p>
         </div>
@@ -125,7 +125,7 @@ function AlreadyCard({ data }: { data: ConfirmData }) {
       {data.installation && (
         <div className="bg-slate-50 rounded-xl px-5 py-4 text-left">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-            Installation concernée
+            Visite périodique concernée
           </p>
           <p className="text-sm font-medium text-slate-800">{data.installation}</p>
         </div>

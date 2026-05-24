@@ -552,7 +552,7 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-white font-bold text-lg">Nouvelle installation</h3>
+          <h3 className="text-white font-bold text-lg">Nouvelle visite périodique</h3>
           <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
         </div>
         <div className="space-y-4">
@@ -633,13 +633,13 @@ function DeleteConfirmModal({ item, onCancel, onConfirm }: { item: RegistreItem;
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onCancel}>
       <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-bold text-lg">Supprimer cette installation ?</h3>
+          <h3 className="text-white font-bold text-lg">Supprimer cette visite périodique ?</h3>
           <button onClick={onCancel} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
         <p className="text-slate-400 text-sm leading-relaxed mb-6">
-          Cette action est irréversible. Toutes les données associées à <span className="text-white font-semibold">{item.installation}</span> seront définitivement supprimées.
+          Cette action est irréversible. Toutes les données associées à la visite périodique <span className="text-white font-semibold">{item.installation}</span> seront définitivement supprimées.
         </p>
         <div className="flex gap-3">
           <button type="button" onClick={onCancel} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
@@ -702,7 +702,7 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
         >
           {/* Header — fixed */}
           <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-slate-800">
-            <h3 className="text-white font-bold text-lg">Modifier l'installation</h3>
+            <h3 className="text-white font-bold text-lg">Modifier la visite périodique</h3>
             <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
               <X className="w-4 h-4" />
             </button>
@@ -711,9 +711,9 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
           {/* Scrollable form body */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
             <div>
-              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Installation *</label>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Visite périodique *</label>
               <input value={form.installation} onChange={(e) => setForm(f => ({ ...f, installation: e.target.value }))}
-                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Nom de l'installation" />
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Nom de la visite périodique" />
             </div>
             <div>
               <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Référence réglementaire</label>
@@ -1032,7 +1032,7 @@ function MobileCardView({ items, historiqueCounts }: { items: RegistreItem[]; hi
         {filtered.length === 0 && (
           <div className="text-center py-12">
             <CheckCircle className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm">Aucune installation dans cette catégorie</p>
+            <p className="text-slate-500 text-sm">Aucune visite périodique dans cette catégorie</p>
           </div>
         )}
         {filtered.map(({ item, statut, nextDate }) => {
@@ -1186,7 +1186,7 @@ export default function RegistreSecuritePage() {
 
   function handleDeleted(id: string) {
     setItems((prev) => prev.filter((it) => it.id !== id));
-    setToast('Installation supprimée');
+    setToast('Visite périodique supprimée');
     setTimeout(() => setToast(null), 3000);
   }
 
@@ -1283,7 +1283,7 @@ export default function RegistreSecuritePage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-800/60 border-b border-slate-700">
-                      {['Applic.', 'Installation', 'Référence', 'Organisme', 'Périodicité', 'Dernière vérif.', 'Vérificateur', 'Prochaine vérif.', 'Observations', 'Levée observations', 'Rapport PDF', 'Actions'].map((h) => (
+                      {['Applic.', 'Visite périodique', 'Référence', 'Organisme', 'Périodicité', 'Dernière vérif.', 'Vérificateur', 'Prochaine vérif.', 'Observations', 'Levée observations', 'Rapport PDF', 'Actions'].map((h) => (
                         <th key={h} className="px-3 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -1313,7 +1313,7 @@ export default function RegistreSecuritePage() {
                     className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors text-sm font-medium"
                   >
                     {collapseNonApp ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                    {nonApplicable.length} installation(s) sans objet
+                    {nonApplicable.length} visite(s) périodique(s) sans objet
                   </button>
                   {!collapseNonApp && (
                     <div className="overflow-x-auto">
