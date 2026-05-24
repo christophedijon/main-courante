@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardList, Upload, Eye, History, X, ChevronDown, ChevronUp,
-  Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2, Pencil,
+  Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2, Pencil, Trash2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -611,9 +611,54 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
 
 // ─── Edit Modal ──────────────────────────────────────────────────────────────
 
-type EditModalProps = { item: RegistreItem; onClose: () => void; onSaved: (updated: RegistreItem) => void };
+type EditModalProps = {
+  item: RegistreItem;
+  onClose: () => void;
+  onSaved: (updated: RegistreItem) => void;
+  onDeleted: (id: string) => void;
+};
 
-function EditModal({ item, onClose, onSaved }: EditModalProps) {
+function DeleteConfirmModal({ item, onCancel, onConfirm }: { item: RegistreItem; onCancel: () => void; onConfirm: () => void }) {
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleConfirm() {
+    setDeleting(true);
+    await supabase.from('registre_securite').delete().eq('id', item.id);
+    setDeleting(false);
+    onConfirm();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onCancel}>
+      <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-bold text-lg">Supprimer cette installation ?</h3>
+          <button onClick={onCancel} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-slate-400 text-sm leading-relaxed mb-6">
+          Cette action est irréversible. Toutes les données associées à <span className="text-white font-semibold">{item.installation}</span> seront définitivement supprimées.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+            Annuler
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={deleting}
+            className="flex-1 bg-red-600 hover:bg-red-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+          >
+            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Confirmer la suppression
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditModal({ item, onClose, onSaved, onDeleted }: EditModalProps) {
   const [form, setForm] = useState({
     installation: item.installation,
     reference_reglementaire: item.reference_reglementaire,
@@ -624,6 +669,7 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
     date_verification: item.date_verification ?? '',
   });
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   async function handleSubmit() {
     setSaving(true);
@@ -647,72 +693,108 @@ function EditModal({ item, onClose, onSaved }: EditModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-white font-bold text-lg">Modifier l'installation</h3>
-          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Installation *</label>
-            <input value={form.installation} onChange={(e) => setForm(f => ({ ...f, installation: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Nom de l'installation" />
+    <>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+        <div
+          className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
+          style={{ maxHeight: '90vh' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header — fixed */}
+          <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-slate-800">
+            <h3 className="text-white font-bold text-lg">Modifier l'installation</h3>
+            <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Référence réglementaire</label>
-            <input value={form.reference_reglementaire} onChange={(e) => setForm(f => ({ ...f, reference_reglementaire: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: MS 73" />
+
+          {/* Scrollable form body */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Installation *</label>
+              <input value={form.installation} onChange={(e) => setForm(f => ({ ...f, installation: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Nom de l'installation" />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Référence réglementaire</label>
+              <input value={form.reference_reglementaire} onChange={(e) => setForm(f => ({ ...f, reference_reglementaire: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: MS 73" />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Organisme vérificateur</label>
+              <input value={form.organisme_verificateur} onChange={(e) => setForm(f => ({ ...f, organisme_verificateur: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: Technicien compétent" />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
+              <input type="email" value={form.email_organisme} onChange={(e) => setForm(f => ({ ...f, email_organisme: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="email@organisme.fr" />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Périodicité</label>
+              <select value={form.periodicite} onChange={(e) => setForm(f => ({ ...f, periodicite: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans', 'Autre'].map((p) => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Rappel (jours avant)</label>
+              <input
+                type="number"
+                min="1"
+                value={form.jours_rappel}
+                onChange={(e) => setForm(f => ({ ...f, jours_rappel: e.target.value.replace(/[^0-9]/g, '') }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                placeholder="ex: 90 — laisser vide pour désactiver"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Dernière vérification</label>
+              <input
+                type="date"
+                value={form.date_verification}
+                onChange={(e) => setForm(f => ({ ...f, date_verification: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Organisme vérificateur</label>
-            <input value={form.organisme_verificateur} onChange={(e) => setForm(f => ({ ...f, organisme_verificateur: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: Technicien compétent" />
+
+          {/* Footer — fixed */}
+          <div className="shrink-0 px-6 py-4 border-t border-slate-800 flex gap-3">
+            <button
+              onClick={() => { onClose(); setShowDeleteConfirm(true); }}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500/60 transition-colors text-sm font-semibold shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+              Supprimer
+            </button>
+            <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+              Annuler
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving || !form.installation.trim()}
+              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Enregistrer
+            </button>
           </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
-            <input type="email" value={form.email_organisme} onChange={(e) => setForm(f => ({ ...f, email_organisme: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="email@organisme.fr" />
-          </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Périodicité</label>
-            <select value={form.periodicite} onChange={(e) => setForm(f => ({ ...f, periodicite: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
-              {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans', 'Autre'].map((p) => <option key={p}>{p}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Rappel (jours avant)</label>
-            <input
-              type="number"
-              min="1"
-              value={form.jours_rappel}
-              onChange={(e) => setForm(f => ({ ...f, jours_rappel: e.target.value.replace(/[^0-9]/g, '') }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
-              placeholder="ex: 90 — laisser vide pour désactiver"
-            />
-            <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
-          </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Dernière vérification</label>
-            <input
-              type="date"
-              value={form.date_verification}
-              onChange={(e) => setForm(f => ({ ...f, date_verification: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
-            />
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors">Annuler</button>
-          <button onClick={handleSubmit} disabled={saving || !form.installation.trim()}
-            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Enregistrer
-          </button>
         </div>
       </div>
-    </div>
+
+      {showDeleteConfirm && (
+        <DeleteConfirmModal
+          item={item}
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={() => {
+            setShowDeleteConfirm(false);
+            onDeleted(item.id);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -723,10 +805,11 @@ type RowProps = {
   historiqueCount: number;
   onUpdate: (id: string, patch: Partial<RegistreItem>) => void;
   onSaved: (updated: RegistreItem) => void;
+  onDeleted: (id: string) => void;
   onHistoriqueCountChange: (id: string, delta: number) => void;
 };
 
-function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onHistoriqueCountChange }: RowProps) {
+function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onDeleted, onHistoriqueCountChange }: RowProps) {
   const [showHistorique, setShowHistorique] = useState(false);
   const [showVerif, setShowVerif] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -872,7 +955,7 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onHistoriqueCou
 
       {showHistorique && <HistoriquePanel item={item} onClose={() => setShowHistorique(false)} />}
       {showVerif && <VerifModal item={item} onClose={() => setShowVerif(false)} onSaved={handleVerifSaved} />}
-      {showEdit && <EditModal item={item} onClose={() => setShowEdit(false)} onSaved={(updated) => { onSaved(updated); setShowEdit(false); }} />}
+      {showEdit && <EditModal item={item} onClose={() => setShowEdit(false)} onSaved={(updated) => { onSaved(updated); setShowEdit(false); }} onDeleted={onDeleted} />}
     </>
   );
 }
@@ -1093,6 +1176,14 @@ export default function RegistreSecuritePage() {
     setHistoriqueCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + delta }));
   }
 
+  const [toast, setToast] = useState<string | null>(null);
+
+  function handleDeleted(id: string) {
+    setItems((prev) => prev.filter((it) => it.id !== id));
+    setToast('Installation supprimée');
+    setTimeout(() => setToast(null), 3000);
+  }
+
   const lastUpdated = items.reduce<string | null>((acc, it) => {
     if (!acc || it.updated_at > acc) return it.updated_at;
     return acc;
@@ -1199,6 +1290,7 @@ export default function RegistreSecuritePage() {
                         historiqueCount={historiqueCounts[item.id] ?? 0}
                         onUpdate={handleUpdate}
                         onSaved={handleSaved}
+                        onDeleted={handleDeleted}
                         onHistoriqueCountChange={handleHistoriqueCountChange}
                       />
                     ))}
@@ -1264,6 +1356,13 @@ export default function RegistreSecuritePage() {
 
       {showConfirmations && (
         <ConfirmationsModal onClose={() => setShowConfirmations(false)} />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-slate-800 border border-slate-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in">
+          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          {toast}
+        </div>
       )}
     </div>
   );
