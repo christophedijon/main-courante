@@ -369,8 +369,11 @@ Deno.serve(async (req: Request) => {
       internalSent = emailSet.size;
     }
 
+    const internalEmails = Array.from(emailSet);
+
     // ── Send per-organisme personalized emails ─────────────────────────────────
     let organismeSentCount = 0;
+    const organismeEmailsSent: string[] = [];
 
     if (rule.dest_email_organisme) {
       // Collect all alert entries that have an organisme email, retard takes priority
@@ -415,6 +418,7 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({ to: [email], sujet, html }),
         });
         organismeSentCount++;
+        organismeEmailsSent.push(email);
       }
     }
 
@@ -422,6 +426,8 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         message: `Email interne envoyé à ${internalSent} destinataire(s), ${organismeSentCount} email(s) organisme envoyé(s)`,
         alertes: nbAlertesTotal,
+        internal_recipients: internalEmails,
+        organisme_recipients: organismeEmailsSent,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
