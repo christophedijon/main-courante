@@ -7,26 +7,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-function htmlPage(title: string, body: string): Response {
-  return new Response(
-    `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title}</title>
-</head>
-<body style="font-family: Arial, sans-serif; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0;">
-  ${body}
-</body>
-</html>`,
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
-  );
+function htmlPage(title: string, body: string, status = 200): Response {
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${title}</title></head><body style="font-family:Arial,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">${body}</body></html>`;
+  return new Response(html, {
+    status,
+    headers: new Headers({
+      'content-type': 'text/html; charset=UTF-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    }),
+  });
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 204 });
   }
 
   try {
