@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
@@ -23,6 +23,7 @@ import JaugeConfigPage from './pages/JaugeConfigPage';
 import ConfirmRegistrePage from './pages/ConfirmRegistrePage';
 import BackupPage from './pages/BackupPage';
 import EditorAccessPage from './pages/EditorAccessPage';
+import EditorBackofficePage from './pages/EditorBackofficePage';
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
 import HomePage from './mobile/pages/HomePage';
@@ -90,6 +91,36 @@ function EditorAccessBanner() {
   );
 }
 
+const EDITOR_REDIRECTABLE_PATHS = [
+  '/dashboard', '/profile', '/entreprise', '/espaces-zones',
+  '/ia', '/motifs', '/documents', '/postes', '/dashboard-signatures',
+  '/rapports', '/registre-securite', '/emails', '/balises-rondes', '/jauge',
+];
+
+function EditorSessionGuard() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('editor_session');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed.editorMode) return;
+    } catch {
+      return;
+    }
+    const match = EDITOR_REDIRECTABLE_PATHS.find(
+      (p) => location.pathname === p || location.pathname.startsWith(p + '/')
+    );
+    if (match) {
+      navigate(`/editor/backoffice${location.pathname}`, { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  return null;
+}
+
 function OfflineSignatureSync() {
   useEffect(() => {
     async function syncPending() {
@@ -154,6 +185,7 @@ export default function App() {
       <AuthProvider>
         <SaisieProvider>
           <EditorAccessBanner />
+          <EditorSessionGuard />
           <OfflineSignatureSync />
           <Routes>
             <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -268,6 +300,24 @@ export default function App() {
             </Route>
             <Route path="/confirm-registre" element={<ConfirmRegistrePage />} />
             <Route path="/editor" element={<EditorAccessPage />} />
+            <Route path="/editor/backoffice" element={<EditorBackofficePage />}>
+              <Route index element={<Navigate to="entreprise" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="dashboard/users/:id" element={<UserEditPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="entreprise" element={<EntreprisePage />} />
+              <Route path="espaces-zones" element={<EspacesZonesPage />} />
+              <Route path="ia" element={<IAPage />} />
+              <Route path="motifs" element={<MotifsPage />} />
+              <Route path="documents" element={<DocumentsPage />} />
+              <Route path="postes" element={<PostesPage />} />
+              <Route path="dashboard-signatures" element={<DashboardSignaturesPage />} />
+              <Route path="rapports" element={<RapportsPage />} />
+              <Route path="registre-securite" element={<RegistreSecuritePage />} />
+              <Route path="emails" element={<EmailsPage />} />
+              <Route path="balises-rondes" element={<BaliseRondesPage />} />
+              <Route path="jauge" element={<JaugeConfigPage />} />
+            </Route>
             <Route path="/backup" element={<AdminRoute><BackupPage /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
