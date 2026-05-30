@@ -4,12 +4,13 @@ import {
   Building2, Save, CheckCircle, AlertCircle, Upload, X,
   Image as ImageIcon, Phone, MapPin, ChevronDown,
   Layers, Scale, Plus, Zap, Mail,
-  FileText, RefreshCw, Sparkles,
+  FileText, RefreshCw, Sparkles, Shield, KeyRound, Trash2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
 import { invalidateEntrepriseCache } from '../hooks/useEntreprise';
+import Toast from '../components/Toast';
 
 // ── ERP constants ────────────────────────────────────────────────────────────
 
@@ -374,7 +375,7 @@ function formatObligationsHtml(text: string): string {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function EntreprisePage() {
-  const { session, signOut } = useAuth();
+  const { session, signOut, isSuperAdmin, isDirection } = useAuth();
   const navigate = useNavigate();
 
   const [data, setData] = useState<EntrepriseData>(EMPTY);
@@ -425,6 +426,19 @@ export default function EntreprisePage() {
   const [generating, setGenerating]     = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  // Editor session
+  type EditorSession = {
+    id: string;
+    code: string;
+    created_at: string;
+    connected_at: string | null;
+    is_active: boolean;
+  };
+  const [editorSession, setEditorSession]         = useState<EditorSession | null>(null);
+  const [editorSessionLoading, setEditorSessionLoading] = useState(false);
+  const [generatingCode, setGeneratingCode]       = useState(false);
+  const [editorToast, setEditorToast]             = useState<string | null>(null);
+
   const [iaQuestions, setIaQuestions]   = useState<{ id: string; question: string }[]>([]);
   const [qReponses, setQReponses]       = useState<Record<string, boolean>>({});
   const [generatingQ, setGeneratingQ]   = useState(false);
@@ -437,6 +451,11 @@ export default function EntreprisePage() {
     if (!session) { navigate('/'); return; }
     fetchData();
   }, [session]);
+
+  useEffect(() => {
+    if (!rowId || !(isSuperAdmin || isDirection)) return;
+    fetchEditorSession();
+  }, [rowId, isSuperAdmin, isDirection]);
 
   async function fetchData() {
     setLoading(true);
@@ -468,6 +487,44 @@ export default function EntreprisePage() {
       setRowId(rows.id);
     }
     setLoading(false);
+  }
+
+  async function fetchEditorSession() {
+    if (!rowId) return;
+    setEditorSessionLoading(true);
+    const { data } = await supabase
+      .from('editor_sessions')
+      .select('*')
+      .eq('entreprise_id', rowId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setEditorSession(data);
+    setEditorSessionLoading(false);
+  }
+
+  async function generateEditorCode() {
+    if (!rowId) return;
+    setGeneratingCode(true);
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    const { data, error } = await supabase
+      .from('editor_sessions')
+      .insert({ entreprise_id: rowId, code, is_active: true })
+      .select()
+      .single();
+    if (!error && data) setEditorSession(data);
+    setGeneratingCode(false);
+  }
+
+  async function revokeEditorSession() {
+    if (!editorSession) return;
+    await supabase
+      .from('editor_sessions')
+      .update({ is_active: false, revoked_at: new Date().toISOString() })
+      .eq('id', editorSession.id);
+    setEditorSession(null);
+    setEditorToast('Accès éditeur révoqué');
   }
 
   // ── Logo helpers ────────────────────────────────────────────────────────────
@@ -1492,9 +1549,109 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
               </form>
             </CollapseCard>
 
+            {/* ════════════════════════════════════════
+                ACCÈS SUPPORT ÉDITEUR
+            ════════════════════════════════════════ */}
+            {(isSuperAdmin || isDirection) && (
+              <>
+                <SectionLabel>Support</SectionLabel>
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                  <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
+                  <div className="px-5 py-5">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                        <Shield className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold text-sm leading-tight">Accès support éditeur</p>
+                        <p className="text-slate-500 text-xs mt-0.5">Code d'accès temporaire pour l'équipe support</p>
+                      </div>
+                    </div>
+
+                    {editorSessionLoading ? (
+                      <div className="flex items-center gap-2 text-slate-500 text-sm py-2">
+                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        Chargement…
+                      </div>
+                    ) : !editorSession ? (
+                      <button
+                        type="button"
+                        onClick={generateEditorCode}
+                        disabled={generatingCode}
+                        className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-800 disabled:cursor-not-allowed
+                          text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors shadow-lg shadow-amber-900/30"
+                      >
+                        {generatingCode
+                          ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>Génération…</>
+                          : <><KeyRound className="w-4 h-4" />Générer un code d'accès</>
+                        }
+                      </button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-col items-center py-4 px-6 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+                          <p className="text-[11px] font-bold text-amber-500/70 uppercase tracking-[0.2em] mb-3">Code d'accès actif</p>
+                          <p
+                            className="font-mono font-bold text-amber-400 leading-none"
+                            style={{ fontSize: '48px', letterSpacing: '0.25em' }}
+                          >
+                            {editorSession.code}
+                          </p>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs text-slate-500">
+                          <p>
+                            Code généré le{' '}
+                            {new Date(editorSession.created_at).toLocaleDateString('fr-FR', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                            })}
+                            {' '}à{' '}
+                            {new Date(editorSession.created_at).toLocaleTimeString('fr-FR', {
+                              hour: '2-digit', minute: '2-digit',
+                            })}
+                          </p>
+                          {editorSession.connected_at && (
+                            <p className="flex items-center gap-1.5 text-emerald-400">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Dernière connexion éditeur :{' '}
+                              {new Date(editorSession.connected_at).toLocaleDateString('fr-FR', {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                              })}
+                              {' '}à{' '}
+                              {new Date(editorSession.connected_at).toLocaleTimeString('fr-FR', {
+                                hour: '2-digit', minute: '2-digit',
+                              })}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={revokeEditorSession}
+                          className="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/30 border border-red-600/30 hover:border-red-500/50
+                            text-red-400 hover:text-red-300 font-medium px-4 py-2 rounded-xl text-sm transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Révoquer l'accès
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
           </div>
         )}
       </main>
+
+      {editorToast && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Toast message={editorToast} type="success" onClose={() => setEditorToast(null)} />
+        </div>
+      )}
 
       {/* ── Activity modal ── */}
       {showActModal && (

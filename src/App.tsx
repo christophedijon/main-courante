@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
+import { Shield } from 'lucide-react';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
@@ -48,6 +49,45 @@ import StepDescription from './mobile/saisie/StepDescription';
 import StepSsiZone from './mobile/saisie/StepSsiZone';
 import StepSsiMotifs from './mobile/saisie/StepSsiMotifs';
 import { RoleRoute } from './mobile/components/RoleRoute';
+
+function EditorAccessBanner() {
+  const { session } = useAuth();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const channel = supabase
+      .channel('editor-sessions-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'editor_sessions' },
+        (payload) => {
+          const newRow = payload.new as { connected_at: string | null; is_active: boolean };
+          const oldRow = payload.old as { connected_at: string | null };
+          if (newRow.is_active && newRow.connected_at && !oldRow.connected_at) {
+            setVisible(true);
+            setTimeout(() => setVisible(false), 8000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [session]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-3 px-6 py-4 text-white font-semibold text-sm shadow-2xl"
+      style={{ backgroundColor: '#f59e0b' }}
+    >
+      <Shield className="w-5 h-5 shrink-0" />
+      L'éditeur SARL Gréco vient d'accéder à votre application
+    </div>
+  );
+}
 
 function OfflineSignatureSync() {
   useEffect(() => {
@@ -112,6 +152,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <SaisieProvider>
+          <EditorAccessBanner />
           <OfflineSignatureSync />
           <Routes>
             <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
