@@ -124,6 +124,9 @@ export default function EditorAccessPage() {
       editorMode: true,
     }));
 
+    const { error: anonError } = await supabase.auth.signInAnonymously();
+    if (anonError) console.error('Anon auth error:', anonError);
+
     navigate('/editor/backoffice');
   }
 
