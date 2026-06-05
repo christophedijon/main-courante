@@ -32,6 +32,10 @@ type RegistreSignatureRow = RegistreSignature & {
   registre_id: string;
   date_verification_signee: string;
   signataire_id: string;
+  verificateur_nom: string;
+  verificateur_organisme: string;
+  verificateur_contact: string;
+  observations_signature: string;
 };
 
 type Statut = 'non_applicable' | 'non_planifie' | 'a_jour' | 'attention' | 'retard';
@@ -238,31 +242,23 @@ function SignatureModal({
   const padRef = useRef<SignaturePad | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [verificateurNom, setVerificateurNom] = useState(item.nom_verificateur ?? '');
+  const [verificateurOrganisme, setVerificateurOrganisme] = useState(item.organisme_verificateur ?? '');
+  const [verificateurContact, setVerificateurContact] = useState('');
+  const [observationsSig, setObservationsSig] = useState('');
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    // Resize canvas to device pixel ratio for crisp rendering on mobile
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     canvas.width = canvas.offsetWidth * ratio;
     canvas.height = canvas.offsetHeight * ratio;
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.scale(ratio, ratio);
-
-    const pad = new SignaturePad(canvas, {
-      penColor: '#000000',
-      backgroundColor: '#ffffff',
-    });
+    const pad = new SignaturePad(canvas, { penColor: '#000000', backgroundColor: '#ffffff' });
     padRef.current = pad;
-
-    pad.addEventListener('endStroke', () => {
-      setIsEmpty(pad.isEmpty());
-    });
-
-    return () => {
-      pad.off();
-    };
+    pad.addEventListener('endStroke', () => setIsEmpty(pad.isEmpty()));
+    return () => { pad.off(); };
   }, []);
 
   function handleClear() {
@@ -272,83 +268,156 @@ function SignatureModal({
 
   async function handleValidate() {
     const pad = padRef.current;
-    if (!pad || pad.isEmpty()) return;
+    if (!pad || pad.isEmpty() || !verificateurNom.trim()) return;
     setSaving(true);
     const dataURL = pad.toDataURL('image/png');
-    const { error } = await supabase.from('registre_signatures').insert({
-      registre_id: item.id,
-      date_verification_signee: item.date_verification,
-      signataire_id,
-      signataire_nom: signataireName,
-      signataire_role: signataireRole,
-      signature_data: dataURL,
-    });
+
+    const [sigRes, updateRes] = await Promise.all([
+      supabase.from('registre_signatures').insert({
+        registre_id: item.id,
+        date_verification_signee: item.date_verification,
+        signataire_id,
+        signataire_nom: signataireName,
+        signataire_role: signataireRole,
+        signature_data: dataURL,
+        verificateur_nom: verificateurNom.trim(),
+        verificateur_organisme: verificateurOrganisme.trim(),
+        verificateur_contact: verificateurContact.trim(),
+        observations_signature: observationsSig.trim(),
+      }),
+      supabase.from('registre_securite').update({
+        nom_verificateur: verificateurNom.trim(),
+        observations: observationsSig.trim() || item.observations,
+        reprise_papier: false,
+        updated_at: new Date().toISOString(),
+      }).eq('id', item.id),
+    ]);
+
     setSaving(false);
-    if (!error) {
-      onSaved();
-      onClose();
-    } else {
-      console.error('Signature save error:', error);
+    if (sigRes.error) {
+      console.error('Signature save error:', sigRes.error);
+      return;
     }
+    if (updateRes.error) {
+      console.error('Registre update error:', updateRes.error);
+    }
+    onSaved();
+    onClose();
   }
 
+  const canValidate = !isEmpty && verificateurNom.trim().length > 0 && !saving;
+
+  const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
+
   return (
-    <div className="fixed inset-0 z-[9998] flex flex-col bg-slate-950">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-slate-800 shrink-0">
-        <p className="text-white font-bold text-[15px] truncate">{item.installation}</p>
-        <p className="text-slate-400 text-xs mt-0.5">
-          Vérification du {formatDate(item.date_verification)}
-        </p>
+    <div className="fixed inset-0 z-[9998] flex flex-col bg-slate-950" style={{ height: '100dvh' }}>
+
+      {/* ── Sticky header ── */}
+      <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950">
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-bold text-[15px] truncate">{item.installation}</p>
+          <p className="text-slate-400 text-xs mt-0.5">
+            Vérification du {formatDate(item.date_verification)}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <X className="w-4 h-4 text-slate-300" />
+        </button>
       </div>
 
-      {/* Canvas area */}
-      <div className="flex-1 flex flex-col p-4 min-h-0">
-        <p className="text-slate-400 text-xs mb-3 text-center">Signez dans le cadre ci-dessous</p>
-        <div
-          className="rounded-2xl overflow-hidden border border-slate-600 flex-1"
-          style={{ maxHeight: 260, minHeight: 180 }}
-        >
-          <canvas
-            ref={canvasRef}
-            className="w-full h-full touch-none"
-            style={{ display: 'block', background: '#ffffff', height: '220px' }}
+      {/* ── Scrollable body ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 min-h-0">
+
+        {/* Coordonnées du vérificateur */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
+            Coordonnées du vérificateur
+          </p>
+          <div className="space-y-2.5">
+            <input
+              type="text"
+              value={verificateurNom}
+              onChange={(e) => setVerificateurNom(e.target.value)}
+              placeholder="Nom et prénom du vérificateur"
+              className={inputClass}
+            />
+            <input
+              type="text"
+              value={verificateurOrganisme}
+              onChange={(e) => setVerificateurOrganisme(e.target.value)}
+              placeholder="Organisme ou société"
+              className={inputClass}
+            />
+            <input
+              type="text"
+              value={verificateurContact}
+              onChange={(e) => setVerificateurContact(e.target.value)}
+              placeholder="Contact (email ou tél.) — optionnel"
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
+            Signez dans le cadre ci-dessous
+          </p>
+          <div className="rounded-2xl overflow-hidden border border-slate-600">
+            <canvas
+              ref={canvasRef}
+              className="w-full touch-none"
+              style={{ display: 'block', background: '#ffffff', height: '200px' }}
+            />
+          </div>
+          <div className="flex justify-center mt-2.5">
+            <button
+              onClick={handleClear}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 bg-slate-800 border border-slate-700 active:scale-95 transition-transform"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Effacer
+            </button>
+          </div>
+        </div>
+
+        {/* Observations */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
+            Observations (optionnel)
+          </p>
+          <textarea
+            rows={3}
+            value={observationsSig}
+            onChange={(e) => setObservationsSig(e.target.value)}
+            placeholder="Remarques, anomalies constatées…"
+            className={`${inputClass} resize-none`}
           />
         </div>
+
       </div>
 
-      {/* Actions */}
-      <div className="px-4 pb-6 pt-2 space-y-3 shrink-0">
+      {/* ── Sticky footer ── */}
+      <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-950">
         <button
-          onClick={handleClear}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 active:scale-95 transition-transform"
+          onClick={handleValidate}
+          disabled={!canValidate}
+          className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+          style={{
+            background: canValidate
+              ? 'linear-gradient(135deg, #059669, #047857)'
+              : 'rgba(5,150,105,0.2)',
+            color: '#fff',
+            border: '1px solid rgba(16,185,129,0.4)',
+          }}
         >
-          <RotateCcw className="w-4 h-4" />
-          Effacer
+          {saving ? 'Enregistrement…' : 'Valider la signature'}
         </button>
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-2xl text-sm font-semibold text-slate-400 bg-slate-900 border border-slate-700 active:scale-95 transition-transform"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleValidate}
-            disabled={isEmpty || saving}
-            className="flex-2 flex-1 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-            style={{
-              background: isEmpty || saving
-                ? 'rgba(34,197,94,0.2)'
-                : 'linear-gradient(135deg, #16a34a, #15803d)',
-              color: '#fff',
-              border: '1px solid rgba(34,197,94,0.4)',
-            }}
-          >
-            {saving ? 'Enregistrement…' : 'Valider la signature'}
-          </button>
-        </div>
       </div>
+
     </div>
   );
 }
@@ -461,6 +530,20 @@ function FaireSignerTab({
                           day: '2-digit', month: '2-digit', year: 'numeric',
                         })}
                       </p>
+                      {sig.verificateur_nom && (
+                        <p className="text-slate-300 text-xs mt-0.5 font-semibold">
+                          {sig.verificateur_nom}
+                          {sig.verificateur_organisme ? (
+                            <span className="font-normal text-slate-400"> — {sig.verificateur_organisme}</span>
+                          ) : null}
+                        </p>
+                      )}
+                      {sig.verificateur_contact && (
+                        <p className="text-slate-500 text-[11px] mt-0.5">{sig.verificateur_contact}</p>
+                      )}
+                      {sig.observations_signature && (
+                        <p className="text-slate-500 text-[11px] mt-0.5 italic">{sig.observations_signature}</p>
+                      )}
                     </div>
                     {/* Signature thumbnail */}
                     <div

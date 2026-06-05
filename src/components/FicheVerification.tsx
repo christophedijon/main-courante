@@ -25,6 +25,10 @@ export type RegistreSignature = {
   signataire_role: string;
   signature_data: string;
   signed_at: string;
+  verificateur_nom?: string;
+  verificateur_organisme?: string;
+  verificateur_contact?: string;
+  observations_signature?: string;
 };
 
 interface Props {
@@ -237,12 +241,28 @@ export default function FicheVerification({ item, entreprise, signature }: Props
                 <img
                   src={signature.signature_data}
                   alt="Signature"
-                  style={{ maxHeight: 64, width: 'auto', objectFit: 'contain', marginBottom: 4 }}
+                  style={{ maxHeight: 60, width: 'auto', objectFit: 'contain', marginBottom: 6 }}
                 />
-                <p style={{ fontSize: 10, color: '#374151', margin: 0 }}>
+                <p style={{ fontSize: 10, color: '#374151', margin: '0 0 2px 0' }}>
                   Signé par {signature.signataire_nom} ({signature.signataire_role}) le{' '}
                   {new Date(signature.signed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                 </p>
+                {signature.verificateur_nom && (
+                  <p style={{ fontSize: 10, color: '#374151', margin: '0 0 2px 0' }}>
+                    Vérificateur : {signature.verificateur_nom}
+                    {signature.verificateur_organisme ? ` — ${signature.verificateur_organisme}` : ''}
+                  </p>
+                )}
+                {signature.verificateur_contact && (
+                  <p style={{ fontSize: 10, color: '#6b7280', margin: '0 0 2px 0' }}>
+                    Contact : {signature.verificateur_contact}
+                  </p>
+                )}
+                {signature.observations_signature && (
+                  <p style={{ fontSize: 10, color: '#6b7280', fontStyle: 'italic', margin: 0 }}>
+                    Observations : {signature.observations_signature}
+                  </p>
+                )}
               </>
             ) : null}
           </div>
