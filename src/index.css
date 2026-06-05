@@ -145,6 +145,22 @@
 }
 .mobile-doc-content a:hover { color: #93c5fd; }
 
+/* ── Print styles for FicheVerification ── */
+@media print {
+  body * { visibility: hidden !important; }
+  .fiche-print-area, .fiche-print-area * { visibility: visible !important; }
+  .fiche-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .no-print { display: none !important; }
+  @page { size: A4; margin: 16mm; }
+}
+
 /* ── Mobile hex design system (max-width: 768px only) ── */
 @media (max-width: 768px) {
   .mobile-hex-root {

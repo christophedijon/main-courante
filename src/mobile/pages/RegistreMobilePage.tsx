@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, Clock, Minus, FileText, ChevronDown, ChevronUp,
+  FileDown, Printer, X,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useEntreprise } from '../../hooks/useEntreprise';
+import FicheVerification from '../../components/FicheVerification';
 
 type RegistreItem = {
   id: string;
@@ -106,7 +108,15 @@ const GROUP_CONFIG = [
   },
 ];
 
-function RegistreCard({ item, config }: { item: RegistreItem; config: typeof GROUP_CONFIG[0] }) {
+function RegistreCard({
+  item,
+  config,
+  onFiche,
+}: {
+  item: RegistreItem;
+  config: typeof GROUP_CONFIG[0];
+  onFiche: (item: RegistreItem) => void;
+}) {
   const nextDate = item.date_verification ? getNextDate(item.date_verification, item.periodicite) : null;
   const daysLeft = nextDate ? Math.ceil((nextDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
@@ -186,9 +196,28 @@ function RegistreCard({ item, config }: { item: RegistreItem; config: typeof GRO
           Voir le rapport PDF
         </a>
       )}
+
+      {/* Fiche PDF — applicable items only */}
+      {item.applicable && (
+        <button
+          onClick={() => onFiche(item)}
+          className="flex items-center gap-2 text-[12px] text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl transition-colors w-full"
+        >
+          <FileDown className="w-3.5 h-3.5 shrink-0" />
+          Fiche PDF
+        </button>
+      )}
     </div>
   );
 }
+
+type EntrepriseInfo = {
+  nom: string | null;
+  logo_url: string | null;
+  type_erp: string | null;
+  categorie_erp: string | null;
+  siret: string | null;
+};
 
 export default function RegistreMobilePage() {
   const navigate = useNavigate();
@@ -196,16 +225,18 @@ export default function RegistreMobilePage() {
   const [items, setItems] = useState<RegistreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [collapseNonApp, setCollapseNonApp] = useState(true);
+  const [entreprise, setEntreprise] = useState<EntrepriseInfo | null>(null);
+  const [ficheItem, setFicheItem] = useState<RegistreItem | null>(null);
 
   useEffect(() => {
-    supabase
-      .from('registre_securite')
-      .select('*')
-      .order('installation')
-      .then(({ data }) => {
-        setItems((data ?? []) as RegistreItem[]);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from('registre_securite').select('*').order('installation'),
+      supabase.from('entreprise').select('nom, logo_url, type_erp, categorie_erp, siret').limit(1).maybeSingle(),
+    ]).then(([registreRes, entrepriseRes]) => {
+      setItems((registreRes.data ?? []) as RegistreItem[]);
+      setEntreprise(entrepriseRes.data as EntrepriseInfo | null);
+      setLoading(false);
+    });
   }, []);
 
   const lastUpdated = items.reduce<string | null>((acc, it) => {
@@ -269,13 +300,48 @@ export default function RegistreMobilePage() {
                 {(!isNonApp || !collapseNonApp) && (
                   <div className="space-y-3">
                     {group.items.map((item) => (
-                      <RegistreCard key={item.id} item={item} config={group} />
+                      <RegistreCard key={item.id} item={item} config={group} onFiche={setFicheItem} />
                     ))}
                   </div>
                 )}
               </section>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Fiche PDF modal ── */}
+      {ficheItem && (
+        <div className="fixed inset-0 z-[9999] bg-white overflow-auto">
+          {/* Toolbar */}
+          <div
+            className="no-print sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b"
+            style={{ backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }}
+          >
+            <p className="text-sm font-semibold text-slate-700 truncate min-w-0">
+              Fiche — {ficheItem.installation}
+            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Exporter en PDF
+              </button>
+              <button
+                onClick={() => setFicheItem(null)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Fermer
+              </button>
+            </div>
+          </div>
+          {/* Document */}
+          <div className="p-6">
+            <FicheVerification item={ficheItem} entreprise={entreprise} />
+          </div>
         </div>
       )}
     </div>
