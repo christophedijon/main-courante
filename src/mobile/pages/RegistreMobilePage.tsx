@@ -970,7 +970,7 @@ export default function RegistreMobilePage() {
   const [coordItem, setCoordItem] = useState<RegistreItem | null>(null);
 
   const canSign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
-  const [activeTab, setActiveTab] = useState<'suivi' | 'signer'>('suivi');
+  const [activeTab, setActiveTab] = useState<'suivi' | 'signer' | 'fiches'>('suivi');
 
   async function loadData() {
     const [registreRes, entrepriseRes, signaturesRes] = await Promise.all([
@@ -1034,14 +1034,17 @@ export default function RegistreMobilePage() {
         </div>
       </div>
 
-      {/* Tab selector — only for canSign users */}
-      {canSign && !loading && (
+      {/* Tab selector */}
+      {!loading && (
         <div className="px-4 pt-4">
           <div
             className="flex rounded-xl overflow-hidden"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            {(['suivi', 'signer'] as const).map((tab) => (
+            {(canSign
+              ? (['suivi', 'signer', 'fiches'] as const)
+              : (['suivi', 'fiches'] as const)
+            ).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -1056,7 +1059,7 @@ export default function RegistreMobilePage() {
                     : { color: 'rgba(148,163,184,0.7)' }
                 }
               >
-                {tab === 'suivi' ? 'Suivi' : 'Faire signer'}
+                {tab === 'suivi' ? 'Suivi' : tab === 'signer' ? 'Faire signer' : 'Fiches'}
               </button>
             ))}
           </div>
@@ -1111,6 +1114,46 @@ export default function RegistreMobilePage() {
             onSign={setSignItem}
             onRefresh={loadData}
           />
+        </div>
+      )}
+
+      {!loading && activeTab === 'fiches' && (
+        <div className="px-4 py-5 space-y-3">
+          {items
+            .filter((it) => it.applicable)
+            .slice()
+            .sort((a, b) => a.installation.localeCompare(b.installation, 'fr'))
+            .map((item) => {
+              const statut = getStatut(item.date_verification, item.periodicite, item.applicable);
+              const cfg = GROUP_CONFIG.find((g) => g.key === statut) ?? GROUP_CONFIG[2];
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${cfg.cardBorder} ${cfg.cardBg}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm leading-snug truncate">{item.installation}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${cfg.badgeBg}`}>
+                        <cfg.icon className={`w-3 h-3 ${cfg.iconColor}`} />
+                        {cfg.label}
+                      </span>
+                      <span className="text-[10px] text-slate-500">{item.periodicite}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFicheItem(item)}
+                    className="shrink-0 flex items-center gap-1.5 text-[12px] text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl transition-colors"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    Fiche
+                  </button>
+                </div>
+              );
+            })}
+          {items.filter((it) => it.applicable).length === 0 && (
+            <p className="text-center text-slate-500 text-sm py-12">Aucune installation applicable.</p>
+          )}
         </div>
       )}
 
