@@ -576,6 +576,7 @@ function SignatureModal({
   signataireName,
   signataireRole,
   signataire_id,
+  onEditCoordonnees,
 }: {
   item: RegistreItem;
   onClose: () => void;
@@ -583,25 +584,14 @@ function SignatureModal({
   signataireName: string;
   signataireRole: string;
   signataire_id: string;
+  onEditCoordonnees: (item: RegistreItem) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePad | null>(null);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [saving, setSaving] = useState(false);
   const [verificateurNom, setVerificateurNom] = useState(item.nom_verificateur ?? '');
-  const [verificateurOrganisme, setVerificateurOrganisme] = useState(item.organisme_verificateur ?? '');
   const [observationsSig, setObservationsSig] = useState('');
-
-  // Snapshot immuable de la visite précédente pris à l'ouverture de la modale.
-  // Utilisé pour archiver l'historique sans être affecté par les modifications locales.
-  const previousRef = useRef({
-    date_verification: item.date_verification,
-    nom_verificateur: item.nom_verificateur ?? '',
-    organisme_verificateur: item.organisme_verificateur ?? '',
-    rapport_url: item.rapport_url ?? '',
-    observations: item.observations ?? '',
-    observations_levees: item.observations_levees ?? '',
-  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -628,20 +618,18 @@ function SignatureModal({
     setSaving(true);
     const dataURL = pad.toDataURL('image/png');
     const today = new Date().toISOString().split('T')[0];
-    const prev = previousRef.current;
 
-    // Archiver la visite précédente avec ses données d'origine (ex: SICLI),
-    // indépendamment des modifications de fournisseur saisies dans cette modale.
+    // Si une vérification précédente existe, l'archiver dans l'historique
     const archiveOps: Promise<any>[] = [];
-    if (prev.date_verification) {
+    if (item.date_verification) {
       archiveOps.push(
         supabase.from('registre_historique').insert({
           registre_id: item.id,
-          date_verification: prev.date_verification,
-          nom_verificateur: prev.nom_verificateur,
-          rapport_url: prev.rapport_url,
-          observations: prev.observations,
-          observations_levees: prev.observations_levees,
+          date_verification: item.date_verification,
+          nom_verificateur: item.nom_verificateur ?? '',
+          rapport_url: item.rapport_url ?? '',
+          observations: item.observations ?? '',
+          observations_levees: item.observations_levees ?? '',
         })
       );
     }
@@ -649,21 +637,20 @@ function SignatureModal({
     const [sigRes, updateRes, ...archiveRes] = await Promise.all([
       supabase.from('registre_signatures').insert({
         registre_id: item.id,
-        date_verification_signee: prev.date_verification,
+        date_verification_signee: item.date_verification,
         signataire_id,
         signataire_nom: signataireName,
         signataire_role: signataireRole,
         signature_data: dataURL,
         verificateur_nom: verificateurNom.trim(),
-        verificateur_organisme: verificateurOrganisme.trim(),
+        verificateur_organisme: item.organisme_verificateur,
         verificateur_contact: item.telephone_verificateur || item.email_organisme,
         observations_signature: observationsSig.trim(),
       }),
       supabase.from('registre_securite').update({
         date_verification: today,
         nom_verificateur: verificateurNom.trim(),
-        organisme_verificateur: verificateurOrganisme.trim(),
-        observations: observationsSig.trim() || prev.observations,
+        observations: observationsSig.trim() || item.observations,
         observations_levees: '',
         reprise_papier: false,
         updated_at: new Date().toISOString(),
@@ -700,7 +687,7 @@ function SignatureModal({
         <div>
           <p className="font-bold text-white text-base truncate">{item.installation}</p>
           <p className="text-sm text-slate-400 mt-0.5">
-            Vérification du {formatDate(previousRef.current.date_verification)}
+            Vérification du {formatDate(item.date_verification)}
           </p>
         </div>
         <button onClick={onClose} className="p-2 rounded-full bg-slate-800 text-white ml-2 shrink-0">
@@ -713,18 +700,22 @@ function SignatureModal({
                     WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
            className="px-4 py-4 space-y-5">
 
-        {/* Organisme vérificateur */}
-        <div>
-          <label className="text-xs uppercase text-slate-400 font-medium tracking-widest">
-            Organisme / Société
-          </label>
-          <input
-            type="text"
-            value={verificateurOrganisme}
-            onChange={(e) => setVerificateurOrganisme(e.target.value)}
-            placeholder="Nom de l'organisme ou société"
-            className={`mt-1 ${inputClass}`}
-          />
+        {/* Coordonnées lecture seule + bouton Modifier */}
+        <div className="bg-slate-800 rounded-xl p-3 flex items-center justify-between">
+          <div className="min-w-0">
+            <p className="text-white text-sm font-medium truncate">
+              {item.nom_verificateur || '—'}
+            </p>
+            <p className="text-slate-400 text-xs truncate">
+              {item.organisme_verificateur || '—'}
+            </p>
+          </div>
+          <button
+            onClick={() => onEditCoordonnees(item)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 flex items-center gap-1 shrink-0 ml-3"
+          >
+            <Pencil size={12} /> Modifier
+          </button>
         </div>
 
         {/* Nom du vérificateur */}
@@ -737,7 +728,7 @@ function SignatureModal({
             value={verificateurNom}
             onChange={(e) => setVerificateurNom(e.target.value)}
             placeholder="Nom et prénom du vérificateur"
-            className={`mt-1 ${inputClass}`}
+            className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-slate-500"
           />
         </div>
 
@@ -1204,7 +1195,13 @@ export default function RegistreMobilePage() {
         <CoordonneesModal
           item={coordItem}
           onClose={() => setCoordItem(null)}
-          onSaved={loadData}
+          onSaved={async () => {
+            await loadData();
+            if (signItem && signItem.id === coordItem.id) {
+              const { data } = await supabase.from('registre_securite').select('*').eq('id', coordItem.id).single();
+              if (data) setSignItem(data as RegistreItem);
+            }
+          }}
         />
       )}
 
@@ -1226,6 +1223,7 @@ export default function RegistreMobilePage() {
           signataireName={signataireName}
           signataireRole={signataireRole}
           signataire_id={session.user.id}
+          onEditCoordonnees={(it) => setCoordItem(it)}
         />
       )}
     </div>
