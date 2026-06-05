@@ -20,9 +20,17 @@ type EntrepriseInfo = {
   siret: string | null;
 };
 
+export type RegistreSignature = {
+  signataire_nom: string;
+  signataire_role: string;
+  signature_data: string;
+  signed_at: string;
+};
+
 interface Props {
   item: RegistreItem;
   entreprise: EntrepriseInfo | null;
+  signature?: RegistreSignature | null;
 }
 
 function formatDateFR(d: string | null): string {
@@ -86,7 +94,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export default function FicheVerification({ item, entreprise }: Props) {
+export default function FicheVerification({ item, entreprise, signature }: Props) {
   const conforme = !item.observations || item.observations.trim() === '';
   const nextDate = computeNextDate(item.date_verification, item.periodicite);
   const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -223,8 +231,20 @@ export default function FicheVerification({ item, entreprise }: Props) {
         <div style={blockTitleStyle}>Visa, date et cachet du vérificateur</div>
         <div style={{ display: 'flex', gap: 0 }}>
           {/* Zone visa */}
-          <div style={{ flex: 2, minHeight: 80, borderRight: '1px solid #d1d5db', padding: '8px 12px' }}>
-            {/* intentionally blank for handwritten visa */}
+          <div style={{ flex: 2, minHeight: 80, borderRight: '1px solid #d1d5db', padding: '8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            {signature ? (
+              <>
+                <img
+                  src={signature.signature_data}
+                  alt="Signature"
+                  style={{ maxHeight: 64, width: 'auto', objectFit: 'contain', marginBottom: 4 }}
+                />
+                <p style={{ fontSize: 10, color: '#374151', margin: 0 }}>
+                  Signé par {signature.signataire_nom} ({signature.signataire_role}) le{' '}
+                  {new Date(signature.signed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </p>
+              </>
+            ) : null}
           </div>
           {/* Fait à */}
           <div style={{ flex: 1, padding: '8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>

@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, Clock, Minus, FileText, ChevronDown, ChevronUp,
-  FileDown, Printer, X,
+  FileDown, Printer, X, PenLine, RotateCcw,
 } from 'lucide-react';
+import SignaturePad from 'signature_pad';
 import { supabase } from '../../lib/supabase';
 import { useEntreprise } from '../../hooks/useEntreprise';
-import FicheVerification from '../../components/FicheVerification';
+import { useAuth } from '../../context/AuthContext';
+import FicheVerification, { type RegistreSignature } from '../../components/FicheVerification';
 import ConformiteDashboard from '../components/ConformiteDashboard';
 import EcheancesDashboard from '../components/EcheancesDashboard';
 
@@ -23,6 +25,13 @@ type RegistreItem = {
   observations_levees: string;
   rapport_url: string;
   updated_at: string;
+};
+
+type RegistreSignatureRow = RegistreSignature & {
+  id: string;
+  registre_id: string;
+  date_verification_signee: string;
+  signataire_id: string;
 };
 
 type Statut = 'non_applicable' | 'non_planifie' | 'a_jour' | 'attention' | 'retard';
@@ -128,7 +137,6 @@ function RegistreCard({
 
   return (
     <div className={`rounded-2xl border p-4 space-y-3 ${config.cardBorder} ${config.cardBg}`}>
-      {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-white font-semibold text-sm leading-snug">{item.installation}</p>
@@ -146,7 +154,6 @@ function RegistreCard({
         </span>
       </div>
 
-      {/* Infos */}
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <p className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">Organisme</p>
@@ -172,7 +179,6 @@ function RegistreCard({
         )}
       </div>
 
-      {/* Observations */}
       {item.observations && (
         <div className="bg-slate-950/50 rounded-xl px-3 py-2">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Observations</p>
@@ -186,7 +192,6 @@ function RegistreCard({
         </div>
       )}
 
-      {/* Rapport PDF */}
       {pdfUrl && (
         <a
           href={pdfUrl}
@@ -199,7 +204,6 @@ function RegistreCard({
         </a>
       )}
 
-      {/* Fiche PDF — applicable items only */}
       {item.applicable && (
         <button
           onClick={() => onFiche(item)}
@@ -213,6 +217,289 @@ function RegistreCard({
   );
 }
 
+// ── Signature modal ──────────────────────────────────────────────────────────
+
+function SignatureModal({
+  item,
+  onClose,
+  onSaved,
+  signataireName,
+  signataireRole,
+  signataire_id,
+}: {
+  item: RegistreItem;
+  onClose: () => void;
+  onSaved: () => void;
+  signataireName: string;
+  signataireRole: string;
+  signataire_id: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const padRef = useRef<SignaturePad | null>(null);
+  const [isEmpty, setIsEmpty] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Resize canvas to device pixel ratio for crisp rendering on mobile
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    canvas.width = canvas.offsetWidth * ratio;
+    canvas.height = canvas.offsetHeight * ratio;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.scale(ratio, ratio);
+
+    const pad = new SignaturePad(canvas, {
+      penColor: '#000000',
+      backgroundColor: '#ffffff',
+    });
+    padRef.current = pad;
+
+    pad.addEventListener('endStroke', () => {
+      setIsEmpty(pad.isEmpty());
+    });
+
+    return () => {
+      pad.off();
+    };
+  }, []);
+
+  function handleClear() {
+    padRef.current?.clear();
+    setIsEmpty(true);
+  }
+
+  async function handleValidate() {
+    const pad = padRef.current;
+    if (!pad || pad.isEmpty()) return;
+    setSaving(true);
+    const dataURL = pad.toDataURL('image/png');
+    const { error } = await supabase.from('registre_signatures').insert({
+      registre_id: item.id,
+      date_verification_signee: item.date_verification,
+      signataire_id,
+      signataire_nom: signataireName,
+      signataire_role: signataireRole,
+      signature_data: dataURL,
+    });
+    setSaving(false);
+    if (!error) {
+      onSaved();
+      onClose();
+    } else {
+      console.error('Signature save error:', error);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9998] flex flex-col bg-slate-950">
+      {/* Header */}
+      <div className="px-4 py-4 border-b border-slate-800 shrink-0">
+        <p className="text-white font-bold text-[15px] truncate">{item.installation}</p>
+        <p className="text-slate-400 text-xs mt-0.5">
+          Vérification du {formatDate(item.date_verification)}
+        </p>
+      </div>
+
+      {/* Canvas area */}
+      <div className="flex-1 flex flex-col p-4 min-h-0">
+        <p className="text-slate-400 text-xs mb-3 text-center">Signez dans le cadre ci-dessous</p>
+        <div
+          className="rounded-2xl overflow-hidden border border-slate-600 flex-1"
+          style={{ maxHeight: 260, minHeight: 180 }}
+        >
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full touch-none"
+            style={{ display: 'block', background: '#ffffff', height: '220px' }}
+          />
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="px-4 pb-6 pt-2 space-y-3 shrink-0">
+        <button
+          onClick={handleClear}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 active:scale-95 transition-transform"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Effacer
+        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-2xl text-sm font-semibold text-slate-400 bg-slate-900 border border-slate-700 active:scale-95 transition-transform"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleValidate}
+            disabled={isEmpty || saving}
+            className="flex-2 flex-1 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+            style={{
+              background: isEmpty || saving
+                ? 'rgba(34,197,94,0.2)'
+                : 'linear-gradient(135deg, #16a34a, #15803d)',
+              color: '#fff',
+              border: '1px solid rgba(34,197,94,0.4)',
+            }}
+          >
+            {saving ? 'Enregistrement…' : 'Valider la signature'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Faire signer tab ──────────────────────────────────────────────────────────
+
+function FaireSignerTab({
+  items,
+  signatures,
+  onSign,
+  onRefresh,
+}: {
+  items: RegistreItem[];
+  signatures: RegistreSignatureRow[];
+  onSign: (item: RegistreItem) => void;
+  onRefresh: () => void;
+}) {
+  const signable = items.filter((it) => it.applicable && !!it.date_verification);
+
+  function getSignature(item: RegistreItem): RegistreSignatureRow | undefined {
+    return signatures.find(
+      (s) => s.registre_id === item.id && s.date_verification_signee === item.date_verification,
+    );
+  }
+
+  const unsigned = signable.filter((it) => !getSignature(it));
+  const signed = signable.filter((it) => !!getSignature(it));
+
+  if (signable.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+        <CheckCircle className="w-10 h-10 text-slate-600 mb-3" />
+        <p className="text-slate-400 text-sm">Aucune vérification à signer pour le moment.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* À signer */}
+      {unsigned.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <PenLine className="w-4 h-4 text-amber-400" />
+            <h2 className="text-white font-bold text-[15px]">À signer</h2>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              {unsigned.length}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {unsigned.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm leading-snug">{item.installation}</p>
+                    <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-slate-700/60 text-slate-400 border border-slate-600/30">
+                      {item.reference_reglementaire}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-slate-400 text-xs">
+                  Vérifié le {formatDate(item.date_verification)}
+                  {item.nom_verificateur ? ` par ${item.nom_verificateur}` : ''}
+                </p>
+                <button
+                  onClick={() => onSign(item)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(217,119,6,0.12))',
+                    border: '1px solid rgba(245,158,11,0.4)',
+                    color: '#f59e0b',
+                  }}
+                >
+                  <PenLine className="w-4 h-4" />
+                  Signer
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Signées */}
+      {signed.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
+            <h2 className="text-white font-bold text-[15px]">Signées</h2>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              {signed.length}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {signed.map((item) => {
+              const sig = getSignature(item)!;
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-emerald-700/25 bg-emerald-950/15 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold text-sm leading-snug">{item.installation}</p>
+                      <p className="text-slate-400 text-xs mt-1">
+                        Signé par {sig.signataire_nom} ({sig.signataire_role}) le{' '}
+                        {new Date(sig.signed_at).toLocaleDateString('fr-FR', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                    {/* Signature thumbnail */}
+                    <div
+                      className="shrink-0 rounded-lg overflow-hidden border border-slate-600"
+                      style={{ background: '#fff', padding: 2 }}
+                    >
+                      <img
+                        src={sig.signature_data}
+                        alt="Signature"
+                        style={{ height: 40, width: 'auto', maxWidth: 80, objectFit: 'contain', display: 'block' }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onSign(item)}
+                    className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Re-signer
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {unsigned.length === 0 && signed.length > 0 && (
+        <div className="flex items-center gap-2 px-2 py-3 rounded-xl bg-emerald-950/20 border border-emerald-700/20">
+          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          <p className="text-emerald-400 text-sm font-medium">Toutes les vérifications sont signées.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 type EntrepriseInfo = {
   nom: string | null;
   logo_url: string | null;
@@ -224,21 +511,33 @@ type EntrepriseInfo = {
 export default function RegistreMobilePage() {
   const navigate = useNavigate();
   const { nom, logo_url } = useEntreprise();
+  const { session, isSuperAdmin, userFonction } = useAuth();
+
   const [items, setItems] = useState<RegistreItem[]>([]);
+  const [signatures, setSignatures] = useState<RegistreSignatureRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [collapseNonApp, setCollapseNonApp] = useState(true);
   const [entreprise, setEntreprise] = useState<EntrepriseInfo | null>(null);
   const [ficheItem, setFicheItem] = useState<RegistreItem | null>(null);
+  const [signItem, setSignItem] = useState<RegistreItem | null>(null);
 
-  useEffect(() => {
-    Promise.all([
+  const canSign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
+  const [activeTab, setActiveTab] = useState<'suivi' | 'signer'>('suivi');
+
+  async function loadData() {
+    const [registreRes, entrepriseRes, signaturesRes] = await Promise.all([
       supabase.from('registre_securite').select('*').order('installation'),
       supabase.from('entreprise').select('nom, logo_url, type_erp, categorie_erp, siret').limit(1).maybeSingle(),
-    ]).then(([registreRes, entrepriseRes]) => {
-      setItems((registreRes.data ?? []) as RegistreItem[]);
-      setEntreprise(entrepriseRes.data as EntrepriseInfo | null);
-      setLoading(false);
-    });
+      supabase.from('registre_signatures').select('*'),
+    ]);
+    setItems((registreRes.data ?? []) as RegistreItem[]);
+    setEntreprise(entrepriseRes.data as EntrepriseInfo | null);
+    setSignatures((signaturesRes.data ?? []) as RegistreSignatureRow[]);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const lastUpdated = items.reduce<string | null>((acc, it) => {
@@ -250,6 +549,19 @@ export default function RegistreMobilePage() {
     ...cfg,
     items: items.filter((it) => getStatut(it.date_verification, it.periodicite, it.applicable) === cfg.key),
   }));
+
+  // Find signature for ficheItem
+  const ficheSignature = ficheItem
+    ? (signatures.find(
+        (s) => s.registre_id === ficheItem.id && s.date_verification_signee === ficheItem.date_verification,
+      ) ?? null)
+    : null;
+
+  // Determine signataire name from session + profile (best-effort)
+  const signataireName = session?.user?.user_metadata?.full_name
+    ?? session?.user?.email
+    ?? 'Inconnu';
+  const signataireRole = isSuperAdmin ? 'Super Admin' : (userFonction ?? '');
 
   return (
     <div className="pb-8">
@@ -274,9 +586,38 @@ export default function RegistreMobilePage() {
         </div>
       </div>
 
+      {/* Tab selector — only for canSign users */}
+      {canSign && !loading && (
+        <div className="px-4 pt-4">
+          <div
+            className="flex rounded-xl overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            {(['suivi', 'signer'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className="flex-1 py-2.5 text-sm font-bold transition-all"
+                style={
+                  activeTab === tab
+                    ? {
+                        background: 'rgba(245,158,11,0.18)',
+                        color: '#f59e0b',
+                        borderBottom: '2px solid #f59e0b',
+                      }
+                    : { color: 'rgba(148,163,184,0.7)' }
+                }
+              >
+                {tab === 'suivi' ? 'Suivi' : 'Faire signer'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading && <p className="text-center text-slate-500 text-sm py-16">Chargement…</p>}
 
-      {!loading && (
+      {!loading && activeTab === 'suivi' && (
         <div className="px-4 py-5 space-y-6">
           <ConformiteDashboard items={items} />
           <EcheancesDashboard items={items} />
@@ -314,10 +655,20 @@ export default function RegistreMobilePage() {
         </div>
       )}
 
+      {!loading && activeTab === 'signer' && canSign && (
+        <div className="px-4 py-5">
+          <FaireSignerTab
+            items={items}
+            signatures={signatures}
+            onSign={setSignItem}
+            onRefresh={loadData}
+          />
+        </div>
+      )}
+
       {/* ── Fiche PDF modal ── */}
       {ficheItem && (
         <div className="fixed inset-0 z-[9999] bg-white overflow-auto">
-          {/* Toolbar */}
           <div
             className="no-print sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b"
             style={{ backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }}
@@ -342,11 +693,22 @@ export default function RegistreMobilePage() {
               </button>
             </div>
           </div>
-          {/* Document */}
           <div className="p-6">
-            <FicheVerification item={ficheItem} entreprise={entreprise} />
+            <FicheVerification item={ficheItem} entreprise={entreprise} signature={ficheSignature} />
           </div>
         </div>
+      )}
+
+      {/* ── Signature modal ── */}
+      {signItem && session && (
+        <SignatureModal
+          item={signItem}
+          onClose={() => setSignItem(null)}
+          onSaved={loadData}
+          signataireName={signataireName}
+          signataireRole={signataireRole}
+          signataire_id={session.user.id}
+        />
       )}
     </div>
   );
