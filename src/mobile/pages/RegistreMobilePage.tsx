@@ -328,7 +328,7 @@ function CoordonneesModal({
       </div>
 
       {/* ── Scrollable body ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Organisme / Société</p>
           <input
@@ -451,7 +451,7 @@ function RepriseModal({
       </div>
 
       {/* ── Scrollable body ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
 
         {/* Info banner */}
         <div className="flex gap-2 rounded-xl px-3 py-3" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
@@ -522,6 +522,7 @@ function SignatureModal({
   signataireName,
   signataireRole,
   signataire_id,
+  onEditCoordonnees,
 }: {
   item: RegistreItem;
   onClose: () => void;
@@ -529,14 +530,13 @@ function SignatureModal({
   signataireName: string;
   signataireRole: string;
   signataire_id: string;
+  onEditCoordonnees: (item: RegistreItem) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePad | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [saving, setSaving] = useState(false);
   const [verificateurNom, setVerificateurNom] = useState(item.nom_verificateur ?? '');
-  const [verificateurOrganisme, setVerificateurOrganisme] = useState(item.organisme_verificateur ?? '');
-  const [verificateurContact, setVerificateurContact] = useState('');
   const [observationsSig, setObservationsSig] = useState('');
 
   useEffect(() => {
@@ -573,8 +573,8 @@ function SignatureModal({
         signataire_role: signataireRole,
         signature_data: dataURL,
         verificateur_nom: verificateurNom.trim(),
-        verificateur_organisme: verificateurOrganisme.trim(),
-        verificateur_contact: verificateurContact.trim(),
+        verificateur_organisme: item.organisme_verificateur,
+        verificateur_contact: item.telephone_verificateur || item.email_organisme,
         observations_signature: observationsSig.trim(),
       }),
       supabase.from('registre_securite').update({
@@ -621,36 +621,49 @@ function SignatureModal({
       </div>
 
       {/* ── Scrollable body ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-5">
 
-        {/* Coordonnées du vérificateur */}
+        {/* Coordonnées — lecture seule + bouton Modifier */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
             Coordonnées du vérificateur
           </p>
-          <div className="space-y-2.5">
-            <input
-              type="text"
-              value={verificateurNom}
-              onChange={(e) => setVerificateurNom(e.target.value)}
-              placeholder="Nom et prénom du vérificateur"
-              className={inputClass}
-            />
-            <input
-              type="text"
-              value={verificateurOrganisme}
-              onChange={(e) => setVerificateurOrganisme(e.target.value)}
-              placeholder="Organisme ou société"
-              className={inputClass}
-            />
-            <input
-              type="text"
-              value={verificateurContact}
-              onChange={(e) => setVerificateurContact(e.target.value)}
-              placeholder="Contact (email ou tél.) — optionnel"
-              className={inputClass}
-            />
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-900 border border-slate-700/60 px-3 py-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                <Pencil className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-medium truncate leading-snug">
+                  {item.nom_verificateur || '—'}
+                </p>
+                <p className="text-slate-500 text-xs truncate">
+                  {item.organisme_verificateur || '—'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onEditCoordonnees(item)}
+              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 bg-slate-800 border border-slate-700 hover:text-white hover:border-slate-500 active:scale-95 transition-all"
+            >
+              <Pencil className="w-3 h-3" />
+              Modifier
+            </button>
           </div>
+        </div>
+
+        {/* Nom pour ce visa */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
+            Nom pour ce visa
+          </p>
+          <input
+            type="text"
+            value={verificateurNom}
+            onChange={(e) => setVerificateurNom(e.target.value)}
+            placeholder="Nom et prénom du vérificateur"
+            className={inputClass}
+          />
         </div>
 
         {/* Canvas */}
@@ -693,7 +706,7 @@ function SignatureModal({
       </div>
 
       {/* ── Sticky footer ── */}
-      <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-950">
+      <div className="shrink-0 bg-slate-950 border-t border-slate-800 px-4 py-3">
         <button
           onClick={handleValidate}
           disabled={!canValidate}
@@ -1081,7 +1094,13 @@ export default function RegistreMobilePage() {
         <CoordonneesModal
           item={coordItem}
           onClose={() => setCoordItem(null)}
-          onSaved={loadData}
+          onSaved={async () => {
+            await loadData();
+            if (signItem && signItem.id === coordItem.id) {
+              const { data } = await supabase.from('registre_securite').select('*').eq('id', coordItem.id).single();
+              if (data) setSignItem(data as RegistreItem);
+            }
+          }}
         />
       )}
 
@@ -1103,6 +1122,7 @@ export default function RegistreMobilePage() {
           signataireName={signataireName}
           signataireRole={signataireRole}
           signataire_id={session.user.id}
+          onEditCoordonnees={(it) => setCoordItem(it)}
         />
       )}
     </div>
