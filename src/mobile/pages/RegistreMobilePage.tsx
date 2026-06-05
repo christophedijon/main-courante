@@ -544,8 +544,9 @@ function RepriseModal({
       </div>
 
       {/* 3. FOOTER — enfant direct, ne rétrécit jamais — HORS du scroll */}
-      <div style={{ flexShrink: 0, borderTop: '1px solid #1e293b', background: '#020617' }}
-           className="px-4 py-3">
+      <div style={{ flexShrink: 0, borderTop: '1px solid #1e293b', background: '#020617',
+                    paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
+           className="px-4 pt-3">
         <button
           onClick={handleSave}
           disabled={!canSave || saving}
@@ -745,8 +746,9 @@ function SignatureModal({
       </div>
 
       {/* 3. FOOTER — enfant direct, ne rétrécit jamais — HORS du scroll */}
-      <div style={{ flexShrink: 0, borderTop: '1px solid #1e293b', background: '#020617' }}
-           className="px-4 py-3">
+      <div style={{ flexShrink: 0, borderTop: '1px solid #1e293b', background: '#020617',
+                    paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
+           className="px-4 pt-3">
         <button
           onClick={handleValidate}
           disabled={!canValidate}
