@@ -951,6 +951,7 @@ type EntrepriseInfo = {
   type_erp: string | null;
   categorie_erp: string | null;
   siret: string | null;
+  adresse: string | null;
 };
 
 export default function RegistreMobilePage() {
@@ -974,7 +975,7 @@ export default function RegistreMobilePage() {
   async function loadData() {
     const [registreRes, entrepriseRes, signaturesRes] = await Promise.all([
       supabase.from('registre_securite').select('*').order('installation'),
-      supabase.from('entreprise').select('nom, logo_url, type_erp, categorie_erp, siret').limit(1).maybeSingle(),
+      supabase.from('entreprise').select('nom, logo_url, type_erp, categorie_erp, siret, adresse').limit(1).maybeSingle(),
       supabase.from('registre_signatures').select('*'),
     ]);
     setItems((registreRes.data ?? []) as RegistreItem[]);

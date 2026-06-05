@@ -19,6 +19,7 @@ type EntrepriseInfo = {
   type_erp: string | null;
   categorie_erp: string | null;
   siret: string | null;
+  adresse: string | null;
 };
 
 export type RegistreSignature = {
@@ -63,6 +64,16 @@ function computeNextDate(lastDate: string | null, periodicite: string): string {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function extractVille(adresse: string | null | undefined): string {
+  if (!adresse?.trim()) return '';
+  const parts = adresse.split(/[,\n]+/);
+  const last = parts[parts.length - 1].trim();
+  const match = last.match(/\d{5}\s+(.+)/);
+  if (match) return match[1].trim();
+  if (/\d{5}/.test(last)) return '';
+  return last;
+}
+
 const ROW_STYLE: React.CSSProperties = {
   display: 'flex',
   borderBottom: '1px solid #d1d5db',
@@ -100,9 +111,13 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function FicheVerification({ item, entreprise, signature }: Props) {
-  const conforme = !item.observations || item.observations.trim() === '';
   const nextDate = computeNextDate(item.date_verification, item.periodicite);
   const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const ville = extractVille(entreprise?.adresse);
+
+  const signedDate = signature
+    ? new Date(signature.signed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : null;
 
   const isImageLogo = entreprise?.logo_url && /\.(png|jpe?g|gif|webp)$/i.test(entreprise.logo_url);
 
@@ -138,7 +153,6 @@ export default function FicheVerification({ item, entreprise, signature }: Props
 
       {/* ── En-tête ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 16, borderBottom: '2px solid #1e3a5f' }}>
-        {/* Logo + identité */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {isImageLogo && (
             <img
@@ -164,7 +178,6 @@ export default function FicheVerification({ item, entreprise, signature }: Props
           </div>
         </div>
 
-        {/* Titre principal */}
         <div style={{ textAlign: 'right' }}>
           <p style={{ fontWeight: 800, fontSize: 15, color: '#1e3a5f', margin: 0, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Fiche de vérification
@@ -190,29 +203,12 @@ export default function FicheVerification({ item, entreprise, signature }: Props
       {/* ── Vérification ── */}
       <div style={blockStyle}>
         <div style={blockTitleStyle}>Vérification</div>
-        <InfoRow
-          label="Date de la vérification"
-          value={formatDateFR(item.date_verification)}
-        />
-        <InfoRow
-          label="Prochaine échéance"
-          value={nextDate}
-        />
+        <InfoRow label="Date de la vérification" value={formatDateFR(item.date_verification)} />
+        <InfoRow label="Prochaine échéance" value={nextDate} />
         <InfoRow
           label="Nom du vérificateur"
           value={item.nom_verificateur?.trim() ? item.nom_verificateur : '…………………………'}
         />
-        <div style={{ ...ROW_STYLE, borderBottom: 'none' }}>
-          <div style={LABEL_STYLE}>Résultat</div>
-          <div style={{ ...VALUE_STYLE, gap: 24 }}>
-            <span style={{ fontWeight: conforme ? 700 : 400, color: conforme ? '#16a34a' : '#6b7280', fontSize: 13 }}>
-              {conforme ? '☑' : '☐'} Conforme
-            </span>
-            <span style={{ fontWeight: !conforme ? 700 : 400, color: !conforme ? '#dc2626' : '#6b7280', fontSize: 13 }}>
-              {!conforme ? '☑' : '☐'} Non conforme
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* ── Observations ── */}
@@ -233,20 +229,19 @@ export default function FicheVerification({ item, entreprise, signature }: Props
 
       {/* ── Visa ── */}
       <div style={{ ...blockStyle, marginBottom: 20 }}>
-        <div style={blockTitleStyle}>Visa, date et cachet du vérificateur</div>
+        <div style={blockTitleStyle}>Visa et date du vérificateur</div>
         <div style={{ display: 'flex', gap: 0 }}>
-          {/* Zone visa */}
-          <div style={{ flex: 2, minHeight: 80, borderRight: '1px solid #d1d5db', padding: '8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          {/* Zone signature */}
+          <div style={{ flex: 2, minHeight: 90, borderRight: '1px solid #d1d5db', padding: '8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             {signature ? (
               <>
                 <img
                   src={signature.signature_data}
                   alt="Signature"
-                  style={{ maxHeight: 60, width: 'auto', objectFit: 'contain', marginBottom: 6 }}
+                  style={{ maxHeight: 64, width: 'auto', objectFit: 'contain', marginBottom: 6 }}
                 />
                 <p style={{ fontSize: 10, color: '#374151', margin: '0 0 2px 0' }}>
-                  Signé par {signature.signataire_nom} ({signature.signataire_role}) le{' '}
-                  {new Date(signature.signed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  Signé par {signature.signataire_nom} ({signature.signataire_role})
                 </p>
                 {signature.verificateur_nom && (
                   <p style={{ fontSize: 10, color: '#374151', margin: '0 0 2px 0' }}>
@@ -265,12 +260,21 @@ export default function FicheVerification({ item, entreprise, signature }: Props
                   </p>
                 )}
               </>
-            ) : null}
+            ) : (
+              <div style={{ minHeight: 64, borderBottom: '1px solid #9ca3af', width: '80%' }} />
+            )}
           </div>
           {/* Fait à */}
           <div style={{ flex: 1, padding: '8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
             <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>
-              Fait à ……………………… le ………………………
+              Fait à{' '}
+              <span style={{ fontWeight: ville ? 600 : 400 }}>
+                {ville || '………………………'}
+              </span>
+              {' '}le{' '}
+              <span style={{ fontWeight: signedDate ? 600 : 400 }}>
+                {signedDate || '………………………'}
+              </span>
             </p>
           </div>
         </div>
