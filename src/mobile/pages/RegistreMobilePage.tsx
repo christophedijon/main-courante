@@ -488,85 +488,80 @@ function RepriseModal({
   }
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9997, background: '#020617',
-               display: 'flex', flexDirection: 'column' }}
-    >
-      {/* EN-TÊTE — fixe */}
-      <div style={{ flexShrink: 0, borderBottom: '1px solid #1e293b' }} className="px-4 py-3 flex items-start justify-between">
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9997, background: '#020617',
+                  display: 'flex', flexDirection: 'column', height: '100vh' }}>
+
+      {/* 1. HEADER — enfant direct, ne rétrécit jamais */}
+      <div style={{ flexShrink: 0, borderBottom: '1px solid #1e293b' }}
+           className="px-4 py-3 flex items-start justify-between">
         <div>
           <p className="font-bold text-white text-[15px]">Reprise registre papier</p>
           <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
         </div>
-        <button onClick={onClose} className="p-2 rounded-full bg-slate-800 text-slate-300 active:scale-95 transition-transform">
+        <button onClick={onClose} className="p-2 rounded-full bg-slate-800 text-white ml-2">
           <X size={18} />
         </button>
       </div>
 
-      {/* ZONE UNIQUE SCROLLABLE */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto',
-                    WebkitOverflowScrolling: 'touch' as unknown as undefined,
-                    display: 'flex', flexDirection: 'column' } as React.CSSProperties}>
+      {/* 2. BODY — enfant direct, prend tout l'espace restant et scrolle */}
+      <div style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto',
+                    WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+           className="px-4 py-4 space-y-4">
 
-        {/* Contenu formulaire */}
-        <div className="px-4 py-4 space-y-4" style={{ flex: 1 }}>
-
-          {/* Info banner */}
-          <div className="flex gap-2 rounded-xl px-3 py-3" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
-            <Archive className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-amber-300 text-xs leading-relaxed">
-              Ces données proviennent du registre papier antérieur. Elles seront remplacées lors de la prochaine vérification numérique.
-            </p>
-          </div>
-
-          {/* Date field */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
-              Dernière vérification (registre papier)
-            </p>
-            <input
-              type="date"
-              value={repriseDate}
-              onChange={(e) => setRepriseDate(e.target.value)}
-              className={inputClass}
-              style={{ colorScheme: 'dark' }}
-            />
-          </div>
-
-          {/* Nom field */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
-              Nom du vérificateur / organisme
-            </p>
-            <input
-              type="text"
-              value={repriseNom}
-              onChange={(e) => setRepriseNom(e.target.value)}
-              placeholder="Nom ou organisme"
-              className={inputClass}
-            />
-          </div>
+        {/* Info banner */}
+        <div className="flex gap-2 rounded-xl px-3 py-3" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          <Archive className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-amber-300 text-xs leading-relaxed">
+            Ces données proviennent du registre papier antérieur. Elles seront remplacées lors de la prochaine vérification numérique.
+          </p>
         </div>
 
-        {/* BOUTON — sticky au bas du scroll */}
-        <div style={{ position: 'sticky', bottom: 0, background: '#020617', borderTop: '1px solid #1e293b' }}
-             className="px-4 py-3">
-          <button
-            onClick={handleSave}
-            disabled={!canSave || saving}
-            className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-            style={{
-              background: canSave && !saving
-                ? 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))'
-                : 'rgba(245,158,11,0.2)',
-              color: '#fff',
-              border: '1px solid rgba(245,158,11,0.4)',
-            }}
-          >
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+            Dernière vérification (registre papier)
+          </p>
+          <input
+            type="date"
+            value={repriseDate}
+            onChange={(e) => setRepriseDate(e.target.value)}
+            className={inputClass}
+            style={{ colorScheme: 'dark' }}
+          />
+        </div>
+
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+            Nom du vérificateur / organisme
+          </p>
+          <input
+            type="text"
+            value={repriseNom}
+            onChange={(e) => setRepriseNom(e.target.value)}
+            placeholder="Nom ou organisme"
+            className={inputClass}
+          />
         </div>
       </div>
+
+      {/* 3. FOOTER — enfant direct, ne rétrécit jamais — HORS du scroll */}
+      <div style={{ flexShrink: 0, borderTop: '1px solid #1e293b', background: '#020617' }}
+           className="px-4 py-3">
+        <button
+          onClick={handleSave}
+          disabled={!canSave || saving}
+          className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+          style={{
+            background: canSave && !saving
+              ? 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))'
+              : 'rgba(245,158,11,0.2)',
+            color: '#fff',
+            border: '1px solid rgba(245,158,11,0.4)',
+          }}
+        >
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
+
     </div>
   );
 }
@@ -660,131 +655,107 @@ function SignatureModal({
   const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9998, background: '#020617',
-               display: 'flex', flexDirection: 'column' }}
-    >
-      {/* EN-TÊTE — fixe */}
-      <div style={{ flexShrink: 0, borderBottom: '1px solid #1e293b' }} className="px-4 py-3 flex items-start justify-between">
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: '#020617',
+                  display: 'flex', flexDirection: 'column', height: '100vh' }}>
+
+      {/* 1. HEADER — enfant direct, ne rétrécit jamais */}
+      <div style={{ flexShrink: 0, borderBottom: '1px solid #1e293b' }}
+           className="px-4 py-3 flex items-start justify-between">
         <div>
-          <p className="font-bold text-white text-[15px] truncate">{item.installation}</p>
-          <p className="text-slate-400 text-xs mt-0.5">
+          <p className="font-bold text-white text-base truncate">{item.installation}</p>
+          <p className="text-sm text-slate-400 mt-0.5">
             Vérification du {formatDate(item.date_verification)}
           </p>
         </div>
-        <button onClick={onClose} className="p-2 rounded-full bg-slate-800 text-slate-300 active:scale-95 transition-transform ml-2 shrink-0">
+        <button onClick={onClose} className="p-2 rounded-full bg-slate-800 text-white ml-2 shrink-0">
           <X size={18} />
         </button>
       </div>
 
-      {/* ZONE UNIQUE SCROLLABLE */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto',
-                    WebkitOverflowScrolling: 'touch' as unknown as undefined,
-                    display: 'flex', flexDirection: 'column' } as React.CSSProperties}>
+      {/* 2. BODY — enfant direct, prend tout l'espace restant et scrolle */}
+      <div style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto',
+                    WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+           className="px-4 py-4 space-y-5">
 
-        {/* Contenu formulaire */}
-        <div className="px-4 py-4 space-y-5" style={{ flex: 1 }}>
-
-          {/* Coordonnées — lecture seule + bouton Modifier */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
-              Coordonnées du vérificateur
+        {/* Coordonnées lecture seule + bouton Modifier */}
+        <div className="bg-slate-800 rounded-xl p-3 flex items-center justify-between">
+          <div className="min-w-0">
+            <p className="text-white text-sm font-medium truncate">
+              {item.nom_verificateur || '—'}
             </p>
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-900 border border-slate-700/60 px-3 py-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-                  <Pencil className="w-3.5 h-3.5 text-slate-400" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-white text-sm font-medium truncate leading-snug">
-                    {item.nom_verificateur || '—'}
-                  </p>
-                  <p className="text-slate-500 text-xs truncate">
-                    {item.organisme_verificateur || '—'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => onEditCoordonnees(item)}
-                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 bg-slate-800 border border-slate-700 hover:text-white hover:border-slate-500 active:scale-95 transition-all"
-              >
-                <Pencil className="w-3 h-3" />
-                Modifier
-              </button>
-            </div>
-          </div>
-
-          {/* Nom du vérificateur */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
-              Nom du vérificateur
+            <p className="text-slate-400 text-xs truncate">
+              {item.organisme_verificateur || '—'}
             </p>
-            <input
-              type="text"
-              value={verificateurNom}
-              onChange={(e) => setVerificateurNom(e.target.value)}
-              placeholder="Nom et prénom du vérificateur"
-              className={inputClass}
-            />
           </div>
-
-          {/* Canvas */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
-              Signez dans le cadre ci-dessous
-            </p>
-            <div className="rounded-2xl overflow-hidden border border-slate-600">
-              <canvas
-                ref={canvasRef}
-                className="w-full touch-none"
-                style={{ display: 'block', background: '#ffffff', height: '200px' }}
-              />
-            </div>
-            <div className="flex justify-center mt-2.5">
-              <button
-                onClick={handleClear}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 bg-slate-800 border border-slate-700 active:scale-95 transition-transform"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Effacer
-              </button>
-            </div>
-          </div>
-
-          {/* Observations */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
-              Observations (optionnel)
-            </p>
-            <textarea
-              rows={3}
-              value={observationsSig}
-              onChange={(e) => setObservationsSig(e.target.value)}
-              placeholder="Remarques, anomalies constatées…"
-              className={`${inputClass} resize-none`}
-            />
-          </div>
-        </div>
-
-        {/* BOUTON VALIDER — sticky au bas du scroll */}
-        <div style={{ position: 'sticky', bottom: 0, background: '#020617', borderTop: '1px solid #1e293b' }}
-             className="px-4 py-3">
           <button
-            onClick={handleValidate}
-            disabled={!canValidate}
-            className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-            style={{
-              background: canValidate
-                ? 'linear-gradient(135deg, #059669, #047857)'
-                : 'rgba(5,150,105,0.2)',
-              color: '#fff',
-              border: '1px solid rgba(16,185,129,0.4)',
-            }}
+            onClick={() => onEditCoordonnees(item)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 flex items-center gap-1 shrink-0 ml-3"
           >
-            {saving ? 'Enregistrement…' : 'Valider la signature'}
+            <Pencil size={12} /> Modifier
           </button>
         </div>
+
+        {/* Nom du vérificateur */}
+        <div>
+          <label className="text-xs uppercase text-slate-400 font-medium tracking-widest">
+            Nom du vérificateur
+          </label>
+          <input
+            type="text"
+            value={verificateurNom}
+            onChange={(e) => setVerificateurNom(e.target.value)}
+            placeholder="Nom et prénom du vérificateur"
+            className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-slate-500"
+          />
+        </div>
+
+        {/* Canvas signature */}
+        <div>
+          <label className="text-xs uppercase text-slate-400 font-medium tracking-widest">
+            Signez dans le cadre ci-dessous
+          </label>
+          <canvas
+            ref={canvasRef}
+            style={{ height: '150px', width: '100%', background: '#fff',
+                     borderRadius: '12px', marginTop: '8px', display: 'block' }}
+          />
+          <div className="flex justify-center mt-2">
+            <button
+              onClick={handleClear}
+              className="px-4 py-1.5 rounded-lg bg-slate-700 text-slate-300 text-sm flex items-center gap-1"
+            >
+              <RotateCcw size={14} /> Effacer
+            </button>
+          </div>
+        </div>
+
+        {/* Observations */}
+        <div>
+          <label className="text-xs uppercase text-slate-400 font-medium tracking-widest">
+            Observations (optionnel)
+          </label>
+          <textarea
+            rows={2}
+            value={observationsSig}
+            onChange={(e) => setObservationsSig(e.target.value)}
+            placeholder="Remarques, anomalies constatées…"
+            className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-slate-500 resize-none"
+          />
+        </div>
       </div>
+
+      {/* 3. FOOTER — enfant direct, ne rétrécit jamais — HORS du scroll */}
+      <div style={{ flexShrink: 0, borderTop: '1px solid #1e293b', background: '#020617' }}
+           className="px-4 py-3">
+        <button
+          onClick={handleValidate}
+          disabled={!canValidate}
+          className="w-full py-3 rounded-xl font-semibold text-white bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+        >
+          {saving ? 'Enregistrement…' : 'Valider la signature'}
+        </button>
+      </div>
+
     </div>
   );
 }
