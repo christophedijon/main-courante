@@ -588,7 +588,7 @@ function SignatureModal({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePad | null>(null);
-  const [isEmpty, setIsEmpty] = useState(true);
+  const [hasDrawn, setHasDrawn] = useState(false);
   const [saving, setSaving] = useState(false);
   const [verificateurNom, setVerificateurNom] = useState(item.nom_verificateur ?? '');
   const [observationsSig, setObservationsSig] = useState('');
@@ -603,13 +603,13 @@ function SignatureModal({
     if (ctx) ctx.scale(ratio, ratio);
     const pad = new SignaturePad(canvas, { penColor: '#000000', backgroundColor: '#ffffff' });
     padRef.current = pad;
-    pad.addEventListener('endStroke', () => setIsEmpty(pad.isEmpty()));
+    pad.addEventListener('endStroke', () => setHasDrawn(true));
     return () => { pad.off(); };
   }, []);
 
   function handleClear() {
     padRef.current?.clear();
-    setIsEmpty(true);
+    setHasDrawn(false);
   }
 
   async function handleValidate() {
@@ -651,7 +651,7 @@ function SignatureModal({
     onClose();
   }
 
-  const canValidate = !isEmpty && verificateurNom.trim().length > 0 && !saving;
+  const canValidate = hasDrawn && verificateurNom.trim().length > 0 && !saving;
 
   const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
 
