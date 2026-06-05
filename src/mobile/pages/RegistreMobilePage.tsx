@@ -311,84 +311,91 @@ function CoordonneesModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[9996] flex flex-col bg-slate-950" style={{ height: '100dvh' }}>
-
-      {/* ── Sticky header ── */}
-      <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950">
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-bold text-[15px]">Coordonnées du vérificateur</p>
-          <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex',
+               alignItems: 'center', justifyContent: 'center',
+               padding: '16px', background: 'rgba(0,0,0,0.75)' }}
+    >
+      <div
+        className="bg-slate-900 rounded-xl w-full shadow-2xl flex flex-col border border-slate-700"
+        style={{ maxWidth: '420px', maxHeight: '80vh' }}
+      >
+        {/* En-tête */}
+        <div style={{ flexShrink: 0 }} className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-white text-[15px]">Coordonnées du vérificateur</p>
+            <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <X className="w-4 h-4 text-slate-300" />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="shrink-0 w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center active:scale-95 transition-transform"
-        >
-          <X className="w-4 h-4 text-slate-300" />
-        </button>
+
+        {/* Corps scrollable */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} className="px-4 py-4 space-y-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Organisme / Société</p>
+            <input
+              type="text"
+              value={coordOrganisme}
+              onChange={(e) => setCoordOrganisme(e.target.value)}
+              placeholder="Organisme ou société"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Nom du vérificateur</p>
+            <input
+              type="text"
+              value={coordNom}
+              onChange={(e) => setCoordNom(e.target.value)}
+              placeholder="Nom et prénom"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Email organisme</p>
+            <input
+              type="email"
+              value={coordEmail}
+              onChange={(e) => setCoordEmail(e.target.value)}
+              placeholder="email@organisme.fr"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Téléphone</p>
+            <input
+              type="tel"
+              value={coordTel}
+              onChange={(e) => setCoordTel(e.target.value)}
+              placeholder="Téléphone du vérificateur"
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        {/* Pied */}
+        <div style={{ flexShrink: 0 }} className="border-t border-slate-800 px-4 py-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+            style={{
+              background: saving
+                ? 'rgba(37,99,235,0.3)'
+                : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              color: '#fff',
+              border: '1px solid rgba(59,130,246,0.4)',
+            }}
+          >
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
       </div>
-
-      {/* ── Scrollable body ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Organisme / Société</p>
-          <input
-            type="text"
-            value={coordOrganisme}
-            onChange={(e) => setCoordOrganisme(e.target.value)}
-            placeholder="Organisme ou société"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Nom du vérificateur</p>
-          <input
-            type="text"
-            value={coordNom}
-            onChange={(e) => setCoordNom(e.target.value)}
-            placeholder="Nom et prénom"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Email organisme</p>
-          <input
-            type="email"
-            value={coordEmail}
-            onChange={(e) => setCoordEmail(e.target.value)}
-            placeholder="email@organisme.fr"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Téléphone</p>
-          <input
-            type="tel"
-            value={coordTel}
-            onChange={(e) => setCoordTel(e.target.value)}
-            placeholder="Téléphone du vérificateur"
-            className={inputClass}
-          />
-        </div>
-      </div>
-
-      {/* ── Sticky footer ── */}
-      <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-950">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-          style={{
-            background: saving
-              ? 'rgba(37,99,235,0.3)'
-              : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-            color: '#fff',
-            border: '1px solid rgba(59,130,246,0.4)',
-          }}
-        >
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
-        </button>
-      </div>
-
     </div>
   );
 }
@@ -434,10 +441,12 @@ function RepriseModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[9997] flex flex-col bg-slate-950" style={{ height: '100dvh' }}>
-
-      {/* ── Sticky header ── */}
-      <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950">
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9997, display: 'flex',
+               flexDirection: 'column', height: '100dvh', background: '#020617' }}
+    >
+      {/* EN-TÊTE — ne rétrécit jamais */}
+      <div style={{ flexShrink: 0 }} className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-white font-bold text-[15px]">Reprise registre papier</p>
           <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
@@ -450,8 +459,9 @@ function RepriseModal({
         </button>
       </div>
 
-      {/* ── Scrollable body ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
+      {/* CORPS — prend tout l'espace restant et scrolle */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+           className="px-4 py-4 space-y-4">
 
         {/* Info banner */}
         <div className="flex gap-2 rounded-xl px-3 py-3" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
@@ -491,8 +501,8 @@ function RepriseModal({
 
       </div>
 
-      {/* ── Sticky footer ── */}
-      <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-950">
+      {/* PIED — ne rétrécit jamais */}
+      <div style={{ flexShrink: 0 }} className="border-t border-slate-800 px-4 py-3 bg-slate-950">
         <button
           onClick={handleSave}
           disabled={!canSave || saving}
@@ -602,10 +612,12 @@ function SignatureModal({
   const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
 
   return (
-    <div className="fixed inset-0 z-[9998] flex flex-col bg-slate-950" style={{ height: '100dvh' }}>
-
-      {/* ── Sticky header ── */}
-      <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950">
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex',
+               flexDirection: 'column', height: '100dvh', background: '#020617' }}
+    >
+      {/* EN-TÊTE — ne rétrécit jamais */}
+      <div style={{ flexShrink: 0 }} className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-white font-bold text-[15px] truncate">{item.installation}</p>
           <p className="text-slate-400 text-xs mt-0.5">
@@ -620,8 +632,9 @@ function SignatureModal({
         </button>
       </div>
 
-      {/* ── Scrollable body ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-5">
+      {/* CORPS — prend tout l'espace restant et scrolle */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+           className="px-4 py-4 space-y-5">
 
         {/* Coordonnées — lecture seule + bouton Modifier */}
         <div>
@@ -652,10 +665,10 @@ function SignatureModal({
           </div>
         </div>
 
-        {/* Nom pour ce visa */}
+        {/* Nom du vérificateur */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
-            Nom pour ce visa
+            Nom du vérificateur
           </p>
           <input
             type="text"
@@ -705,8 +718,8 @@ function SignatureModal({
 
       </div>
 
-      {/* ── Sticky footer ── */}
-      <div className="shrink-0 bg-slate-950 border-t border-slate-800 px-4 py-3">
+      {/* PIED — ne rétrécit jamais */}
+      <div style={{ flexShrink: 0 }} className="border-t border-slate-800 px-4 py-3 bg-slate-950">
         <button
           onClick={handleValidate}
           disabled={!canValidate}
