@@ -10,6 +10,7 @@ type RegistreItem = {
   observations: string;
   observations_levees: string;
   rapport_url: string;
+  reprise_papier?: boolean;
 };
 
 type EntrepriseInfo = {
@@ -280,6 +281,11 @@ export default function FicheVerification({ item, entreprise, signature }: Props
         <p style={{ fontSize: 10, color: '#9ca3af', margin: 0 }}>
           Document établi conformément à l'art. R123-51 du Code de la construction et de l'habitation — édité le {today}
         </p>
+        {item.reprise_papier && (
+          <p style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+            ⚠ Données issues du registre de sécurité papier antérieur — à remplacer lors de la prochaine vérification.
+          </p>
+        )}
       </div>
 
     </div>

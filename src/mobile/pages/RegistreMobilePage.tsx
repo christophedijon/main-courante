@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, Clock, Minus, FileText, ChevronDown, ChevronUp,
-  FileDown, Printer, X, PenLine, RotateCcw,
+  FileDown, Printer, X, PenLine, RotateCcw, Archive,
 } from 'lucide-react';
 import SignaturePad from 'signature_pad';
 import { supabase } from '../../lib/supabase';
@@ -25,6 +25,7 @@ type RegistreItem = {
   observations_levees: string;
   rapport_url: string;
   updated_at: string;
+  reprise_papier: boolean;
 };
 
 type RegistreSignatureRow = RegistreSignature & {
@@ -127,10 +128,14 @@ function RegistreCard({
   item,
   config,
   onFiche,
+  canEdit,
+  onReprise,
 }: {
   item: RegistreItem;
   config: typeof GROUP_CONFIG[0];
   onFiche: (item: RegistreItem) => void;
+  canEdit: boolean;
+  onReprise: (item: RegistreItem) => void;
 }) {
   const nextDate = item.date_verification ? getNextDate(item.date_verification, item.periodicite) : null;
   const daysLeft = nextDate ? Math.ceil((nextDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
@@ -139,14 +144,24 @@ function RegistreCard({
     ? `https://docs.google.com/viewer?url=${encodeURIComponent(item.rapport_url)}&embedded=true`
     : null;
 
+  const showRepriseBtn = canEdit && item.applicable && !item.date_verification && !item.reprise_papier;
+  const showModifierRepriseBtn = canEdit && item.applicable && item.reprise_papier;
+
   return (
     <div className={`rounded-2xl border p-4 space-y-3 ${config.cardBorder} ${config.cardBg}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-white font-semibold text-sm leading-snug">{item.installation}</p>
-          <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-slate-700/60 text-slate-400 border border-slate-600/30">
-            {item.reference_reglementaire}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-slate-700/60 text-slate-400 border border-slate-600/30">
+              {item.reference_reglementaire}
+            </span>
+            {item.reprise_papier && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                Reprise papier
+              </span>
+            )}
+          </div>
         </div>
         <span className={`flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${config.badgeBg}`}>
           <config.icon className={`w-3 h-3 ${config.iconColor}`} />
@@ -208,6 +223,26 @@ function RegistreCard({
         </a>
       )}
 
+      {showRepriseBtn && (
+        <button
+          onClick={() => onReprise(item)}
+          className="flex items-center gap-2 text-[12px] text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl transition-colors w-full"
+        >
+          <Archive className="w-3.5 h-3.5 shrink-0" />
+          Reprise papier
+        </button>
+      )}
+
+      {showModifierRepriseBtn && (
+        <button
+          onClick={() => onReprise(item)}
+          className="flex items-center gap-2 text-[12px] text-slate-400 hover:text-slate-300 bg-slate-800/50 border border-slate-700/50 px-3 py-2 rounded-xl transition-colors w-full"
+        >
+          <Archive className="w-3.5 h-3.5 shrink-0" />
+          Modifier la reprise
+        </button>
+      )}
+
       {item.applicable && (
         <button
           onClick={() => onFiche(item)}
@@ -217,6 +252,126 @@ function RegistreCard({
           Fiche PDF
         </button>
       )}
+    </div>
+  );
+}
+
+// ── Reprise papier modal ─────────────────────────────────────────────────────
+
+function RepriseModal({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: RegistreItem;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [repriseDate, setRepriseDate] = useState(item.date_verification ?? '');
+  const [repriseNom, setRepriseNom] = useState(item.nom_verificateur ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const canSave = repriseDate.trim() !== '' && repriseNom.trim() !== '';
+
+  const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
+
+  async function handleSave() {
+    if (!canSave) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from('registre_securite')
+      .update({
+        date_verification: repriseDate,
+        nom_verificateur: repriseNom.trim(),
+        reprise_papier: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', item.id);
+    setSaving(false);
+    if (!error) {
+      onSaved();
+      onClose();
+    } else {
+      console.error('Reprise save error:', error);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9997] flex flex-col bg-slate-950" style={{ height: '100dvh' }}>
+
+      {/* ── Sticky header ── */}
+      <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950">
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-bold text-[15px]">Reprise registre papier</p>
+          <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <X className="w-4 h-4 text-slate-300" />
+        </button>
+      </div>
+
+      {/* ── Scrollable body ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+
+        {/* Info banner */}
+        <div className="flex gap-2 rounded-xl px-3 py-3" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          <Archive className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-amber-300 text-xs leading-relaxed">
+            Ces données proviennent du registre papier antérieur. Elles seront remplacées lors de la prochaine vérification numérique.
+          </p>
+        </div>
+
+        {/* Date field */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+            Dernière vérification (registre papier)
+          </p>
+          <input
+            type="date"
+            value={repriseDate}
+            onChange={(e) => setRepriseDate(e.target.value)}
+            className={inputClass}
+            style={{ colorScheme: 'dark' }}
+          />
+        </div>
+
+        {/* Nom field */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+            Nom du vérificateur / organisme
+          </p>
+          <input
+            type="text"
+            value={repriseNom}
+            onChange={(e) => setRepriseNom(e.target.value)}
+            placeholder="Nom ou organisme"
+            className={inputClass}
+          />
+        </div>
+
+      </div>
+
+      {/* ── Sticky footer ── */}
+      <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-950">
+        <button
+          onClick={handleSave}
+          disabled={!canSave || saving}
+          className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+          style={{
+            background: canSave && !saving
+              ? 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))'
+              : 'rgba(245,158,11,0.2)',
+            color: '#fff',
+            border: '1px solid rgba(245,158,11,0.4)',
+          }}
+        >
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
+
     </div>
   );
 }
@@ -603,6 +758,7 @@ export default function RegistreMobilePage() {
   const [entreprise, setEntreprise] = useState<EntrepriseInfo | null>(null);
   const [ficheItem, setFicheItem] = useState<RegistreItem | null>(null);
   const [signItem, setSignItem] = useState<RegistreItem | null>(null);
+  const [repriseItem, setRepriseItem] = useState<RegistreItem | null>(null);
 
   const canSign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
   const [activeTab, setActiveTab] = useState<'suivi' | 'signer'>('suivi');
@@ -728,7 +884,7 @@ export default function RegistreMobilePage() {
                 {(!isNonApp || !collapseNonApp) && (
                   <div className="space-y-3">
                     {group.items.map((item) => (
-                      <RegistreCard key={item.id} item={item} config={group} onFiche={setFicheItem} />
+                      <RegistreCard key={item.id} item={item} config={group} onFiche={setFicheItem} canEdit={canSign} onReprise={setRepriseItem} />
                     ))}
                   </div>
                 )}
@@ -780,6 +936,15 @@ export default function RegistreMobilePage() {
             <FicheVerification item={ficheItem} entreprise={entreprise} signature={ficheSignature} />
           </div>
         </div>
+      )}
+
+      {/* ── Reprise papier modal ── */}
+      {repriseItem && (
+        <RepriseModal
+          item={repriseItem}
+          onClose={() => setRepriseItem(null)}
+          onSaved={loadData}
+        />
       )}
 
       {/* ── Signature modal ── */}
