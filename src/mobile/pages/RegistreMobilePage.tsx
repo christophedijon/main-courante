@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, Clock, Minus, FileText, ChevronDown, ChevronUp,
-  FileDown, Printer, X, PenLine, RotateCcw, Archive,
+  FileDown, Printer, X, PenLine, RotateCcw, Archive, Pencil,
 } from 'lucide-react';
 import SignaturePad from 'signature_pad';
 import { supabase } from '../../lib/supabase';
@@ -17,10 +17,12 @@ type RegistreItem = {
   installation: string;
   reference_reglementaire: string;
   organisme_verificateur: string;
+  email_organisme: string;
   periodicite: string;
   applicable: boolean;
   date_verification: string | null;
   nom_verificateur: string;
+  telephone_verificateur: string;
   observations: string;
   observations_levees: string;
   rapport_url: string;
@@ -130,12 +132,14 @@ function RegistreCard({
   onFiche,
   canEdit,
   onReprise,
+  onEditCoordonnees,
 }: {
   item: RegistreItem;
   config: typeof GROUP_CONFIG[0];
   onFiche: (item: RegistreItem) => void;
   canEdit: boolean;
   onReprise: (item: RegistreItem) => void;
+  onEditCoordonnees: (item: RegistreItem) => void;
 }) {
   const nextDate = item.date_verification ? getNextDate(item.date_verification, item.periodicite) : null;
   const daysLeft = nextDate ? Math.ceil((nextDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
@@ -243,6 +247,16 @@ function RegistreCard({
         </button>
       )}
 
+      {canEdit && item.applicable && (
+        <button
+          onClick={() => onEditCoordonnees(item)}
+          className="flex items-center gap-2 text-[12px] text-slate-400 hover:text-slate-300 bg-slate-800/50 border border-slate-700/50 px-3 py-2 rounded-xl transition-colors w-full"
+        >
+          <Pencil className="w-3.5 h-3.5 shrink-0" />
+          Coordonnées
+        </button>
+      )}
+
       {item.applicable && (
         <button
           onClick={() => onFiche(item)}
@@ -252,6 +266,129 @@ function RegistreCard({
           Fiche PDF
         </button>
       )}
+    </div>
+  );
+}
+
+// ── Coordonnées du vérificateur modal ────────────────────────────────────────
+
+function CoordonneesModal({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: RegistreItem;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [coordOrganisme, setCoordOrganisme] = useState(item.organisme_verificateur ?? '');
+  const [coordNom, setCoordNom] = useState(item.nom_verificateur ?? '');
+  const [coordEmail, setCoordEmail] = useState(item.email_organisme ?? '');
+  const [coordTel, setCoordTel] = useState(item.telephone_verificateur ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from('registre_securite')
+      .update({
+        organisme_verificateur: coordOrganisme.trim(),
+        nom_verificateur: coordNom.trim(),
+        email_organisme: coordEmail.trim(),
+        telephone_verificateur: coordTel.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', item.id);
+    setSaving(false);
+    if (!error) {
+      onSaved();
+      onClose();
+    } else {
+      console.error('Coordonnées save error:', error);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9996] flex flex-col bg-slate-950" style={{ height: '100dvh' }}>
+
+      {/* ── Sticky header ── */}
+      <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950">
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-bold text-[15px]">Coordonnées du vérificateur</p>
+          <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <X className="w-4 h-4 text-slate-300" />
+        </button>
+      </div>
+
+      {/* ── Scrollable body ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Organisme / Société</p>
+          <input
+            type="text"
+            value={coordOrganisme}
+            onChange={(e) => setCoordOrganisme(e.target.value)}
+            placeholder="Organisme ou société"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Nom du vérificateur</p>
+          <input
+            type="text"
+            value={coordNom}
+            onChange={(e) => setCoordNom(e.target.value)}
+            placeholder="Nom et prénom"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Email organisme</p>
+          <input
+            type="email"
+            value={coordEmail}
+            onChange={(e) => setCoordEmail(e.target.value)}
+            placeholder="email@organisme.fr"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Téléphone</p>
+          <input
+            type="tel"
+            value={coordTel}
+            onChange={(e) => setCoordTel(e.target.value)}
+            placeholder="Téléphone du vérificateur"
+            className={inputClass}
+          />
+        </div>
+      </div>
+
+      {/* ── Sticky footer ── */}
+      <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-950">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+          style={{
+            background: saving
+              ? 'rgba(37,99,235,0.3)'
+              : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+            color: '#fff',
+            border: '1px solid rgba(59,130,246,0.4)',
+          }}
+        >
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
+
     </div>
   );
 }
@@ -759,6 +896,7 @@ export default function RegistreMobilePage() {
   const [ficheItem, setFicheItem] = useState<RegistreItem | null>(null);
   const [signItem, setSignItem] = useState<RegistreItem | null>(null);
   const [repriseItem, setRepriseItem] = useState<RegistreItem | null>(null);
+  const [coordItem, setCoordItem] = useState<RegistreItem | null>(null);
 
   const canSign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
   const [activeTab, setActiveTab] = useState<'suivi' | 'signer'>('suivi');
@@ -884,7 +1022,7 @@ export default function RegistreMobilePage() {
                 {(!isNonApp || !collapseNonApp) && (
                   <div className="space-y-3">
                     {group.items.map((item) => (
-                      <RegistreCard key={item.id} item={item} config={group} onFiche={setFicheItem} canEdit={canSign} onReprise={setRepriseItem} />
+                      <RegistreCard key={item.id} item={item} config={group} onFiche={setFicheItem} canEdit={canSign} onReprise={setRepriseItem} onEditCoordonnees={setCoordItem} />
                     ))}
                   </div>
                 )}
@@ -936,6 +1074,15 @@ export default function RegistreMobilePage() {
             <FicheVerification item={ficheItem} entreprise={entreprise} signature={ficheSignature} />
           </div>
         </div>
+      )}
+
+      {/* ── Coordonnées modal ── */}
+      {coordItem && (
+        <CoordonneesModal
+          item={coordItem}
+          onClose={() => setCoordItem(null)}
+          onSaved={loadData}
+        />
       )}
 
       {/* ── Reprise papier modal ── */}

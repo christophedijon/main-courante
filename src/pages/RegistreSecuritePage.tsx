@@ -19,6 +19,7 @@ type RegistreItem = {
   applicable: boolean;
   date_verification: string | null;
   nom_verificateur: string;
+  telephone_verificateur: string;
   observations: string;
   observations_levees: string;
   rapport_url: string;
@@ -671,6 +672,8 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
     installation: item.installation,
     reference_reglementaire: item.reference_reglementaire,
     organisme_verificateur: item.organisme_verificateur,
+    nom_verificateur: item.nom_verificateur,
+    telephone_verificateur: item.telephone_verificateur ?? '',
     email_organisme: item.email_organisme,
     periodicite: item.periodicite,
     jours_rappel: item.jours_rappel !== null ? String(item.jours_rappel) : '',
@@ -684,6 +687,8 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
       installation: form.installation.trim(),
       reference_reglementaire: form.reference_reglementaire.trim(),
       organisme_verificateur: form.organisme_verificateur.trim(),
+      nom_verificateur: form.nom_verificateur.trim(),
+      telephone_verificateur: form.telephone_verificateur.trim(),
       email_organisme: form.email_organisme.trim(),
       periodicite: form.periodicite,
       jours_rappel: form.jours_rappel !== '' ? parseInt(form.jours_rappel, 10) : null,
@@ -730,6 +735,16 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
               <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Organisme vérificateur</label>
               <input value={form.organisme_verificateur} onChange={(e) => setForm(f => ({ ...f, organisme_verificateur: e.target.value }))}
                 className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: Technicien compétent" />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Nom du vérificateur</label>
+              <input value={form.nom_verificateur} onChange={(e) => setForm(f => ({ ...f, nom_verificateur: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Nom et prénom du vérificateur" />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Téléphone</label>
+              <input type="tel" value={form.telephone_verificateur} onChange={(e) => setForm(f => ({ ...f, telephone_verificateur: e.target.value }))}
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Téléphone du vérificateur" />
             </div>
             <div>
               <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
