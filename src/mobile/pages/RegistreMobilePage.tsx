@@ -7,6 +7,8 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useEntreprise } from '../../hooks/useEntreprise';
 import FicheVerification from '../../components/FicheVerification';
+import ConformiteDashboard from '../components/ConformiteDashboard';
+import EcheancesDashboard from '../components/EcheancesDashboard';
 
 type RegistreItem = {
   id: string;
@@ -276,6 +278,8 @@ export default function RegistreMobilePage() {
 
       {!loading && (
         <div className="px-4 py-5 space-y-6">
+          <ConformiteDashboard items={items} />
+          <EcheancesDashboard items={items} />
           {grouped.map((group) => {
             if (group.items.length === 0) return null;
             const isNonApp = group.key === 'non_applicable';
