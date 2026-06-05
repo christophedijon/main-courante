@@ -617,8 +617,24 @@ function SignatureModal({
     if (!pad || pad.isEmpty() || !verificateurNom.trim()) return;
     setSaving(true);
     const dataURL = pad.toDataURL('image/png');
+    const today = new Date().toISOString().split('T')[0];
 
-    const [sigRes, updateRes] = await Promise.all([
+    // Si une vérification précédente existe, l'archiver dans l'historique
+    const archiveOps: Promise<any>[] = [];
+    if (item.date_verification) {
+      archiveOps.push(
+        supabase.from('registre_historique').insert({
+          registre_id: item.id,
+          date_verification: item.date_verification,
+          nom_verificateur: item.nom_verificateur ?? '',
+          rapport_url: item.rapport_url ?? '',
+          observations: item.observations ?? '',
+          observations_levees: item.observations_levees ?? '',
+        })
+      );
+    }
+
+    const [sigRes, updateRes, ...archiveRes] = await Promise.all([
       supabase.from('registre_signatures').insert({
         registre_id: item.id,
         date_verification_signee: item.date_verification,
@@ -632,11 +648,14 @@ function SignatureModal({
         observations_signature: observationsSig.trim(),
       }),
       supabase.from('registre_securite').update({
+        date_verification: today,
         nom_verificateur: verificateurNom.trim(),
         observations: observationsSig.trim() || item.observations,
+        observations_levees: '',
         reprise_papier: false,
         updated_at: new Date().toISOString(),
       }).eq('id', item.id),
+      ...archiveOps,
     ]);
 
     setSaving(false);
@@ -646,6 +665,9 @@ function SignatureModal({
     }
     if (updateRes.error) {
       console.error('Registre update error:', updateRes.error);
+    }
+    for (const r of archiveRes) {
+      if (r?.error) console.error('Historique archive error:', r.error);
     }
     onSaved();
     onClose();

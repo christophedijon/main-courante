@@ -116,15 +116,34 @@ function HistoriquePanel({ item, onClose }: { item: RegistreItem; onClose: () =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase
-      .from('registre_historique')
-      .select('*')
-      .eq('registre_id', item.id)
-      .order('date_verification', { ascending: false })
-      .then(({ data }) => {
-        setEntries((data ?? []) as HistoriqueEntry[]);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase
+        .from('registre_historique')
+        .select('*')
+        .eq('registre_id', item.id),
+      supabase
+        .from('registre_signatures')
+        .select('id, registre_id, date_verification_signee, verificateur_nom, observations_signature, signed_at')
+        .eq('registre_id', item.id),
+    ]).then(([{ data: histData }, { data: sigData }]) => {
+      const histEntries: HistoriqueEntry[] = (histData ?? []) as HistoriqueEntry[];
+      const sigEntries: HistoriqueEntry[] = (sigData ?? []).map((s: any) => ({
+        id: s.id,
+        registre_id: s.registre_id,
+        date_verification: s.date_verification_signee,
+        nom_verificateur: s.verificateur_nom ?? '',
+        rapport_url: '',
+        observations: s.observations_signature ?? '',
+        observations_levees: '',
+        created_at: s.signed_at,
+        _signed: true,
+      }));
+      const allEntries = [...histEntries, ...sigEntries].sort(
+        (a, b) => new Date(b.date_verification).getTime() - new Date(a.date_verification).getTime()
+      );
+      setEntries(allEntries);
+      setLoading(false);
+    });
   }, [item.id]);
 
   return (
@@ -154,7 +173,14 @@ function HistoriquePanel({ item, onClose }: { item: RegistreItem; onClose: () =>
           {entries.map((e) => (
             <div key={e.id} className="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-white font-semibold text-sm">{formatDate(e.date_verification)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-semibold text-sm">{formatDate(e.date_verification)}</span>
+                  {(e as any)._signed && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                      Signé
+                    </span>
+                  )}
+                </div>
                 {e.rapport_url && (
                   <a href={e.rapport_url} target="_blank" rel="noreferrer"
                     className="flex items-center gap-1.5 text-[11px] text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg transition-colors">
@@ -1169,15 +1195,20 @@ export default function RegistreSecuritePage() {
   useEffect(() => {
     (async () => {
       try {
-        const [{ data, error }, { data: histRows }] = await Promise.all([
+        const [{ data, error }, { data: histRows }, { data: sigRows }] = await Promise.all([
           supabase.from('registre_securite').select('*').order('installation'),
           supabase.from('registre_historique').select('registre_id'),
+          supabase.from('registre_signatures').select('registre_id'),
         ]);
         if (error) throw error;
         setItems((data ?? []) as RegistreItem[]);
 
         const countMap: Record<string, number> = {};
         for (const row of histRows ?? []) {
+          const rid = (row as any).registre_id;
+          countMap[rid] = (countMap[rid] ?? 0) + 1;
+        }
+        for (const row of sigRows ?? []) {
           const rid = (row as any).registre_id;
           countMap[rid] = (countMap[rid] ?? 0) + 1;
         }
