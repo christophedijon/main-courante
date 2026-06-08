@@ -584,7 +584,7 @@ function FaireSignerTab({
   onSign: (item: RegistreItem) => void;
   onRefresh: () => void;
 }) {
-  const signable = items.filter((it) => it.applicable && !!it.date_verification);
+  const signable = items.filter((it) => it.applicable);
 
   function getSignature(item: RegistreItem): RegistreSignatureRow | undefined {
     return signatures.find(
@@ -630,10 +630,14 @@ function FaireSignerTab({
                     </span>
                   </div>
                 </div>
-                <p className="text-slate-400 text-xs">
-                  Vérifié le {formatDate(item.date_verification)}
-                  {item.nom_verificateur ? ` par ${item.nom_verificateur}` : ''}
-                </p>
+                {item.date_verification ? (
+                  <p className="text-slate-400 text-xs">
+                    Vérifié le {formatDate(item.date_verification)}
+                    {item.nom_verificateur ? ` par ${item.nom_verificateur}` : ''}
+                  </p>
+                ) : (
+                  <p className="text-slate-400 text-xs italic">Première visite — aucune vérification enregistrée</p>
+                )}
                 <button
                   onClick={() => onSign(item)}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
