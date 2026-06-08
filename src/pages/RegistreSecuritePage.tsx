@@ -706,6 +706,8 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
     periodicite: item.periodicite,
     jours_rappel: item.jours_rappel !== null ? String(item.jours_rappel) : '',
     date_verification: item.date_verification ?? '',
+    observations: item.observations ?? '',
+    observations_levees: item.observations_levees ?? '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -721,6 +723,8 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
       periodicite: form.periodicite,
       jours_rappel: form.jours_rappel !== '' ? parseInt(form.jours_rappel, 10) : null,
       date_verification: form.date_verification !== '' ? form.date_verification : null,
+      observations: form.observations.trim(),
+      observations_levees: form.observations_levees.trim(),
     };
     const { data, error } = await supabase
       .from('registre_securite')
@@ -805,6 +809,26 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
                 value={form.date_verification}
                 onChange={(e) => setForm(f => ({ ...f, date_verification: e.target.value }))}
                 className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Commentaires</label>
+              <textarea
+                value={form.observations}
+                onChange={(e) => setForm(f => ({ ...f, observations: e.target.value }))}
+                rows={3}
+                placeholder="Nomenclature de l'intervention, remarques du vérificateur…"
+                className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Levée des observations</label>
+              <textarea
+                value={form.observations_levees}
+                onChange={(e) => setForm(f => ({ ...f, observations_levees: e.target.value }))}
+                rows={2}
+                placeholder="Mesures correctives apportées suite au rapport du vérificateur…"
+                className={`w-full mt-1.5 border rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none resize-none transition-colors ${form.observations_levees ? 'bg-emerald-950/40 border-emerald-700/40 focus:border-emerald-500' : 'bg-slate-800 border-slate-700 focus:border-blue-500'}`}
               />
             </div>
           </div>
@@ -1571,7 +1595,7 @@ export default function RegistreSecuritePage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-800/60 border-b border-slate-700">
-                      {['Applic.', 'Visite périodique', 'Référence', 'Organisme', 'Périodicité', 'Dernière vérif.', 'Vérificateur', 'Prochaine vérif.', 'Observations', 'Levée observations', 'Rapport PDF', 'Actions'].map((h) => (
+                      {['Applic.', 'Visite périodique', 'Référence', 'Organisme', 'Périodicité', 'Dernière vérif.', 'Vérificateur', 'Prochaine vérif.', 'Commentaires', 'Levée observations', 'Rapport PDF', 'Actions'].map((h) => (
                         <th key={h} className="px-3 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
