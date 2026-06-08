@@ -456,12 +456,12 @@ function VerifModal({ item, onClose, onSaved }: VerifModalProps) {
               </button>
             </div>
             <div>
-              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Observations</label>
+              <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Commentaires</label>
               <textarea
                 value={form.observations}
                 onChange={(e) => setForm(f => ({ ...f, observations: e.target.value }))}
                 rows={3}
-                placeholder="Observations de la vérification…"
+                placeholder="Nomenclature de l'intervention, remarques du vérificateur…"
                 className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
               />
             </div>
@@ -471,7 +471,7 @@ function VerifModal({ item, onClose, onSaved }: VerifModalProps) {
                 value={form.observations_levees}
                 onChange={(e) => setForm(f => ({ ...f, observations_levees: e.target.value }))}
                 rows={2}
-                placeholder="Mesures correctives…"
+                placeholder="Mesures correctives apportées suite au rapport du vérificateur…"
                 className={`w-full mt-1.5 border rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none resize-none transition-colors ${form.observations_levees ? 'bg-emerald-950/40 border-emerald-700/40 focus:border-emerald-500' : 'bg-slate-800 border-slate-700 focus:border-blue-500'}`}
               />
             </div>
@@ -522,7 +522,7 @@ function VerifModal({ item, onClose, onSaved }: VerifModalProps) {
               )}
               {item.observations && (
                 <div>
-                  <span className="text-slate-400 text-sm">Observations</span>
+                  <span className="text-slate-400 text-sm">Commentaires</span>
                   <p className="text-slate-300 text-xs mt-1 leading-relaxed">{item.observations}</p>
                 </div>
               )}

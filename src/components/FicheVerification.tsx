@@ -211,9 +211,9 @@ export default function FicheVerification({ item, entreprise, signature }: Props
         />
       </div>
 
-      {/* ── Observations ── */}
+      {/* ── Commentaires ── */}
       <div style={blockStyle}>
-        <div style={blockTitleStyle}>Observations</div>
+        <div style={blockTitleStyle}>Commentaires</div>
         <div style={{ padding: '10px 12px', minHeight: 54, fontSize: 13, color: '#111827', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
           {item.observations?.trim() || 'Néant'}
         </div>
@@ -256,7 +256,7 @@ export default function FicheVerification({ item, entreprise, signature }: Props
                 )}
                 {signature.observations_signature && (
                   <p style={{ fontSize: 10, color: '#6b7280', fontStyle: 'italic', margin: 0 }}>
-                    Observations : {signature.observations_signature}
+                    Commentaires : {signature.observations_signature}
                   </p>
                 )}
               </>

@@ -200,7 +200,7 @@ function RegistreCard({
 
       {item.observations && (
         <div className="bg-slate-950/50 rounded-xl px-3 py-2">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Observations</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Commentaires</p>
           <p className="text-slate-300 text-xs leading-relaxed">{item.observations}</p>
         </div>
       )}
@@ -442,7 +442,6 @@ function SignatureModal({
         date_verification: today,
         nom_verificateur: verificateurNom.trim(),
         observations: observationsSig.trim() || item.observations,
-        observations_levees: '',
         reprise_papier: false,
         updated_at: new Date().toISOString(),
       }).eq('id', item.id),
@@ -543,16 +542,16 @@ function SignatureModal({
           </div>
         </div>
 
-        {/* Observations */}
+        {/* Commentaires */}
         <div>
           <label className="text-xs uppercase text-slate-400 font-medium tracking-widest">
-            Observations (optionnel)
+            Commentaires (optionnel)
           </label>
           <textarea
             rows={2}
             value={observationsSig}
             onChange={(e) => setObservationsSig(e.target.value)}
-            placeholder="Remarques, anomalies constatées…"
+            placeholder="Nomenclature de l'intervention, remarques…"
             className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-slate-500 resize-none"
           />
         </div>
