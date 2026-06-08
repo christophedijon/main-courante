@@ -637,7 +637,7 @@ function SignatureModal({
     const [sigRes, updateRes, ...archiveRes] = await Promise.all([
       supabase.from('registre_signatures').insert({
         registre_id: item.id,
-        date_verification_signee: item.date_verification,
+        date_verification_signee: today,
         signataire_id,
         signataire_nom: signataireName,
         signataire_role: signataireRole,
