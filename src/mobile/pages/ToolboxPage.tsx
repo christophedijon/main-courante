@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen, Gauge } from 'lucide-react';
+import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import EntrepriseBadge from '../components/EntrepriseBadge';
-import CarteJauge from '../components/CarteJauge';
-import { useJauge } from '../../hooks/useJauge';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -23,25 +21,10 @@ const CAT_TO_ROUTE: Record<string, Categorie> = {
   RADIO:     'RADIO',
 };
 
-const JAUGE_ROLES = new Set(['Direction', 'Chef de poste', 'Agent de Sécurité']);
-
 export default function ToolboxPage() {
   const navigate = useNavigate();
   const { isSuperAdmin, userFonction, session } = useAuth();
   const canAssign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
-
-  const jauge = useJauge();
-  const [jaugeCount, setJaugeCount] = useState<number | null>(null);
-  const [jaugeModalOpen, setJaugeModalOpen] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
-  const showJauge =
-    !jauge.loading &&
-    jauge.mode_jauge === 'sortie' &&
-    jauge.entrepriseId !== null &&
-    (isSuperAdmin || (userFonction !== null && JAUGE_ROLES.has(userFonction)));
-
-  // Sync local override with realtime count from hook
-  const displayCount = jaugeCount !== null ? jaugeCount : jauge.count;
 
   const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
 
@@ -105,50 +88,6 @@ export default function ToolboxPage() {
           <EntrepriseBadge />
         </div>
       </div>
-
-      {/* Jauge modal */}
-      {showJauge && jaugeModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setJaugeModalOpen(false); }}
-        >
-          <div
-            ref={modalRef}
-            className="bg-slate-950 rounded-t-3xl border-t border-slate-800 w-full max-h-[90vh] overflow-y-auto flex flex-col"
-          >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-slate-700" />
-            </div>
-            {/* Modal header */}
-            <div className="flex items-center gap-3 px-5 pt-3 pb-4 border-b border-slate-800 shrink-0">
-              <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
-                <Gauge className="w-4 h-4 text-blue-400" />
-              </div>
-              <p className="text-white font-semibold text-base">Jauge billetterie</p>
-            </div>
-            {/* Modal body */}
-            <div className="pt-3 pb-2">
-              <CarteJauge
-                count={displayCount}
-                Ep={jauge.Ep}
-                entrepriseId={jauge.entrepriseId!}
-                onCountUpdate={(n) => { setJaugeCount(n); setJaugeModalOpen(false); }}
-              />
-            </div>
-            {/* Fermer button — sticky above mobile nav */}
-            <div className="sticky bottom-0 px-5 pt-3 bg-slate-950" style={{ paddingBottom: '80px' }}>
-              <button
-                type="button"
-                onClick={() => setJaugeModalOpen(false)}
-                className="w-full py-3.5 rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 hover:border-slate-600 active:scale-[0.99] transition-all text-slate-300 font-semibold text-[15px]"
-              >
-                Fermer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* IA banner */}
       <button
@@ -217,19 +156,6 @@ export default function ToolboxPage() {
         )}
       </div>
 
-      {/* Jauge billetterie button — bottom, subtle */}
-      {showJauge && (
-        <div className="px-5 pb-6">
-          <button
-            type="button"
-            onClick={() => setJaugeModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-slate-700 bg-slate-900 hover:border-slate-600 hover:bg-slate-800 active:scale-[0.99] transition-all text-slate-300 text-sm font-medium"
-          >
-            <Gauge className="w-4 h-4 text-slate-400" />
-            Jauge billetterie
-          </button>
-        </div>
-      )}
     </div>
   );
 }

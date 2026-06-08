@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Clock, Flame, Users, ChevronDown, Radio } from 'lucide-react';
+import { Shield, Clock, Flame, Users, ChevronDown, Radio, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useEntreprise } from '../../hooks/useEntreprise';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
@@ -8,6 +8,7 @@ import { useTodayEventsCount } from '../hooks/useEvenements';
 import { useSaisie } from '../saisie/SaisieContext';
 import QuickActionCard from '../components/QuickActionCard';
 import HexagonJauge from '../components/HexagonJauge';
+import CarteJauge from '../components/CarteJauge';
 import { BeaconScannerBanner } from '../components/BeaconScannerBanner';
 import { useBeaconScanner } from '../../hooks/useBeaconScanner';
 import { useJauge } from '../../hooks/useJauge';
@@ -24,7 +25,7 @@ export default function HomePage() {
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
   const { isActive, startRonde, scanError } = useBeaconScanner();
-  const { count, Ep, taux, niveau, loading: jaugeLoading } = useJauge();
+  const { count, Ep, taux, niveau, loading: jaugeLoading, mode_jauge, entrepriseId } = useJauge();
 
   const isAgent = !isSuperAdmin && userFonction === 'Agent de Sécurité';
 
@@ -34,6 +35,10 @@ export default function HomePage() {
     userFonction === 'Chef de poste';
 
   const [registreConformite, setRegistreConformite] = useState<ConformiteResult | null>(null);
+  const [jaugeModalOpen, setJaugeModalOpen] = useState(false);
+  const [jaugeCount, setJaugeCount] = useState<number | null>(null);
+
+  const showJaugeAction = !jaugeLoading && mode_jauge === 'sortie' && entrepriseId !== null && Ep > 0;
 
   useEffect(() => {
     if (!canSeeRegistre) return;
@@ -303,6 +308,7 @@ export default function HomePage() {
                   niveau={niveau}
                   loading={jaugeLoading}
                   offsetTop={0}
+                  onDoubleClick={showJaugeAction ? () => setJaugeModalOpen(true) : undefined}
                 />
               </div>
             </div>
@@ -311,6 +317,29 @@ export default function HomePage() {
       </div>
 
       <BeaconScannerBanner />
+
+      {showJaugeAction && jaugeModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) setJaugeModalOpen(false); }}
+        >
+          <div className="w-full max-w-sm bg-slate-900 rounded-t-2xl p-5 pb-8">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-white font-semibold text-base">Jauge billetterie</p>
+              <button onClick={() => setJaugeModalOpen(false)}
+                      className="p-1.5 rounded-lg bg-slate-800 text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <CarteJauge
+              count={jaugeCount ?? count}
+              Ep={Ep}
+              entrepriseId={entrepriseId!}
+              onCountUpdate={(n) => { setJaugeCount(n); setJaugeModalOpen(false); }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

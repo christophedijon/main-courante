@@ -7,6 +7,7 @@ type Props = {
   niveau: Niveau;
   loading: boolean;
   offsetTop?: number;
+  onDoubleClick?: () => void;
 };
 
 const W = 96;
@@ -44,13 +45,18 @@ const GRAY = {
   glow: 'transparent',
 };
 
-export default function HexagonJauge({ count, Ep, taux, niveau, loading, offsetTop = 26 }: Props) {
+export default function HexagonJauge({ count, Ep, taux, niveau, loading, offsetTop = 26, onDoubleClick }: Props) {
   const unconfigured = !loading && Ep === 0;
   const c = (loading || unconfigured) ? GRAY : COLORS[niveau];
   const isPulsing = !loading && !unconfigured && niveau === 'rouge';
+  const showHint = !!onDoubleClick && !loading && Ep > 0;
 
   return (
-    <div className="flex flex-col items-center select-none" style={{ marginTop: offsetTop }}>
+    <div
+      className="flex flex-col items-center select-none"
+      style={{ marginTop: offsetTop, touchAction: 'manipulation' }}
+      onDoubleClick={onDoubleClick}
+    >
       <div
         style={{ width: W, height: H + DEPTH, position: 'relative' }}
         title={unconfigured ? 'Ep non configuré' : undefined}
@@ -154,6 +160,9 @@ export default function HexagonJauge({ count, Ep, taux, niveau, loading, offsetT
 
       {/* Label */}
       <p className="mt-2 text-xs font-medium" style={{ color: 'rgba(148,163,184,0.6)' }}>Jauge</p>
+      {showHint && (
+        <p className="mt-0.5 text-[10px]" style={{ color: 'rgba(148,163,184,0.4)' }}>Double tap</p>
+      )}
     </div>
   );
 }
