@@ -152,13 +152,17 @@ export default function HomePage() {
               border: '1px solid rgba(255,255,255,0.08)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
             }}
+            onDoubleClick={() => navigate('/mobile/historique')}
           >
             <div className="flex items-center gap-1.5" style={{ color: 'rgba(148,163,184,0.7)' }}>
               <Clock className="w-3.5 h-3.5" />
               <span className="text-[11px] tracking-wide font-medium">Aujourd'hui</span>
             </div>
             <p className="text-white font-black text-4xl mt-1 leading-none">{todayCount}</p>
+            <p className="text-[10px] text-slate-500 mt-1">Double tap</p>
           </div>
 
           {/* Registre conformité — Direction / Chef de poste / Super admin only */}
