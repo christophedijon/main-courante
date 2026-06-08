@@ -852,7 +852,7 @@ export default function RegistreMobilePage() {
                     : { color: 'rgba(148,163,184,0.7)' }
                 }
               >
-                {tab === 'suivi' ? 'Suivi' : tab === 'signer' ? 'Faire signer' : 'Fiches'}
+                {tab === 'suivi' ? 'Suivi' : tab === 'signer' ? 'Faire signer' : 'Attestations'}
               </button>
             ))}
           </div>
