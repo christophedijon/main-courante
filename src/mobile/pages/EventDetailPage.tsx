@@ -3,10 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, Clock, Building2, MapPin, Layers, Flame, Users,
   FileText, User as UserIcon, Tag, Hash, Paperclip, Image, Music, Video,
-  X, Upload, Loader2, Play, Pause, ChevronDown,
+  X, Upload, Loader2, Play, Pause, ChevronDown, MessageSquarePlus, Send,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+
+type EventCommentaire = {
+  id: string;
+  auteur_nom: string;
+  auteur_role: string;
+  contenu: string;
+  created_at: string;
+};
 
 type EventDetail = {
   id: string;
@@ -108,7 +116,7 @@ function MediaItem({ media, onDelete, canDelete }: { media: Media; onDelete: () 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { session, userFonction } = useAuth();
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [motifs, setMotifs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,6 +125,11 @@ export default function EventDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [detailOpen, setDetailOpen] = useState(true);
   const [mediaOpen, setMediaOpen] = useState(true);
+  const [commentaires, setCommentaires] = useState<EventCommentaire[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [savingComment, setSavingComment] = useState(false);
+  const [userNom, setUserNom] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -137,6 +150,26 @@ export default function EventDetailPage() {
       setMedias(withUrls);
       setLoading(false);
     })();
+
+    supabase.from('event_commentaires')
+      .select('id, auteur_nom, auteur_role, contenu, created_at')
+      .eq('event_id', id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setCommentaires(data ?? []));
+
+    if (session?.user.id) {
+      supabase.from('user_profiles')
+        .select('first_name, last_name')
+        .eq('id', session.user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && (data.first_name || data.last_name)) {
+            setUserNom(`${data.first_name} ${data.last_name}`.trim());
+          } else {
+            setUserNom(session?.user.email ?? '');
+          }
+        });
+    }
   }, [id]);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -177,6 +210,26 @@ export default function EventDetailPage() {
     await supabase.storage.from('media-evenements').remove([media.storage_path]);
     await supabase.from('evenement_medias').delete().eq('id', media.id);
     setMedias((prev) => prev.filter((m) => m.id !== media.id));
+  }
+
+  async function handleAddComment() {
+    if (!newComment.trim() || !session) return;
+    setSavingComment(true);
+    await supabase.from('event_commentaires').insert({
+      event_id: id,
+      auteur_id: session.user.id,
+      auteur_nom: userNom,
+      auteur_role: userFonction ?? '',
+      contenu: newComment.trim(),
+    });
+    const { data } = await supabase.from('event_commentaires')
+      .select('id, auteur_nom, auteur_role, contenu, created_at')
+      .eq('event_id', id)
+      .order('created_at', { ascending: true });
+    setCommentaires(data ?? []);
+    setNewComment('');
+    setCommentOpen(false);
+    setSavingComment(false);
   }
 
   if (loading) {
@@ -260,6 +313,73 @@ export default function EventDetailPage() {
               <Row icon={FileText} label="Commentaire" value={event.commentaire || '—'} />
             </div>
           )}
+
+          {/* Commentaires additionnels */}
+          {commentaires.length > 0 && (
+            <div className="px-4 py-3 space-y-3 border-t border-slate-800">
+              {commentaires.map((c) => {
+                const date = new Date(c.created_at);
+                const dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <div key={c.id} className="bg-slate-800/60 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-white text-xs font-semibold">{c.auteur_nom}</span>
+                      {c.auteur_role && (
+                        <span className="text-[10px] text-slate-400 bg-slate-700 px-1.5 py-0.5 rounded-full">
+                          {c.auteur_role}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-500 ml-auto">{dateStr} {timeStr}</span>
+                    </div>
+                    <p className="text-slate-300 text-sm leading-relaxed">{c.contenu}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Bouton + zone ajout */}
+          <div className="px-4 py-3 border-t border-slate-800">
+            {!commentOpen ? (
+              <button
+                onClick={() => setCommentOpen(true)}
+                className="flex items-center gap-2 text-blue-400 text-sm font-medium hover:text-blue-300 transition-colors"
+              >
+                <MessageSquarePlus className="w-4 h-4" />
+                Ajouter un commentaire
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  rows={3}
+                  placeholder="Ajoutez un élément de contexte…"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setCommentOpen(false); setNewComment(''); }}
+                    className="flex-1 bg-slate-700 text-slate-300 text-sm font-medium py-2 rounded-xl"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleAddComment}
+                    disabled={!newComment.trim() || savingComment}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-semibold py-2 rounded-xl flex items-center justify-center gap-1"
+                  >
+                    {savingComment
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Send className="w-3.5 h-3.5" />}
+                    Envoyer
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Médias section */}
