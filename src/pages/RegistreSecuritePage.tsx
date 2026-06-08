@@ -557,13 +557,21 @@ function VerifModal({ item, onClose, onSaved }: VerifModalProps) {
 type AddModalProps = { onClose: () => void; onAdded: (item: RegistreItem) => void };
 
 function AddModal({ onClose, onAdded }: AddModalProps) {
-  const [form, setForm] = useState({ installation: '', reference_reglementaire: '', organisme_verificateur: '', email_organisme: '', periodicite: 'Annuelle', jours_rappel: '' });
+  const [step, setStep] = useState<1 | 2>(1);
+  const [mode, setMode] = useState<null | 'migration' | 'numerique'>(null);
+  const [form, setForm] = useState({
+    installation: '', reference_reglementaire: '', organisme_verificateur: '',
+    email_organisme: '', periodicite: 'Annuelle', jours_rappel: '',
+    date_migration: '', nom_migration: '',
+  });
   const [saving, setSaving] = useState(false);
+
+  const inputClass = "w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500";
 
   async function handleSubmit() {
     if (!form.installation.trim()) return;
     setSaving(true);
-    const payload = {
+    const base = {
       installation: form.installation,
       reference_reglementaire: form.reference_reglementaire,
       organisme_verificateur: form.organisme_verificateur,
@@ -572,66 +580,210 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
       jours_rappel: form.jours_rappel !== '' ? parseInt(form.jours_rappel, 10) : null,
       applicable: true,
     };
+    const payload = mode === 'migration'
+      ? { ...base, date_verification: form.date_migration || null, nom_verificateur: form.nom_migration.trim(), reprise_papier: true }
+      : base;
     const { data, error } = await supabase.from('registre_securite').insert(payload).select().single();
     if (!error && data) onAdded(data as RegistreItem);
     setSaving(false);
   }
 
+  const canSubmitMigration = mode !== 'migration' || (form.date_migration.trim() !== '' && form.nom_migration.trim() !== '');
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-white font-bold text-lg">Nouvelle visite périodique</h3>
-          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="space-y-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '90vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-slate-800">
           <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Installation *</label>
-            <input value={form.installation} onChange={(e) => setForm(f => ({ ...f, installation: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Nom de l'installation" />
+            <h3 className="text-white font-bold text-lg">Nouvelle visite périodique</h3>
+            {step === 2 && <p className="text-slate-400 text-sm mt-0.5 truncate max-w-[280px]">{form.installation}</p>}
           </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Référence réglementaire</label>
-            <input value={form.reference_reglementaire} onChange={(e) => setForm(f => ({ ...f, reference_reglementaire: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: MS 73" />
-          </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Organisme vérificateur</label>
-            <input value={form.organisme_verificateur} onChange={(e) => setForm(f => ({ ...f, organisme_verificateur: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="ex: Technicien compétent" />
-          </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
-            <input type="email" value={form.email_organisme} onChange={(e) => setForm(f => ({ ...f, email_organisme: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="email@organisme.fr" />
-          </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Périodicité</label>
-            <select value={form.periodicite} onChange={(e) => setForm(f => ({ ...f, periodicite: e.target.value }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
-              {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans', 'Autre'].map((p) => <option key={p}>{p}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Rappel (jours avant)</label>
-            <input
-              type="number"
-              min="1"
-              value={form.jours_rappel}
-              onChange={(e) => setForm(f => ({ ...f, jours_rappel: e.target.value.replace(/[^0-9]/g, '') }))}
-              className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
-              placeholder="ex: 90 — laisser vide pour désactiver"
-            />
-            <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors">Annuler</button>
-          <button onClick={handleSubmit} disabled={saving || !form.installation.trim()}
-            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Ajouter
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0">
+          {step === 1 && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Installation *</label>
+                <input value={form.installation} onChange={(e) => setForm(f => ({ ...f, installation: e.target.value }))}
+                  className={inputClass} placeholder="Nom de l'installation" />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Référence réglementaire</label>
+                <input value={form.reference_reglementaire} onChange={(e) => setForm(f => ({ ...f, reference_reglementaire: e.target.value }))}
+                  className={inputClass} placeholder="ex: MS 73" />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Organisme vérificateur</label>
+                <input value={form.organisme_verificateur} onChange={(e) => setForm(f => ({ ...f, organisme_verificateur: e.target.value }))}
+                  className={inputClass} placeholder="ex: Technicien compétent" />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
+                <input type="email" value={form.email_organisme} onChange={(e) => setForm(f => ({ ...f, email_organisme: e.target.value }))}
+                  className={inputClass} placeholder="email@organisme.fr" />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Périodicité</label>
+                <select value={form.periodicite} onChange={(e) => setForm(f => ({ ...f, periodicite: e.target.value }))}
+                  className={inputClass}>
+                  {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans', 'Autre'].map((p) => <option key={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Rappel (jours avant)</label>
+                <input
+                  type="number" min="1"
+                  value={form.jours_rappel}
+                  onChange={(e) => setForm(f => ({ ...f, jours_rappel: e.target.value.replace(/[^0-9]/g, '') }))}
+                  className={inputClass}
+                  placeholder="ex: 90 — laisser vide pour désactiver"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <p className="text-slate-400 text-sm">
+                Cette nouvelle visite a-t-elle déjà été effectuée dans l'ancien registre papier ?
+              </p>
+
+              {mode === null && (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setMode('migration')}
+                    className="w-full text-left rounded-2xl border border-amber-500/30 bg-amber-500/8 hover:bg-amber-500/15 p-4 transition-colors group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+                        <Archive className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-sm group-hover:text-amber-200 transition-colors">Migration registre</p>
+                        <p className="text-slate-400 text-xs mt-1 leading-relaxed">Transférer les données de l'ancien registre cahier.</p>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMode('numerique')}
+                    className="w-full text-left rounded-2xl border border-blue-500/30 bg-blue-500/8 hover:bg-blue-500/15 p-4 transition-colors group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center shrink-0">
+                        <PlayCircle className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-sm group-hover:text-blue-200 transition-colors">Première visite numérique</p>
+                        <p className="text-slate-400 text-xs mt-1 leading-relaxed">La périodicité démarrera à la première signature numérique.</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {mode === 'migration' && (
+                <div className="space-y-4">
+                  <button type="button" onClick={() => setMode(null)} className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
+                    ← Retour
+                  </button>
+                  <div>
+                    <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Date de la dernière vérification (registre papier) *</label>
+                    <input
+                      type="date"
+                      value={form.date_migration}
+                      onChange={(e) => setForm(f => ({ ...f, date_migration: e.target.value }))}
+                      className={inputClass}
+                      style={{ colorScheme: 'dark' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Nom du vérificateur / organisme *</label>
+                    <input
+                      type="text"
+                      value={form.nom_migration}
+                      onChange={(e) => setForm(f => ({ ...f, nom_migration: e.target.value }))}
+                      placeholder="Nom ou organisme"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {mode === 'numerique' && (
+                <div className="space-y-4">
+                  <button type="button" onClick={() => setMode(null)} className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
+                    ← Retour
+                  </button>
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3">
+                    <p className="text-blue-300 text-sm leading-relaxed">
+                      L'installation sera créée sans date de vérification. La périodicité démarrera à la première signature numérique.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-6 py-4 border-t border-slate-800 flex gap-3">
+          {step === 1 ? (
+            <>
+              <button type="button" onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                disabled={!form.installation.trim()}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+              >
+                Suivant →
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => { setStep(1); setMode(null); }} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+                ← Retour
+              </button>
+              {mode === 'migration' && (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={saving || !canSubmitMigration}
+                  className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+                  Enregistrer la migration
+                </button>
+              )}
+              {mode === 'numerique' && (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={saving}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Créer
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
