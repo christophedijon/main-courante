@@ -558,11 +558,20 @@ type AddModalProps = { onClose: () => void; onAdded: (item: RegistreItem) => voi
 
 function AddModal({ onClose, onAdded }: AddModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [mode, setMode] = useState<null | 'migration' | 'numerique'>(null);
+  const [choix, setChoix] = useState<'migration' | 'nouvelle' | null>(null);
   const [form, setForm] = useState({
-    installation: '', reference_reglementaire: '', organisme_verificateur: '',
-    email_organisme: '', periodicite: 'Annuelle', jours_rappel: '',
-    date_migration: '', nom_migration: '',
+    installation: '',
+    reference_reglementaire: '',
+    organisme_verificateur: '',
+    nom_verificateur: '',
+    telephone_verificateur: '',
+    email_organisme: '',
+    periodicite: 'Annuelle',
+    jours_rappel: '',
+    observations: '',
+    observations_levees: '',
+    date_migration: '',
+    nom_migration: '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -571,24 +580,25 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
   async function handleSubmit() {
     if (!form.installation.trim()) return;
     setSaving(true);
-    const base = {
-      installation: form.installation,
-      reference_reglementaire: form.reference_reglementaire,
-      organisme_verificateur: form.organisme_verificateur,
-      email_organisme: form.email_organisme,
+    const payload = {
+      installation: form.installation.trim(),
+      reference_reglementaire: form.reference_reglementaire.trim(),
+      organisme_verificateur: form.organisme_verificateur.trim(),
+      nom_verificateur: choix === 'migration' ? form.nom_migration.trim() : form.nom_verificateur.trim(),
+      telephone_verificateur: form.telephone_verificateur.trim(),
+      email_organisme: form.email_organisme.trim(),
       periodicite: form.periodicite,
       jours_rappel: form.jours_rappel !== '' ? parseInt(form.jours_rappel, 10) : null,
+      observations: form.observations.trim(),
+      observations_levees: form.observations_levees.trim(),
       applicable: true,
+      date_verification: choix === 'migration' ? form.date_migration : null,
+      reprise_papier: choix === 'migration',
     };
-    const payload = mode === 'migration'
-      ? { ...base, date_verification: form.date_migration || null, nom_verificateur: form.nom_migration.trim(), reprise_papier: true }
-      : base;
     const { data, error } = await supabase.from('registre_securite').insert(payload).select().single();
     if (!error && data) onAdded(data as RegistreItem);
     setSaving(false);
   }
-
-  const canSubmitMigration = mode !== 'migration' || (form.date_migration.trim() !== '' && form.nom_migration.trim() !== '');
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
@@ -628,6 +638,16 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
                   className={inputClass} placeholder="ex: Technicien compétent" />
               </div>
               <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Nom du vérificateur</label>
+                <input type="text" value={form.nom_verificateur} onChange={(e) => setForm(f => ({ ...f, nom_verificateur: e.target.value }))}
+                  className={inputClass} placeholder="Nom et prénom" />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Téléphone</label>
+                <input type="tel" value={form.telephone_verificateur} onChange={(e) => setForm(f => ({ ...f, telephone_verificateur: e.target.value }))}
+                  className={inputClass} placeholder="+33 6 00 00 00 00" />
+              </div>
+              <div>
                 <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Email organisme</label>
                 <input type="email" value={form.email_organisme} onChange={(e) => setForm(f => ({ ...f, email_organisme: e.target.value }))}
                   className={inputClass} placeholder="email@organisme.fr" />
@@ -650,91 +670,74 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
                 />
                 <p className="text-[11px] text-slate-500 mt-1">Un email est envoyé ce nombre de jours avant l'échéance calculée.</p>
               </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Commentaires</label>
+                <textarea
+                  value={form.observations}
+                  onChange={(e) => setForm(f => ({ ...f, observations: e.target.value }))}
+                  rows={3}
+                  placeholder="Nomenclature de l'intervention…"
+                  className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Levée des observations</label>
+                <textarea
+                  value={form.observations_levees}
+                  onChange={(e) => setForm(f => ({ ...f, observations_levees: e.target.value }))}
+                  rows={2}
+                  placeholder="Mesures correctives apportées…"
+                  className={`w-full mt-1.5 border rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none resize-none transition-colors ${form.observations_levees ? 'bg-emerald-950/40 border-emerald-700/40 focus:border-emerald-500' : 'bg-slate-800 border-slate-700 focus:border-blue-500'}`}
+                />
+              </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4">
               <p className="text-slate-400 text-sm">
-                Cette nouvelle visite a-t-elle déjà été effectuée dans l'ancien registre papier ?
+                Cette visite a-t-elle déjà été effectuée dans l'ancien registre papier ?
               </p>
 
-              {mode === null && (
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => setMode('migration')}
-                    className="w-full text-left rounded-2xl border border-amber-500/30 bg-amber-500/8 hover:bg-amber-500/15 p-4 transition-colors group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
-                        <Archive className="w-5 h-5 text-amber-400" />
-                      </div>
-                      <div>
-                        <p className="text-white font-bold text-sm group-hover:text-amber-200 transition-colors">Migration registre</p>
-                        <p className="text-slate-400 text-xs mt-1 leading-relaxed">Transférer les données de l'ancien registre cahier.</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMode('numerique')}
-                    className="w-full text-left rounded-2xl border border-blue-500/30 bg-blue-500/8 hover:bg-blue-500/15 p-4 transition-colors group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center shrink-0">
-                        <PlayCircle className="w-5 h-5 text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="text-white font-bold text-sm group-hover:text-blue-200 transition-colors">Première visite numérique</p>
-                        <p className="text-slate-400 text-xs mt-1 leading-relaxed">La périodicité démarrera à la première signature numérique.</p>
-                      </div>
-                    </div>
-                  </button>
+              <div
+                onClick={() => setChoix('migration')}
+                className={`border rounded-2xl p-4 cursor-pointer transition-all ${choix === 'migration' ? 'border-amber-500/60 bg-amber-500/10' : 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'}`}
+              >
+                <div className="flex items-center gap-3 mb-1">
+                  <Archive className="w-5 h-5 text-amber-400" />
+                  <span className="text-white font-semibold">Migration registre</span>
                 </div>
-              )}
-
-              {mode === 'migration' && (
-                <div className="space-y-4">
-                  <button type="button" onClick={() => setMode(null)} className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
-                    ← Retour
-                  </button>
-                  <div>
-                    <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Date de la dernière vérification (registre papier) *</label>
+                <p className="text-slate-400 text-xs mb-3">Transférer les données de l'ancien registre papier.</p>
+                {choix === 'migration' && (
+                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="date"
                       value={form.date_migration}
                       onChange={(e) => setForm(f => ({ ...f, date_migration: e.target.value }))}
-                      className={inputClass}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
                       style={{ colorScheme: 'dark' }}
                     />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Nom du vérificateur / organisme *</label>
                     <input
                       type="text"
                       value={form.nom_migration}
                       onChange={(e) => setForm(f => ({ ...f, nom_migration: e.target.value }))}
-                      placeholder="Nom ou organisme"
-                      className={inputClass}
+                      placeholder="Nom du vérificateur / organisme"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
                     />
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {mode === 'numerique' && (
-                <div className="space-y-4">
-                  <button type="button" onClick={() => setMode(null)} className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
-                    ← Retour
-                  </button>
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3">
-                    <p className="text-blue-300 text-sm leading-relaxed">
-                      L'installation sera créée sans date de vérification. La périodicité démarrera à la première signature numérique.
-                    </p>
-                  </div>
+              <div
+                onClick={() => setChoix('nouvelle')}
+                className={`border rounded-2xl p-4 cursor-pointer transition-all ${choix === 'nouvelle' ? 'border-blue-500/60 bg-blue-500/10' : 'border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10'}`}
+              >
+                <div className="flex items-center gap-3 mb-1">
+                  <PlayCircle className="w-5 h-5 text-blue-400" />
+                  <span className="text-white font-semibold">Première visite numérique</span>
                 </div>
-              )}
+                <p className="text-slate-400 text-xs">La périodicité démarrera à la première signature numérique.</p>
+              </div>
             </div>
           )}
         </div>
@@ -757,31 +760,18 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
             </>
           ) : (
             <>
-              <button type="button" onClick={() => { setStep(1); setMode(null); }} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+              <button type="button" onClick={() => { setStep(1); setChoix(null); }} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
                 ← Retour
               </button>
-              {mode === 'migration' && (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={saving || !canSubmitMigration}
-                  className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
-                  Enregistrer la migration
-                </button>
-              )}
-              {mode === 'numerique' && (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={saving}
-                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Créer
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saving || !choix || (choix === 'migration' && (!form.date_migration || !form.nom_migration.trim()))}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Créer
+              </button>
             </>
           )}
         </div>
@@ -789,6 +779,7 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
     </div>
   );
 }
+
 
 // ─── Edit Modal ──────────────────────────────────────────────────────────────
 
