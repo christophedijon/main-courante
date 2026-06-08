@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, Clock, Minus, FileText, ChevronDown, ChevronUp,
-  FileDown, Printer, X, PenLine, RotateCcw, Archive, Pencil,
+  FileDown, Printer, X, PenLine, RotateCcw, Pencil,
 } from 'lucide-react';
 import SignaturePad from 'signature_pad';
 import { supabase } from '../../lib/supabase';
@@ -132,14 +132,12 @@ function RegistreCard({
   config,
   onFiche,
   canEdit,
-  onReprise,
   onEditCoordonnees,
 }: {
   item: RegistreItem;
   config: typeof GROUP_CONFIG[0];
   onFiche: (item: RegistreItem) => void;
   canEdit: boolean;
-  onReprise: (item: RegistreItem) => void;
   onEditCoordonnees: (item: RegistreItem) => void;
 }) {
   const nextDate = item.date_verification ? getNextDate(item.date_verification, item.periodicite) : null;
@@ -148,9 +146,6 @@ function RegistreCard({
   const pdfUrl = item.rapport_url
     ? `https://docs.google.com/viewer?url=${encodeURIComponent(item.rapport_url)}&embedded=true`
     : null;
-
-  const showRepriseBtn = canEdit && item.applicable && !item.date_verification && !item.reprise_papier;
-  const showModifierRepriseBtn = canEdit && item.applicable && item.reprise_papier;
 
   return (
     <div className={`rounded-2xl border p-4 space-y-3 ${config.cardBorder} ${config.cardBg}`}>
@@ -163,7 +158,7 @@ function RegistreCard({
             </span>
             {item.reprise_papier && (
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                Reprise papier
+                Migration registre
               </span>
             )}
           </div>
@@ -228,26 +223,6 @@ function RegistreCard({
         </a>
       )}
 
-      {showRepriseBtn && (
-        <button
-          onClick={() => onReprise(item)}
-          className="flex items-center gap-2 text-[12px] text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl transition-colors w-full"
-        >
-          <Archive className="w-3.5 h-3.5 shrink-0" />
-          Reprise papier
-        </button>
-      )}
-
-      {showModifierRepriseBtn && (
-        <button
-          onClick={() => onReprise(item)}
-          className="flex items-center gap-2 text-[12px] text-slate-400 hover:text-slate-300 bg-slate-800/50 border border-slate-700/50 px-3 py-2 rounded-xl transition-colors w-full"
-        >
-          <Archive className="w-3.5 h-3.5 shrink-0" />
-          Modifier la reprise
-        </button>
-      )}
-
       {canEdit && item.applicable && (
         <button
           onClick={() => onEditCoordonnees(item)}
@@ -286,17 +261,9 @@ function CoordonneesModal({
   const [coordNom, setCoordNom] = useState(item.nom_verificateur ?? '');
   const [coordEmail, setCoordEmail] = useState(item.email_organisme ?? '');
   const [coordTel, setCoordTel] = useState(item.telephone_verificateur ?? '');
-  const [coordReference, setCoordReference] = useState(item.reference_reglementaire ?? '');
-  const [coordPeriodicite, setCoordPeriodicite] = useState(item.periodicite ?? 'Annuelle');
-  const [coordJoursRappel, setCoordJoursRappel] = useState(item.jours_rappel !== null && item.jours_rappel !== undefined ? String(item.jours_rappel) : '');
-  const [coordDateVerification, setCoordDateVerification] = useState(item.date_verification ?? '');
-  const [coordObservations, setCoordObservations] = useState(item.observations ?? '');
-  const [coordRapportUrl, setCoordRapportUrl] = useState(item.rapport_url ?? '');
-  const [coordObservationsLevees, setCoordObservationsLevees] = useState(item.observations_levees ?? '');
   const [saving, setSaving] = useState(false);
 
   const inputClass = "w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
-  const selectClass = "w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-slate-500 transition-colors";
 
   async function handleSave() {
     setSaving(true);
@@ -307,13 +274,6 @@ function CoordonneesModal({
         nom_verificateur: coordNom.trim(),
         email_organisme: coordEmail.trim(),
         telephone_verificateur: coordTel.trim(),
-        reference_reglementaire: coordReference.trim(),
-        periodicite: coordPeriodicite,
-        jours_rappel: coordJoursRappel !== '' ? parseInt(coordJoursRappel, 10) : null,
-        date_verification: coordDateVerification !== '' ? coordDateVerification : null,
-        observations: coordObservations.trim(),
-        rapport_url: coordRapportUrl.trim(),
-        observations_levees: coordObservationsLevees.trim(),
         updated_at: new Date().toISOString(),
       })
       .eq('id', item.id);
@@ -339,7 +299,7 @@ function CoordonneesModal({
         {/* En-tête */}
         <div style={{ flexShrink: 0 }} className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-white text-[15px]">Informations de la visite</p>
+            <p className="font-bold text-white text-[15px]">Coordonnées du vérificateur</p>
             <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
           </div>
           <button
@@ -352,10 +312,6 @@ function CoordonneesModal({
 
         {/* Corps scrollable */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} className="px-4 py-4 space-y-4">
-
-          {/* ── Vérificateur ── */}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Vérificateur</p>
-
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Organisme / Société</p>
             <input type="text" value={coordOrganisme} onChange={(e) => setCoordOrganisme(e.target.value)}
@@ -376,55 +332,6 @@ function CoordonneesModal({
             <input type="tel" value={coordTel} onChange={(e) => setCoordTel(e.target.value)}
               placeholder="Téléphone du vérificateur" className={inputClass} />
           </div>
-
-          {/* ── Visite ── */}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 pt-2">Visite périodique</p>
-
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Référence réglementaire</p>
-            <input type="text" value={coordReference} onChange={(e) => setCoordReference(e.target.value)}
-              placeholder="ex: MS 73" className={inputClass} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Périodicité</p>
-            <select value={coordPeriodicite} onChange={(e) => setCoordPeriodicite(e.target.value)} className={selectClass}>
-              {['Mensuelle', 'Trimestrielle', 'Semestrielle', 'Annuelle', 'Triennale', 'Quinquennale', 'Sans'].map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Rappel (jours avant)</p>
-            <input type="number" min="1" value={coordJoursRappel}
-              onChange={(e) => setCoordJoursRappel(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="ex: 90 — laisser vide pour désactiver" className={inputClass} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Date de vérification</p>
-            <input type="date" value={coordDateVerification} onChange={(e) => setCoordDateVerification(e.target.value)}
-              className={inputClass} style={{ colorScheme: 'dark' }} />
-          </div>
-
-          {/* ── Compte-rendu ── */}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 pt-2">Compte-rendu</p>
-
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Observations</p>
-            <textarea rows={3} value={coordObservations} onChange={(e) => setCoordObservations(e.target.value)}
-              placeholder="Observations de la vérification…"
-              className={`${inputClass} resize-none`} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Levée des observations</p>
-            <textarea rows={2} value={coordObservationsLevees} onChange={(e) => setCoordObservationsLevees(e.target.value)}
-              placeholder="Mesures correctives…"
-              className={`${inputClass} resize-none ${coordObservationsLevees ? 'border-emerald-700/40' : ''}`} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">URL du rapport PDF</p>
-            <input type="url" value={coordRapportUrl} onChange={(e) => setCoordRapportUrl(e.target.value)}
-              placeholder="https://…" className={inputClass} />
-          </div>
         </div>
 
         {/* Pied */}
@@ -443,126 +350,6 @@ function CoordonneesModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Reprise papier modal ─────────────────────────────────────────────────────
-
-function RepriseModal({
-  item,
-  onClose,
-  onSaved,
-}: {
-  item: RegistreItem;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [repriseDate, setRepriseDate] = useState(item.date_verification ?? '');
-  const [repriseNom, setRepriseNom] = useState(item.nom_verificateur ?? '');
-  const [saving, setSaving] = useState(false);
-
-  const canSave = repriseDate.trim() !== '' && repriseNom.trim() !== '';
-
-  const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors";
-
-  async function handleSave() {
-    if (!canSave) return;
-    setSaving(true);
-    const { error } = await supabase
-      .from('registre_securite')
-      .update({
-        date_verification: repriseDate,
-        nom_verificateur: repriseNom.trim(),
-        reprise_papier: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', item.id);
-    setSaving(false);
-    if (!error) {
-      onSaved();
-      onClose();
-    } else {
-      console.error('Reprise save error:', error);
-    }
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9997, background: '#020617',
-                  display: 'flex', flexDirection: 'column', height: '100vh' }}>
-
-      {/* 1. HEADER — enfant direct, ne rétrécit jamais */}
-      <div style={{ flexShrink: 0, borderBottom: '1px solid #1e293b' }}
-           className="px-4 py-3 flex items-start justify-between">
-        <div>
-          <p className="font-bold text-white text-[15px]">Reprise registre papier</p>
-          <p className="text-slate-400 text-xs mt-0.5 truncate">{item.installation}</p>
-        </div>
-        <button onClick={onClose} className="p-2 rounded-full bg-slate-800 text-white ml-2">
-          <X size={18} />
-        </button>
-      </div>
-
-      {/* 2. BODY — enfant direct, prend tout l'espace restant et scrolle */}
-      <div style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto',
-                    WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
-           className="px-4 py-4 space-y-4">
-
-        {/* Info banner */}
-        <div className="flex gap-2 rounded-xl px-3 py-3" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
-          <Archive className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-amber-300 text-xs leading-relaxed">
-            Ces données proviennent du registre papier antérieur. Elles seront remplacées lors de la prochaine vérification numérique.
-          </p>
-        </div>
-
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
-            Dernière vérification (registre papier)
-          </p>
-          <input
-            type="date"
-            value={repriseDate}
-            onChange={(e) => setRepriseDate(e.target.value)}
-            className={inputClass}
-            style={{ colorScheme: 'dark' }}
-          />
-        </div>
-
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
-            Nom du vérificateur / organisme
-          </p>
-          <input
-            type="text"
-            value={repriseNom}
-            onChange={(e) => setRepriseNom(e.target.value)}
-            placeholder="Nom ou organisme"
-            className={inputClass}
-          />
-        </div>
-      </div>
-
-      {/* 3. FOOTER — enfant direct, ne rétrécit jamais — HORS du scroll */}
-      <div style={{ flexShrink: 0, borderTop: '1px solid #1e293b', background: '#020617',
-                    paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
-           className="px-4 pt-3">
-        <button
-          onClick={handleSave}
-          disabled={!canSave || saving}
-          className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-          style={{
-            background: canSave && !saving
-              ? 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))'
-              : 'rgba(245,158,11,0.2)',
-            color: '#fff',
-            border: '1px solid rgba(245,158,11,0.4)',
-          }}
-        >
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
-        </button>
-      </div>
-
     </div>
   );
 }
@@ -966,7 +753,6 @@ export default function RegistreMobilePage() {
   const [entreprise, setEntreprise] = useState<EntrepriseInfo | null>(null);
   const [ficheItem, setFicheItem] = useState<RegistreItem | null>(null);
   const [signItem, setSignItem] = useState<RegistreItem | null>(null);
-  const [repriseItem, setRepriseItem] = useState<RegistreItem | null>(null);
   const [coordItem, setCoordItem] = useState<RegistreItem | null>(null);
 
   const canSign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
@@ -1096,7 +882,7 @@ export default function RegistreMobilePage() {
                 {(!isNonApp || !collapseNonApp) && (
                   <div className="space-y-3">
                     {group.items.map((item) => (
-                      <RegistreCard key={item.id} item={item} config={group} onFiche={setFicheItem} canEdit={canSign} onReprise={setRepriseItem} onEditCoordonnees={setCoordItem} />
+                      <RegistreCard key={item.id} item={item} config={group} onFiche={setFicheItem} canEdit={canSign} onEditCoordonnees={setCoordItem} />
                     ))}
                   </div>
                 )}
@@ -1202,15 +988,6 @@ export default function RegistreMobilePage() {
               if (data) setSignItem(data as RegistreItem);
             }
           }}
-        />
-      )}
-
-      {/* ── Reprise papier modal ── */}
-      {repriseItem && (
-        <RepriseModal
-          item={repriseItem}
-          onClose={() => setRepriseItem(null)}
-          onSaved={loadData}
         />
       )}
 
