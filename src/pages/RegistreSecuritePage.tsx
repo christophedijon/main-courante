@@ -1394,6 +1394,8 @@ export default function RegistreSecuritePage() {
   const [collapseNonApp, setCollapseNonApp] = useState(true);
   const [showConfirmations, setShowConfirmations] = useState(false);
   const [userFonction, setUserFonction] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const mirrorScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!session?.user?.email) return;
@@ -1434,6 +1436,22 @@ export default function RegistreSecuritePage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const table = tableScrollRef.current;
+    const mirror = mirrorScrollRef.current;
+    if (!table || !mirror) return;
+    const inner = mirror.firstElementChild as HTMLElement;
+    if (inner) inner.style.width = table.scrollWidth + 'px';
+    const syncFromTable = () => { mirror.scrollLeft = table.scrollLeft; };
+    const syncFromMirror = () => { table.scrollLeft = mirror.scrollLeft; };
+    table.addEventListener('scroll', syncFromTable);
+    mirror.addEventListener('scroll', syncFromMirror);
+    return () => {
+      table.removeEventListener('scroll', syncFromTable);
+      mirror.removeEventListener('scroll', syncFromMirror);
+    };
+  }, [loading]);
 
   function handleUpdate(id: string, patch: Partial<RegistreItem>) {
     setItems((prev) => prev.map((it) => it.id === id ? { ...it, ...patch } : it));
@@ -1548,7 +1566,7 @@ export default function RegistreSecuritePage() {
             <MobileCardView items={items} historiqueCounts={historiqueCounts} />
 
             {/* Desktop table — hidden on small screens */}
-            <div className="hidden md:block bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto">
+            <div className="hidden md:block bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto" ref={tableScrollRef}>
               <div className="">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -1605,6 +1623,14 @@ export default function RegistreSecuritePage() {
                   )}
                 </div>
               )}
+            </div>
+            {/* Sticky scroll mirror — syncs horizontal scroll at bottom of viewport */}
+            <div
+              ref={mirrorScrollRef}
+              className="hidden md:block sticky bottom-0 overflow-x-auto z-10"
+              style={{ height: 12 }}
+            >
+              <div style={{ height: 1 }} />
             </div>
           </>
         )}
