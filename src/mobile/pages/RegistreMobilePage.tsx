@@ -381,6 +381,10 @@ function SignatureModal({
   const [observationsSig, setObservationsSig] = useState('');
 
   useEffect(() => {
+    setVerificateurNom(item.nom_verificateur ?? '');
+  }, [item.nom_verificateur]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
