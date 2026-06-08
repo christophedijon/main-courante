@@ -13,7 +13,8 @@ import { BeaconScannerBanner } from '../components/BeaconScannerBanner';
 import { useBeaconScanner } from '../../hooks/useBeaconScanner';
 import { useJauge } from '../../hooks/useJauge';
 import { supabase } from '../../lib/supabase';
-import { computeConformite, type ConformiteResult } from '../../lib/registreStatut';
+import { computeConformite, type ConformiteResult, type RegistreItemMin } from '../../lib/registreStatut';
+import ConformiteDonut from '../components/ConformiteDonut';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -35,6 +36,7 @@ export default function HomePage() {
     userFonction === 'Chef de poste';
 
   const [registreConformite, setRegistreConformite] = useState<ConformiteResult | null>(null);
+  const [registreItems, setRegistreItems] = useState<RegistreItemMin[]>([]);
   const [jaugeModalOpen, setJaugeModalOpen] = useState(false);
   const [jaugeCount, setJaugeCount] = useState<number | null>(null);
 
@@ -46,7 +48,10 @@ export default function HomePage() {
       .from('registre_securite')
       .select('applicable, periodicite, date_verification')
       .then(({ data }) => {
-        if (data) setRegistreConformite(computeConformite(data));
+        if (data) {
+          setRegistreItems(data as RegistreItemMin[]);
+          setRegistreConformite(computeConformite(data));
+        }
       });
   }, [canSeeRegistre]);
 
@@ -163,15 +168,7 @@ export default function HomePage() {
             <p className="text-white font-black text-4xl mt-1 leading-none">{todayCount}</p>
           </div>
 
-          {/* Registre conformité — Direction / Chef de poste / Super admin only */}
-          {canSeeRegistre && registreConformite && (() => {
-            const colorMap = { vert: '#22c55e', orange: '#f59e0b', rouge: '#ef4444' };
-            const c = colorMap[registreConformite.couleur];
-            const r = 16;
-            const stroke = 4;
-            const circ = 2 * Math.PI * r;
-            const filled = (registreConformite.pct / 100) * circ;
-            return (
+          {canSeeRegistre && registreConformite && (
               <button
                 onClick={() => navigate('/mobile/registre-securite')}
                 className="flex flex-col items-center justify-center rounded-2xl px-3 py-3 min-h-[76px] min-w-[76px] active:scale-95 transition-transform"
@@ -182,46 +179,9 @@ export default function HomePage() {
                   WebkitBackdropFilter: 'blur(12px)',
                 }}
               >
-                {/* Mini ring */}
-                <svg width={r * 2 + stroke * 2} height={r * 2 + stroke * 2} style={{ transform: 'rotate(-90deg)' }}>
-                  <circle
-                    cx={r + stroke}
-                    cy={r + stroke}
-                    r={r}
-                    fill="none"
-                    stroke="rgba(255,255,255,0.1)"
-                    strokeWidth={stroke}
-                  />
-                  <circle
-                    cx={r + stroke}
-                    cy={r + stroke}
-                    r={r}
-                    fill="none"
-                    stroke={c}
-                    strokeWidth={stroke}
-                    strokeLinecap="round"
-                    strokeDasharray={`${filled} ${circ - filled}`}
-                    style={{ filter: `drop-shadow(0 0 4px ${c}88)` }}
-                  />
-                  <text
-                    x={r + stroke}
-                    y={r + stroke}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize="9"
-                    fontWeight="800"
-                    fill={c}
-                    style={{ transform: 'rotate(90deg)', transformOrigin: `${r + stroke}px ${r + stroke}px` }}
-                  >
-                    {registreConformite.pct}%
-                  </text>
-                </svg>
-                <span className="text-[10px] font-semibold mt-1" style={{ color: 'rgba(148,163,184,0.7)' }}>
-                  Registre
-                </span>
+                <ConformiteDonut items={registreItems} size={72} />
               </button>
-            );
-          })()}
+          )}
         </div>
 
         {/* ── Démarrer la ronde button (Agent de Sécurité only) ── */}
