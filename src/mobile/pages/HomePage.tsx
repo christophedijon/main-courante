@@ -121,9 +121,9 @@ export default function HomePage() {
         </div>
 
         {/* ── Info cards row ── */}
-        <div className="mt-5 flex items-stretch gap-3">
+        <div className="mt-5 grid grid-cols-3 gap-3">
           <div
-            className="flex-1 flex items-center gap-3 rounded-2xl px-4 py-3 min-h-[76px]"
+            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 min-h-[76px]"
             style={{
               background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -151,7 +151,7 @@ export default function HomePage() {
           </div>
 
           <div
-            className="flex flex-col justify-center min-w-[130px] rounded-2xl px-4 py-3 min-h-[76px]"
+            className="w-full flex flex-col justify-center rounded-2xl px-4 py-3 min-h-[76px]"
             style={{
               background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -171,7 +171,7 @@ export default function HomePage() {
           {canSeeRegistre && registreConformite && (
               <button
                 onClick={() => navigate('/mobile/registre-securite')}
-                className="flex flex-col items-center justify-center rounded-2xl px-3 py-3 min-h-[76px] min-w-[76px] active:scale-95 transition-transform"
+                className="w-full flex flex-col items-center justify-center rounded-2xl px-3 py-3 min-h-[76px] active:scale-95 transition-transform"
                 style={{
                   background: 'rgba(255,255,255,0.04)',
                   border: '1px solid rgba(255,255,255,0.08)',

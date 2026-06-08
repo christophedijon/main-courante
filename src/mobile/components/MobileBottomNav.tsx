@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { Home, ShieldAlert, Clock, Search, User, Settings } from 'lucide-react';
+import { Home, Briefcase, Clock, Search, User, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useUnsignedDocs } from '../hooks/useUnsignedDocs';
 
 const baseTabs = [
   { to: '/mobile',            label: 'Accueil',        Icon: Home,        end: true  },
-  { to: '/mobile/outils',     label: 'Boite à Outils', Icon: ShieldAlert, end: false },
+  { to: '/mobile/outils',     label: 'Boîte à outils', Icon: Briefcase,   end: false },
   { to: '/mobile/historique', label: 'Historique',     Icon: Clock,       end: false },
   { to: '/mobile/recherche',  label: 'Recherche',      Icon: Search,      end: false },
   { to: '/mobile/profil',     label: 'Profil',         Icon: User,        end: false },
@@ -55,7 +55,7 @@ export default function MobileBottomNav() {
                       </span>
                     )}
                   </span>
-                  <span className={`text-[10px] leading-tight tracking-wide transition-all ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                  <span className={`text-[10px] leading-tight tracking-wide text-center transition-all ${isActive ? 'font-semibold' : 'font-medium'}`}>
                     {label}
                   </span>
                 </>
