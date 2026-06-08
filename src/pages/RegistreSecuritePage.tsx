@@ -1548,8 +1548,8 @@ export default function RegistreSecuritePage() {
             <MobileCardView items={items} historiqueCounts={historiqueCounts} />
 
             {/* Desktop table — hidden on small screens */}
-            <div className="hidden md:block bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="hidden md:block bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto">
+              <div className="">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-800/60 border-b border-slate-700">
@@ -1586,7 +1586,7 @@ export default function RegistreSecuritePage() {
                     {nonApplicable.length} visite(s) périodique(s) sans objet
                   </button>
                   {!collapseNonApp && (
-                    <div className="overflow-x-auto">
+                    <div className="">
                       <table className="w-full text-left border-collapse">
                         <tbody>
                           {nonApplicable.map((item) => (
