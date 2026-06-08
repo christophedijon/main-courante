@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardList, Upload, Eye, History, X, ChevronDown, ChevronUp,
   Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2, Pencil, Trash2,
+  Archive, PlayCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +25,7 @@ type RegistreItem = {
   observations_levees: string;
   rapport_url: string;
   updated_at: string;
+  reprise_papier: boolean;
   confirme_par_organisme: boolean;
   confirme_at: string | null;
   confirme_organisme_email: string | null;
@@ -835,6 +837,200 @@ function EditModal({ item, onClose, onSaved, onDeleted, onDeleteRequest }: EditM
   );
 }
 
+// ─── Activation Modal ────────────────────────────────────────────────────────
+
+function ActivationModal({
+  item,
+  onClose,
+  onUpdate,
+}: {
+  item: RegistreItem;
+  onClose: () => void;
+  onUpdate: (id: string, patch: Partial<RegistreItem>) => void;
+}) {
+  const [mode, setMode] = useState<null | 'migration' | 'numerique'>(null);
+  const [migrationDate, setMigrationDate] = useState('');
+  const [migrationNom, setMigrationNom] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const canSaveMigration = migrationDate.trim() !== '' && migrationNom.trim() !== '';
+
+  const inputClass = "w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500";
+
+  async function handleMigration() {
+    if (!canSaveMigration) return;
+    setSaving(true);
+    const { error } = await supabase.from('registre_securite').update({
+      applicable: true,
+      date_verification: migrationDate,
+      nom_verificateur: migrationNom.trim(),
+      reprise_papier: true,
+      updated_at: new Date().toISOString(),
+    }).eq('id', item.id);
+    setSaving(false);
+    if (!error) {
+      onUpdate(item.id, { applicable: true, date_verification: migrationDate, nom_verificateur: migrationNom.trim(), reprise_papier: true });
+      onClose();
+    }
+  }
+
+  async function handleNumerique() {
+    setSaving(true);
+    const { error } = await supabase.from('registre_securite').update({
+      applicable: true,
+      updated_at: new Date().toISOString(),
+    }).eq('id', item.id);
+    setSaving(false);
+    if (!error) {
+      onUpdate(item.id, { applicable: true });
+      onClose();
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '90vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-slate-800">
+          <div>
+            <h3 className="text-white font-bold text-lg">Première activation</h3>
+            <p className="text-slate-400 text-sm mt-0.5 truncate max-w-[280px]">{item.installation}</p>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
+          {/* Choice cards */}
+          {mode === null && (
+            <div className="space-y-3">
+              {/* Card A — Migration registre */}
+              <button
+                type="button"
+                onClick={() => setMode('migration')}
+                className="w-full text-left rounded-2xl border border-amber-500/30 bg-amber-500/8 hover:bg-amber-500/15 p-4 transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+                    <Archive className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-white font-bold text-sm group-hover:text-amber-200 transition-colors">Migration registre</p>
+                    <p className="text-slate-400 text-xs mt-1 leading-relaxed">Transférer les données de l'ancien registre cahier.</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Card B — Première visite numérique */}
+              <button
+                type="button"
+                onClick={() => setMode('numerique')}
+                className="w-full text-left rounded-2xl border border-blue-500/30 bg-blue-500/8 hover:bg-blue-500/15 p-4 transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center shrink-0">
+                    <PlayCircle className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-white font-bold text-sm group-hover:text-blue-200 transition-colors">Première visite numérique</p>
+                    <p className="text-slate-400 text-xs mt-1 leading-relaxed">La périodicité démarrera à la première signature numérique.</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Migration fields */}
+          {mode === 'migration' && (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setMode(null)}
+                className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+              >
+                ← Retour
+              </button>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Date de la dernière vérification (registre papier) *</label>
+                <input
+                  type="date"
+                  value={migrationDate}
+                  onChange={(e) => setMigrationDate(e.target.value)}
+                  className={inputClass}
+                  style={{ colorScheme: 'dark' }}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Nom du vérificateur / organisme *</label>
+                <input
+                  type="text"
+                  value={migrationNom}
+                  onChange={(e) => setMigrationNom(e.target.value)}
+                  placeholder="Nom ou organisme"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Numérique confirmation */}
+          {mode === 'numerique' && (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setMode(null)}
+                className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+              >
+                ← Retour
+              </button>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3">
+                <p className="text-blue-300 text-sm leading-relaxed">
+                  L'installation sera activée sans date de vérification. La périodicité démarrera à la première signature numérique.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-6 py-4 border-t border-slate-800 flex gap-3">
+          <button type="button" onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors text-sm">
+            Annuler
+          </button>
+          {mode === 'migration' && (
+            <button
+              type="button"
+              onClick={handleMigration}
+              disabled={!canSaveMigration || saving}
+              className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+              Enregistrer la migration
+            </button>
+          )}
+          {mode === 'numerique' && (
+            <button
+              type="button"
+              onClick={handleNumerique}
+              disabled={saving}
+              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
+              Activer
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Desktop Table Row ───────────────────────────────────────────────────────
 
 type RowProps = {
@@ -851,14 +1047,24 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onDeleted, onHi
   const [showVerif, setShowVerif] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showActivationModal, setShowActivationModal] = useState(false);
 
   const statut = getStatut(item.date_verification, item.periodicite, item.applicable);
   const nextDate = item.date_verification ? getNextDate(item.date_verification, item.periodicite) : null;
 
   async function handleToggleApplicable() {
     const newVal = !item.applicable;
-    const { error } = await supabase.from('registre_securite').update({ applicable: newVal, updated_at: new Date().toISOString() }).eq('id', item.id);
-    if (!error) onUpdate(item.id, { applicable: newVal });
+    if (!newVal) {
+      const { error } = await supabase.from('registre_securite').update({ applicable: false, updated_at: new Date().toISOString() }).eq('id', item.id);
+      if (!error) onUpdate(item.id, { applicable: false });
+      return;
+    }
+    if (item.date_verification !== null) {
+      const { error } = await supabase.from('registre_securite').update({ applicable: true, updated_at: new Date().toISOString() }).eq('id', item.id);
+      if (!error) onUpdate(item.id, { applicable: true });
+      return;
+    }
+    setShowActivationModal(true);
   }
 
   function handleVerifSaved(updated: RegistreItem) {
@@ -1007,6 +1213,13 @@ function RegistreRow({ item, historiqueCount, onUpdate, onSaved, onDeleted, onHi
           item={item}
           onCancel={() => setShowDeleteConfirm(false)}
           onConfirm={(status) => { setShowDeleteConfirm(false); onDeleted(item.id, status); }}
+        />
+      )}
+      {showActivationModal && (
+        <ActivationModal
+          item={item}
+          onClose={() => setShowActivationModal(false)}
+          onUpdate={onUpdate}
         />
       )}
     </>
