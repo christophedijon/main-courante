@@ -52,7 +52,7 @@ function fmtDate(iso: string): string {
 }
 
 export default function DashboardSignaturesPage() {
-  const { signOut } = useAuth();
+  const { signOut, etablissementId } = useAuth();
   const navigate = useNavigate();
 
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -69,11 +69,15 @@ export default function DashboardSignaturesPage() {
 
   async function load() {
     setLoading(true);
-    const [docsRes, sigsRes, agentsRes] = await Promise.all([
-      supabase.from('toolbox_documents').select('id, titre, categorie, destinataires, content_version').eq('actif', true).eq('signature_requise', true),
-      supabase.from('signatures').select('*'),
-      supabase.from('managed_users').select('id, email, fonction, auth_user_id').order('email'),
-    ]);
+    const docsQuery = supabase.from('toolbox_documents').select('id, titre, categorie, destinataires, content_version').eq('actif', true).eq('signature_requise', true);
+    const sigsQuery = supabase.from('signatures').select('*');
+    const agentsQuery = supabase.from('managed_users').select('id, email, fonction, auth_user_id').order('email');
+    if (etablissementId) {
+      docsQuery.eq('etablissement_id', etablissementId);
+      sigsQuery.eq('etablissement_id', etablissementId);
+      agentsQuery.eq('etablissement_id', etablissementId);
+    }
+    const [docsRes, sigsRes, agentsRes] = await Promise.all([docsQuery, sigsQuery, agentsQuery]);
 
     const agentList = (agentsRes.data ?? []) as Agent[];
     setDocs((docsRes.data ?? []) as Doc[]);
