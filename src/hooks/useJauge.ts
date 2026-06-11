@@ -10,6 +10,7 @@ type EntrepriseJaugeConfig = {
   effectif_public: number;
   mode_jauge: ModeJauge;
   url_billetterie: string;
+  frequence_billetterie: number;
 };
 
 export type UseJaugeReturn = {
@@ -57,7 +58,7 @@ export function useJauge(): UseJaugeReturn {
     async function load() {
       const { data: cfg } = await supabase
         .from('entreprise')
-        .select('id, effectif_public, mode_jauge, url_billetterie')
+        .select('id, effectif_public, mode_jauge, url_billetterie, frequence_billetterie')
         .limit(1)
         .maybeSingle();
 
@@ -151,9 +152,10 @@ export function useJauge(): UseJaugeReturn {
     }
 
     fetchBilletterie();
-    const interval = setInterval(fetchBilletterie, 10 * 60 * 1000);
+    const ms = (config.frequence_billetterie ?? 10) * 60 * 1000;
+    const interval = setInterval(fetchBilletterie, ms);
     return () => clearInterval(interval);
-  }, [config?.mode_jauge, config?.url_billetterie]);
+  }, [config?.mode_jauge, config?.url_billetterie, config?.frequence_billetterie]);
 
   async function incrementJauge(delta: number, source: 'app' | 'flic' | 'manuel') {
     if (!config || !session?.user) return;

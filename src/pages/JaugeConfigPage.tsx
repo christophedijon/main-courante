@@ -15,6 +15,7 @@ type EntrepriseJauge = {
   mode_jauge: ModeJauge;
   effectif_public: number;
   url_billetterie: string;
+  frequence_billetterie: number;
 };
 
 type JaugeEtat = {
@@ -44,7 +45,7 @@ export default function JaugeConfigPage() {
     const [entrepriseRes, etatRes] = await Promise.all([
       supabase
         .from('entreprise')
-        .select('id, mode_jauge, effectif_public, url_billetterie')
+        .select('id, mode_jauge, effectif_public, url_billetterie, frequence_billetterie')
         .limit(1)
         .maybeSingle(),
       supabase
@@ -266,34 +267,62 @@ export default function JaugeConfigPage() {
                     Flux billetterie automatique
                   </p>
                   <p className="text-slate-400 text-xs leading-relaxed mb-3">
-                    La jauge se met à jour automatiquement toutes les 10 minutes
-                    depuis votre logiciel de billetterie ZAPSIS.
+                    La jauge se met à jour automatiquement depuis votre logiciel de billetterie ZAPSIS.
                   </p>
                   {entreprise?.mode_jauge === 'automatique' && (
-                    <div className="mt-2">
-                      <label className="text-xs text-slate-400 uppercase tracking-wide">
-                        URL du flux billetterie
-                      </label>
-                      <input
-                        type="text"
-                        value={entreprise.url_billetterie ?? ''}
-                        onChange={(e) => setEntreprise({
-                          ...entreprise, url_billetterie: e.target.value
-                        })}
-                        onBlur={async (e) => {
-                          await supabase.from('entreprise')
-                            .update({ url_billetterie: e.target.value })
-                            .eq('id', entreprise.id);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        placeholder="https://zapsisweb.com/result/resultNbTicket?disco=..."
-                        className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl
-                                   px-3 py-2 text-white text-sm focus:outline-none
-                                   focus:border-emerald-500"
-                      />
-                      <p className="text-emerald-400 text-xs mt-1">
-                        ✓ Mise à jour automatique toutes les 10 minutes
-                      </p>
+                    <div className="mt-2 space-y-4">
+                      {/* URL field */}
+                      <div>
+                        <label className="text-xs text-slate-400 uppercase tracking-wide">
+                          URL du flux billetterie
+                        </label>
+                        <input
+                          type="text"
+                          value={entreprise.url_billetterie ?? ''}
+                          onChange={(e) => setEntreprise({
+                            ...entreprise, url_billetterie: e.target.value
+                          })}
+                          onBlur={async (e) => {
+                            await supabase.from('entreprise')
+                              .update({ url_billetterie: e.target.value })
+                              .eq('id', entreprise.id);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          placeholder="https://zapsisweb.com/result/resultNbTicket?disco=..."
+                          className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl
+                                     px-3 py-2 text-white text-sm focus:outline-none
+                                     focus:border-emerald-500"
+                        />
+                      </div>
+                      {/* Frequency selector */}
+                      <div>
+                        <label className="text-xs text-slate-400 uppercase tracking-wide">
+                          Fréquence d'interrogation
+                        </label>
+                        <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                          {([3, 5, 10] as const).map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={async () => {
+                                setEntreprise({ ...entreprise, frequence_billetterie: val });
+                                await supabase.from('entreprise')
+                                  .update({ frequence_billetterie: val })
+                                  .eq('id', entreprise.id);
+                              }}
+                              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors
+                                ${(entreprise.frequence_billetterie ?? 10) === val
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                            >
+                              {val} min
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-emerald-400 text-xs mt-2">
+                          ✓ Prochaine mise à jour dans {entreprise.frequence_billetterie ?? 10} min
+                        </p>
+                      </div>
                     </div>
                   )}
                 </button>
