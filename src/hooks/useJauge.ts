@@ -149,7 +149,12 @@ export function useJauge(): UseJaugeReturn {
         if (json.resultat === 'success' && json.data) {
           const nb = parseInt(json.data, 10);
           if (!isNaN(nb) && nb >= 0) {
-            await supabase.rpc('set_entrees_manuelles', { p_entrees: nb });
+            const { error } = await supabase.rpc('set_entrees_manuelles', {
+              p_entreprise_id: config!.id,
+              p_entrees: nb,
+              p_user_id: session?.user?.id ?? '00000000-0000-0000-0000-000000000000',
+            });
+            console.log('[Billetterie] entrées récupérées:', nb, 'erreur RPC:', error);
           }
         }
       } catch (err) {
