@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeftRight, ArrowRight, Users, RotateCcw, CheckCircle,
-  AlertCircle, ExternalLink, Gauge, X,
+  AlertCircle, ExternalLink, Gauge, X, Wifi,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
 
-type ModeJauge = 'entree_sortie' | 'sortie';
+type ModeJauge = 'entree_sortie' | 'sortie' | 'automatique';
 
 type EntrepriseJauge = {
   id: string;
   mode_jauge: ModeJauge;
   effectif_public: number;
+  url_billetterie: string;
 };
 
 type JaugeEtat = {
@@ -43,7 +44,7 @@ export default function JaugeConfigPage() {
     const [entrepriseRes, etatRes] = await Promise.all([
       supabase
         .from('entreprise')
-        .select('id, mode_jauge, effectif_public')
+        .select('id, mode_jauge, effectif_public, url_billetterie')
         .limit(1)
         .maybeSingle(),
       supabase
@@ -244,6 +245,57 @@ export default function JaugeConfigPage() {
                   <p className="text-slate-400 text-xs leading-relaxed">
                     Flic Single ou bouton droit Duo — chaque pression = −1 sortie. Entrées saisies manuellement.
                   </p>
+                </button>
+
+                {/* Card C — Flux billetterie automatique */}
+                <button
+                  onClick={() => handleModeChange('automatique')}
+                  disabled={savingMode}
+                  className={`relative text-left rounded-xl border-2 p-5 transition-all focus:outline-none col-span-1 sm:col-span-2
+                    ${entreprise?.mode_jauge === 'automatique'
+                      ? 'border-emerald-500 bg-emerald-500/5'
+                      : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'}`}
+                >
+                  {entreprise?.mode_jauge === 'automatique' && (
+                    <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-emerald-400" />
+                  )}
+                  <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center mb-3">
+                    <Wifi className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <p className="text-white font-semibold text-sm mb-1">
+                    Flux billetterie automatique
+                  </p>
+                  <p className="text-slate-400 text-xs leading-relaxed mb-3">
+                    La jauge se met à jour automatiquement toutes les 10 minutes
+                    depuis votre logiciel de billetterie ZAPSIS.
+                  </p>
+                  {entreprise?.mode_jauge === 'automatique' && (
+                    <div className="mt-2">
+                      <label className="text-xs text-slate-400 uppercase tracking-wide">
+                        URL du flux billetterie
+                      </label>
+                      <input
+                        type="text"
+                        value={entreprise.url_billetterie ?? ''}
+                        onChange={(e) => setEntreprise({
+                          ...entreprise, url_billetterie: e.target.value
+                        })}
+                        onBlur={async (e) => {
+                          await supabase.from('entreprise')
+                            .update({ url_billetterie: e.target.value })
+                            .eq('id', entreprise.id);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="https://zapsisweb.com/result/resultNbTicket?disco=..."
+                        className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl
+                                   px-3 py-2 text-white text-sm focus:outline-none
+                                   focus:border-emerald-500"
+                      />
+                      <p className="text-emerald-400 text-xs mt-1">
+                        ✓ Mise à jour automatique toutes les 10 minutes
+                      </p>
+                    </div>
+                  )}
                 </button>
               </div>
             </section>

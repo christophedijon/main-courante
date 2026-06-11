@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-type ModeJauge = 'entree_sortie' | 'sortie';
+type ModeJauge = 'entree_sortie' | 'sortie' | 'automatique';
 type Niveau = 'vert' | 'orange' | 'rouge';
 
 type EntrepriseJaugeConfig = {
   id: string;
   effectif_public: number;
   mode_jauge: ModeJauge;
+  url_billetterie: string;
 };
 
 export type UseJaugeReturn = {
@@ -56,7 +57,7 @@ export function useJauge(): UseJaugeReturn {
     async function load() {
       const { data: cfg } = await supabase
         .from('entreprise')
-        .select('id, effectif_public, mode_jauge')
+        .select('id, effectif_public, mode_jauge, url_billetterie')
         .limit(1)
         .maybeSingle();
 
@@ -129,6 +130,30 @@ export function useJauge(): UseJaugeReturn {
       supabase.removeChannel(channel);
     };
   }, [config, fetchCount]);
+
+  // Automatic billetterie polling (mode automatique only)
+  useEffect(() => {
+    if (!config || config.mode_jauge !== 'automatique' || !config.url_billetterie) return;
+
+    async function fetchBilletterie() {
+      try {
+        const res = await fetch(config!.url_billetterie!);
+        const json = await res.json();
+        if (json.resultat === 'success' && json.data) {
+          const nb = parseInt(json.data, 10);
+          if (!isNaN(nb) && nb >= 0) {
+            await supabase.rpc('set_entrees_manuelles', { p_entrees: nb });
+          }
+        }
+      } catch (err) {
+        console.warn('Flux billetterie indisponible:', err);
+      }
+    }
+
+    fetchBilletterie();
+    const interval = setInterval(fetchBilletterie, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [config?.mode_jauge, config?.url_billetterie]);
 
   async function incrementJauge(delta: number, source: 'app' | 'flic' | 'manuel') {
     if (!config || !session?.user) return;
