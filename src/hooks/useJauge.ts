@@ -138,7 +138,13 @@ export function useJauge(): UseJaugeReturn {
 
     async function fetchBilletterie() {
       try {
-        const res = await fetch(config!.url_billetterie!);
+        const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/billetterie-proxy?url=${encodeURIComponent(config!.url_billetterie!)}`;
+        const res = await fetch(proxyUrl, {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          }
+        });
         const json = await res.json();
         if (json.resultat === 'success' && json.data) {
           const nb = parseInt(json.data, 10);
