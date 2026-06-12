@@ -152,7 +152,11 @@ export function useJauge(): UseJaugeReturn {
         if (json.resultat === 'success' && json.data) {
           const entrees = parseInt(json.data, 10);
           if (isNaN(entrees) || entrees < 0) return;
-          await supabase.rpc('set_entrees_manuelles', { p_entrees: entrees });
+          await supabase.rpc('set_entrees_manuelles', {
+            p_entreprise_id: config!.id,
+            p_entrees: entrees,
+            p_user_id: session?.user?.id ?? null,
+          });
           console.log('[Billetterie] set_entrees_manuelles appelé avec:', entrees);
         }
       } catch (err) {
