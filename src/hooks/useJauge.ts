@@ -149,52 +149,32 @@ export function useJauge(): UseJaugeReturn {
         if (json.resultat === 'success' && json.data) {
           const entrees = parseInt(json.data, 10);
           if (isNaN(entrees) || entrees < 0) return;
-          // Lire le total des sorties enregistrées aujourd'hui par Flic
           const today = new Date().toISOString().slice(0, 10);
-          const { data: actions } = await supabase
-            .from('jauge_actions')
-            .select('delta')
-            .gte('created_at', today)
-            .lt('created_at', new Date(new Date(today).getTime() + 86400000).toISOString().slice(0, 10))
-            .eq('action', 'sortie');
-          const totalSorties = (actions ?? []).reduce(
-            (sum, a) => sum + Math.abs(a.delta), 0
-          );
-          // Personnes présentes = entrées ZAPSIS − sorties Flic
-          const present = Math.max(0, entrees - totalSorties);
-          console.log('[Billetterie] entrées ZAPSIS:', entrees,
-                      '| sorties Flic:', totalSorties,
-                      '| présents:', present);
-          // Vérifier si une entrée jauge_etat existe pour aujourd'hui
           const entrepriseId = config!.id;
-          const { data: existing } = await supabase
-            .from('jauge_etat')
-            .select('id')
+          // Récupérer la dernière valeur ZAPSIS enregistrée aujourd'hui
+          const { data: lastZapsis } = await supabase
+            .from('jauge_actions')
+            .select('delta, created_at')
             .eq('entreprise_id', entrepriseId)
-            .eq('date_soiree', today)
+            .eq('updated_by', 'zapsis_auto')
+            .gte('created_at', today + 'T00:00:00')
+            .order('created_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
-          if (existing) {
-            await supabase
-              .from('jauge_etat')
-              .update({
-                count_actuel: present,
-                updated_at: new Date().toISOString(),
-                updated_by: 'billetterie_auto'
-              })
-              .eq('entreprise_id', entrepriseId)
-              .eq('date_soiree', today);
-          } else {
-            await supabase
-              .from('jauge_etat')
-              .insert({
-                entreprise_id: entrepriseId,
-                date_soiree: today,
-                count_actuel: present,
-                updated_by: 'billetterie_auto'
-              });
+          const lastEntrees = lastZapsis?.delta ?? 0;
+          const diff = entrees - lastEntrees;
+          if (diff > 0) {
+            await supabase.rpc('increment_jauge', { p_delta: diff });
+            await supabase.from('jauge_actions').insert({
+              entreprise_id: entrepriseId,
+              action: 'entree',
+              delta: entrees,
+              updated_by: 'zapsis_auto'
+            });
           }
-          console.log('[Billetterie] jauge_etat mis à jour:', present,
-                      'entreprise:', entrepriseId);
+          console.log('[Billetterie] ZAPSIS:', entrees,
+                      '| dernière valeur:', lastEntrees,
+                      '| diff:', diff);
         }
       } catch (err) {
         console.warn('Flux billetterie indisponible:', err);
