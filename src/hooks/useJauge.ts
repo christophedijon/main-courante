@@ -165,7 +165,25 @@ export function useJauge(): UseJaugeReturn {
           console.log('[Billetterie] entrées ZAPSIS:', entrees,
                       '| sorties Flic:', totalSorties,
                       '| présents:', present);
-          await supabase.rpc('set_entrees_manuelles', { p_entrees: present });
+          // Vérifier si une entrée jauge_etat existe pour aujourd'hui
+          const { data: existing } = await supabase
+            .from('jauge_etat')
+            .select('id')
+            .eq('date_soiree', today)
+            .maybeSingle();
+          if (existing) {
+            // Mettre à jour
+            await supabase
+              .from('jauge_etat')
+              .update({ count_actuel: present, updated_at: new Date().toISOString() })
+              .eq('date_soiree', today);
+          } else {
+            // Créer
+            await supabase
+              .from('jauge_etat')
+              .insert({ date_soiree: today, count_actuel: present });
+          }
+          console.log('[Billetterie] jauge_etat mis à jour:', present);
         }
       } catch (err) {
         console.warn('Flux billetterie indisponible:', err);
