@@ -100,10 +100,10 @@ export function useJauge(): UseJaugeReturn {
           event: '*',
           schema: 'public',
           table: 'jauge_etat',
-          filter: `entreprise_id=eq.${entrepriseId}`,
         },
         (payload) => {
-          const row = payload.new as { count_actuel?: number };
+          const row = payload.new as { count_actuel?: number; entreprise_id?: string };
+          if (row.entreprise_id !== entrepriseId) return;
           if (typeof row.count_actuel === 'number') {
             setCount(row.count_actuel);
           }
