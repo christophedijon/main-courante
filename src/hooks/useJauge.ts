@@ -110,9 +110,11 @@ export function useJauge(): UseJaugeReturn {
           const { data } = await supabase
             .from('jauge_etat')
             .select('count_actuel')
+            .eq('entreprise_id', entrepriseId)
             .eq('date_soiree', today)
             .maybeSingle();
           if (data !== null && data !== undefined) {
+            realtimeReceivedRef.current = true;
             setCount(data.count_actuel ?? 0);
           }
         }

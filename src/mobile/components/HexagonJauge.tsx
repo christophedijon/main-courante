@@ -103,6 +103,8 @@ export default function HexagonJauge({ count, Ep, taux, niveau, loading, offsetT
             clipPath: CLIP,
             WebkitClipPath: CLIP,
             overflow: 'hidden',
+            transform: 'translateZ(0)',
+            willChange: 'transform',
           }}
         >
           {/* Background */}
