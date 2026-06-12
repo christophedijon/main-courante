@@ -42,6 +42,32 @@ export default function HomePage() {
 
   const showJaugeAction = !jaugeLoading && mode_jauge === 'sortie' && entrepriseId !== null && Ep > 0;
 
+  const [lastFlicAction, setLastFlicAction] = useState<{
+    action: string;
+    delta: number;
+    time: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('flic_debug')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'jauge_actions'
+      }, (payload) => {
+        const row = payload.new as any;
+        setLastFlicAction({
+          action: row.action,
+          delta: row.delta,
+          time: new Date().toLocaleTimeString('fr-FR')
+        });
+        setTimeout(() => setLastFlicAction(null), 10000);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   useEffect(() => {
     if (!canSeeRegistre) return;
     supabase
@@ -279,6 +305,21 @@ export default function HomePage() {
       </div>
 
       <BeaconScannerBanner />
+
+      {lastFlicAction && (
+        <div className="mx-4 mt-3 bg-emerald-900/60 border border-emerald-500/40
+                        rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div>
+            <p className="text-emerald-300 text-sm font-semibold">
+              ✓ Signal Flic reçu — {lastFlicAction.time}
+            </p>
+            <p className="text-emerald-400 text-xs">
+              Action : {lastFlicAction.action} | Delta : {lastFlicAction.delta > 0 ? '+' : ''}{lastFlicAction.delta}
+            </p>
+          </div>
+        </div>
+      )}
 
       {showJaugeAction && jaugeModalOpen && (
         <div
