@@ -58,6 +58,7 @@ export function useJauge(): UseJaugeReturn {
       const { data: cfg } = await supabase
         .from('entreprise')
         .select('id, effectif_public, mode_jauge, url_billetterie, frequence_billetterie')
+        .order('enseigne', { ascending: true, nullsFirst: false })
         .limit(1)
         .maybeSingle();
 
