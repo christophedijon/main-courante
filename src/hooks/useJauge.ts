@@ -166,24 +166,35 @@ export function useJauge(): UseJaugeReturn {
                       '| sorties Flic:', totalSorties,
                       '| présents:', present);
           // Vérifier si une entrée jauge_etat existe pour aujourd'hui
+          const entrepriseId = config!.id;
           const { data: existing } = await supabase
             .from('jauge_etat')
             .select('id')
+            .eq('entreprise_id', entrepriseId)
             .eq('date_soiree', today)
             .maybeSingle();
           if (existing) {
-            // Mettre à jour
             await supabase
               .from('jauge_etat')
-              .update({ count_actuel: present, updated_at: new Date().toISOString() })
+              .update({
+                count_actuel: present,
+                updated_at: new Date().toISOString(),
+                updated_by: 'billetterie_auto'
+              })
+              .eq('entreprise_id', entrepriseId)
               .eq('date_soiree', today);
           } else {
-            // Créer
             await supabase
               .from('jauge_etat')
-              .insert({ date_soiree: today, count_actuel: present });
+              .insert({
+                entreprise_id: entrepriseId,
+                date_soiree: today,
+                count_actuel: present,
+                updated_by: 'billetterie_auto'
+              });
           }
-          console.log('[Billetterie] jauge_etat mis à jour:', present);
+          console.log('[Billetterie] jauge_etat mis à jour:', present,
+                      'entreprise:', entrepriseId);
         }
       } catch (err) {
         console.warn('Flux billetterie indisponible:', err);
