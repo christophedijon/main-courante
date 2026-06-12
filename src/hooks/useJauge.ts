@@ -148,13 +148,20 @@ export function useJauge(): UseJaugeReturn {
         const today = new Date().toISOString().slice(0, 10);
         if (lastZapsisCountRef.current === null) {
           lastZapsisCountRef.current = entrees;
-          console.log('[Billetterie] Initialisation ZAPSIS à', entrees);
+          // Initialiser la jauge : entrees ZAPSIS − sorties Flic du jour
+          await supabase.rpc('set_entrees_manuelles', {
+            p_entreprise_id: config!.id,
+            p_entrees: entrees,
+            p_user_id: null,
+          });
+          // Stocker le max ZAPSIS
           await supabase
             .from('jauge_etat')
             .update({ entrees_max_zapsis: entrees })
             .eq('entreprise_id', config!.id)
             .eq('date_soiree', today)
             .lt('entrees_max_zapsis', entrees);
+          console.log('[Billetterie] Init ZAPSIS:', entrees, '— jauge initialisée');
           return;
         }
         const diff = entrees - lastZapsisCountRef.current;
