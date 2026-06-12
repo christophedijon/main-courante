@@ -135,8 +135,18 @@ export default function JaugeConfigPage() {
     loadSorties();
     loadDernierAjout();
 
+    const actionsChannel = supabase
+      .channel('jauge_actions_monitoring')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jauge_actions' }, (payload) => {
+        const row = payload.new as { action: string };
+        if (row.action === 'sortie') loadSorties();
+        if (row.action === 'entree') loadDernierAjout();
+      })
+      .subscribe();
+
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
+      supabase.removeChannel(actionsChannel);
     };
   }, [entreprise?.mode_jauge, entreprise?.frequence_billetterie, entreprise?.id]);
 
