@@ -46,10 +46,11 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch entreprise_id
+    // Fetch entreprise_id — order by enseigne nulls last to always pick the configured one
     const { data: entreprise, error: entErr } = await supabase
       .from("entreprise")
       .select("id")
+      .order("enseigne", { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle();
 

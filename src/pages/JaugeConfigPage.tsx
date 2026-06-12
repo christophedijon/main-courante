@@ -51,6 +51,7 @@ export default function JaugeConfigPage() {
       supabase
         .from('entreprise')
         .select('id, mode_jauge, effectif_public, url_billetterie, frequence_billetterie')
+        .order('enseigne', { ascending: true, nullsFirst: false })
         .limit(1)
         .maybeSingle(),
       supabase
@@ -88,26 +89,30 @@ export default function JaugeConfigPage() {
     if (entreprise?.mode_jauge !== 'automatique') return;
 
     async function loadSorties() {
-      const today = new Date().toISOString().slice(0, 10);
-      const { data } = await supabase
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
         .from('jauge_actions')
         .select('delta')
         .eq('entreprise_id', entreprise!.id)
         .eq('action', 'sortie')
-        .gte('created_at', today + 'T00:00:00Z');
-      const total = (data ?? []).reduce((sum, r) => sum + Math.abs(r.delta), 0);
-      setTotalSorties(total);
+        .gte('created_at', startOfDay.toISOString());
+      if (!error) {
+        const total = (data ?? []).reduce((sum, r) => sum + Math.abs(r.delta), 0);
+        setTotalSorties(total);
+      }
     }
 
     async function loadDernierAjout() {
-      const today = new Date().toISOString().slice(0, 10);
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
       const { data } = await supabase
         .from('jauge_actions')
         .select('delta, created_at')
         .eq('entreprise_id', entreprise!.id)
         .eq('action', 'entree')
-        .eq('source', 'app')
-        .gte('created_at', today + 'T00:00:00Z')
+        .in('source', ['app', 'manuel'])
+        .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -137,10 +142,9 @@ export default function JaugeConfigPage() {
 
     const actionsChannel = supabase
       .channel('jauge_actions_monitoring')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jauge_actions' }, (payload) => {
-        const row = payload.new as { action: string };
-        if (row.action === 'sortie') loadSorties();
-        if (row.action === 'entree') loadDernierAjout();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jauge_actions' }, () => {
+        loadSorties();
+        loadDernierAjout();
       })
       .subscribe();
 
