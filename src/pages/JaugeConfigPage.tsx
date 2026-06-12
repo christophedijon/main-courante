@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeftRight, ArrowRight, Users, RotateCcw, CheckCircle,
@@ -35,6 +35,11 @@ export default function JaugeConfigPage() {
   const [resetting, setResetting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+
+  const [countdown, setCountdown] = useState<number>(0);
+  const [dernierAjout, setDernierAjout] = useState<{ delta: number; heure: string } | null>(null);
+  const [totalSorties, setTotalSorties] = useState<number>(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function showToast(msg: string, type: 'success' | 'error') {
     setToast({ msg, type });
@@ -78,6 +83,62 @@ export default function JaugeConfigPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  useEffect(() => {
+    if (entreprise?.mode_jauge !== 'automatique') return;
+
+    async function loadSorties() {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from('jauge_actions')
+        .select('delta')
+        .eq('entreprise_id', entreprise!.id)
+        .eq('action', 'sortie')
+        .gte('created_at', today + 'T00:00:00Z');
+      const total = (data ?? []).reduce((sum, r) => sum + Math.abs(r.delta), 0);
+      setTotalSorties(total);
+    }
+
+    async function loadDernierAjout() {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from('jauge_actions')
+        .select('delta, created_at')
+        .eq('entreprise_id', entreprise!.id)
+        .eq('action', 'entree')
+        .eq('source', 'app')
+        .gte('created_at', today + 'T00:00:00Z')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        const heure = new Date(data.created_at)
+          .toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        setDernierAjout({ delta: data.delta, heure });
+      }
+    }
+
+    const freqSec = (entreprise?.frequence_billetterie ?? 10) * 60;
+    setCountdown(freqSec);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          loadSorties();
+          loadDernierAjout();
+          return freqSec;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    loadSorties();
+    loadDernierAjout();
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [entreprise?.mode_jauge, entreprise?.frequence_billetterie, entreprise?.id]);
 
   async function handleModeChange(mode: ModeJauge) {
     if (!entreprise || savingMode) return;
@@ -322,6 +383,45 @@ export default function JaugeConfigPage() {
                         <p className="text-emerald-400 text-xs mt-2">
                           ✓ Prochaine mise à jour dans {entreprise.frequence_billetterie ?? 10} min
                         </p>
+                      </div>
+
+                      {/* Monitoring temps réel */}
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1 bg-slate-900/60 border border-emerald-500/20 rounded-xl p-4 space-y-3"
+                      >
+                        <p className="text-xs text-emerald-400 uppercase tracking-wider font-semibold">
+                          Monitoring en temps réel
+                        </p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* Countdown */}
+                          <div className="bg-slate-800/80 rounded-xl p-3 text-center">
+                            <p className="text-slate-400 text-xs mb-1">Prochain poll</p>
+                            <p className="text-white font-bold tabular-nums text-lg">
+                              {String(Math.floor(countdown / 60)).padStart(2, '0')}:
+                              {String(countdown % 60).padStart(2, '0')}
+                            </p>
+                          </div>
+                          {/* Dernier ajout */}
+                          <div className="bg-slate-800/80 rounded-xl p-3 text-center">
+                            <p className="text-slate-400 text-xs mb-1">Dernier ajout</p>
+                            {dernierAjout ? (
+                              <>
+                                <p className="text-emerald-400 font-bold text-lg">+{dernierAjout.delta}</p>
+                                <p className="text-slate-500 text-xs">{dernierAjout.heure}</p>
+                              </>
+                            ) : (
+                              <p className="text-slate-500 text-sm">—</p>
+                            )}
+                          </div>
+                          {/* Total sorties */}
+                          <div className="bg-slate-800/80 rounded-xl p-3 text-center">
+                            <p className="text-slate-400 text-xs mb-1">Sorties Flic</p>
+                            <p className="text-amber-400 font-bold text-lg tabular-nums">
+                              {totalSorties}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
