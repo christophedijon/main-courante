@@ -36,6 +36,7 @@ export function useJauge(): UseJaugeReturn {
   const [loading, setLoading] = useState(true);
 
   const entrepriseIdRef = useRef<string | null>(null);
+  const lastZapsisCountRef = useRef<number | null>(null);
 
   const fetchCount = useCallback(async (entrepriseId: string) => {
     const { data } = await supabase
@@ -141,16 +142,38 @@ export function useJauge(): UseJaugeReturn {
           }
         });
         const json = await res.json();
-        if (json.resultat === 'success' && json.data) {
-          const entrees = parseInt(json.data, 10);
-          if (isNaN(entrees) || entrees < 0) return;
-          await supabase.rpc('set_entrees_manuelles', {
+        if (json.resultat !== 'success' || !json.data) return;
+        const entrees = parseInt(json.data, 10);
+        if (isNaN(entrees) || entrees < 0) return;
+        const today = new Date().toISOString().slice(0, 10);
+        if (lastZapsisCountRef.current === null) {
+          lastZapsisCountRef.current = entrees;
+          console.log('[Billetterie] Initialisation ZAPSIS à', entrees);
+          await supabase
+            .from('jauge_etat')
+            .update({ entrees_max_zapsis: entrees })
+            .eq('entreprise_id', config!.id)
+            .eq('date_soiree', today)
+            .lt('entrees_max_zapsis', entrees);
+          return;
+        }
+        const diff = entrees - lastZapsisCountRef.current;
+        if (diff > 0) {
+          await supabase.rpc('increment_jauge', {
             p_entreprise_id: config!.id,
-            p_entrees: entrees,
+            p_delta: diff,
+            p_source: 'app',
             p_user_id: session?.user?.id ?? null,
           });
-          console.log('[Billetterie] set_entrees_manuelles appelé avec:', entrees);
+          console.log('[Billetterie] +', diff, 'nouvelles entrées (total ZAPSIS:', entrees, ')');
         }
+        await supabase
+          .from('jauge_etat')
+          .update({ entrees_max_zapsis: entrees })
+          .eq('entreprise_id', config!.id)
+          .eq('date_soiree', today)
+          .lt('entrees_max_zapsis', entrees);
+        lastZapsisCountRef.current = entrees;
       } catch (err) {
         console.warn('[Billetterie] Erreur:', err);
       }
