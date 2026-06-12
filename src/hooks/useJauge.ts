@@ -97,22 +97,25 @@ export function useJauge(): UseJaugeReturn {
     let pollInterval: ReturnType<typeof setInterval> | null = null;
 
     const channel = supabase
-      .channel(`jauge-realtime-${entrepriseId}`)
+      .channel('jauge_etat_realtime')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'jauge_etat',
-          filter: `entreprise_id=eq.${entrepriseId}`,
         },
-        (payload) => {
-          const row = payload.new as { entreprise_id: string; date_soiree: string; count_actuel: number } | undefined;
-          if (!row || row.date_soiree !== TODAY()) return;
-
-          realtimeReceivedRef.current = true;
-          setCount(row.count_actuel);
-        },
+        async () => {
+          const today = new Date().toISOString().slice(0, 10);
+          const { data } = await supabase
+            .from('jauge_etat')
+            .select('count_actuel')
+            .eq('date_soiree', today)
+            .maybeSingle();
+          if (data !== null && data !== undefined) {
+            setCount(data.count_actuel ?? 0);
+          }
+        }
       )
       .subscribe();
 
