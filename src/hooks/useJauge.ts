@@ -26,7 +26,7 @@ export type UseJaugeReturn = {
 };
 
 const TODAY = () => new Date().toISOString().split('T')[0];
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 30_000;
 
 export function useJauge(): UseJaugeReturn {
   const { session } = useAuth();
@@ -182,8 +182,11 @@ export function useJauge(): UseJaugeReturn {
     fetchBilletterie();
     const ms = (config.frequence_billetterie ?? 10) * 60 * 1000;
     const interval = setInterval(fetchBilletterie, ms);
-    return () => clearInterval(interval);
-  }, [config?.mode_jauge, config?.url_billetterie, config?.frequence_billetterie]);
+    return () => {
+      clearInterval(interval);
+      lastZapsisCountRef.current = null;
+    };
+  }, [config?.mode_jauge, config?.url_billetterie, config?.frequence_billetterie, session?.user?.id]);
 
   async function incrementJauge(delta: number, source: 'app' | 'flic' | 'manuel') {
     if (!config || !session?.user) return;
