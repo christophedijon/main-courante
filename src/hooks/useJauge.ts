@@ -26,8 +26,7 @@ export type UseJaugeReturn = {
 };
 
 const TODAY = () => new Date().toISOString().split('T')[0];
-const REALTIME_TIMEOUT_MS = 5_000;
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 5_000;
 
 export function useJauge(): UseJaugeReturn {
   const { session } = useAuth();
@@ -37,7 +36,6 @@ export function useJauge(): UseJaugeReturn {
   const [loading, setLoading] = useState(true);
 
   const entrepriseIdRef = useRef<string | null>(null);
-  const realtimeReceivedRef = useRef(false);
 
   const fetchCount = useCallback(async (entrepriseId: string) => {
     const { data } = await supabase
@@ -87,52 +85,44 @@ export function useJauge(): UseJaugeReturn {
     return () => { cancelled = true; };
   }, [fetchCount]);
 
-  // Realtime subscription + polling fallback
+  // Realtime subscription + continuous polling (mobile-reliable)
   useEffect(() => {
     if (!config) return;
 
     const entrepriseId = config.id;
-    realtimeReceivedRef.current = false;
 
-    let pollInterval: ReturnType<typeof setInterval> | null = null;
-
+    // Realtime: use payload.new directly — no async re-fetch, instant update
     const channel = supabase
-      .channel('jauge_etat_realtime')
+      .channel(`jauge_etat_${entrepriseId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'jauge_etat',
+          filter: `entreprise_id=eq.${entrepriseId}`,
         },
-        async () => {
-          const today = new Date().toISOString().slice(0, 10);
-          const { data } = await supabase
-            .from('jauge_etat')
-            .select('count_actuel')
-            .eq('entreprise_id', entrepriseId)
-            .eq('date_soiree', today)
-            .maybeSingle();
-          if (data !== null && data !== undefined) {
-            realtimeReceivedRef.current = true;
-            setCount(data.count_actuel ?? 0);
+        (payload) => {
+          const row = payload.new as { count_actuel?: number };
+          if (typeof row.count_actuel === 'number') {
+            setCount(row.count_actuel);
           }
         }
       )
       .subscribe();
 
-    // After timeout, start polling if realtime hasn't fired yet
-    const fallbackTimeout = setTimeout(() => {
-      pollInterval = setInterval(() => {
-        if (!realtimeReceivedRef.current) {
-          fetchCount(entrepriseId);
-        }
-      }, POLL_INTERVAL_MS);
-    }, REALTIME_TIMEOUT_MS);
+    // Always-on polling: reliable fallback for Android (WebSocket instability)
+    const pollInterval = setInterval(() => fetchCount(entrepriseId), POLL_INTERVAL_MS);
+
+    // Immediate re-fetch when tab/app returns to foreground
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') fetchCount(entrepriseId);
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      clearTimeout(fallbackTimeout);
-      if (pollInterval) clearInterval(pollInterval);
+      clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', handleVisibility);
       supabase.removeChannel(channel);
     };
   }, [config, fetchCount]);
