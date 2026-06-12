@@ -147,15 +147,25 @@ export function useJauge(): UseJaugeReturn {
         });
         const json = await res.json();
         if (json.resultat === 'success' && json.data) {
-          const nb = parseInt(json.data, 10);
-          if (!isNaN(nb) && nb >= 0) {
-            const { error } = await supabase.rpc('set_entrees_manuelles', {
-              p_entreprise_id: config!.id,
-              p_entrees: nb,
-              p_user_id: session?.user?.id ?? '00000000-0000-0000-0000-000000000000',
-            });
-            console.log('[Billetterie] entrées récupérées:', nb, 'erreur RPC:', error);
-          }
+          const entrees = parseInt(json.data, 10);
+          if (isNaN(entrees) || entrees < 0) return;
+          // Lire le total des sorties enregistrées aujourd'hui par Flic
+          const today = new Date().toISOString().slice(0, 10);
+          const { data: actions } = await supabase
+            .from('jauge_actions')
+            .select('delta')
+            .gte('created_at', today)
+            .lt('created_at', new Date(new Date(today).getTime() + 86400000).toISOString().slice(0, 10))
+            .eq('action', 'sortie');
+          const totalSorties = (actions ?? []).reduce(
+            (sum, a) => sum + Math.abs(a.delta), 0
+          );
+          // Personnes présentes = entrées ZAPSIS − sorties Flic
+          const present = Math.max(0, entrees - totalSorties);
+          console.log('[Billetterie] entrées ZAPSIS:', entrees,
+                      '| sorties Flic:', totalSorties,
+                      '| présents:', present);
+          await supabase.rpc('set_entrees_manuelles', { p_entrees: present });
         }
       } catch (err) {
         console.warn('Flux billetterie indisponible:', err);
