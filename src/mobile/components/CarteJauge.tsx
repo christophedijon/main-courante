@@ -7,6 +7,7 @@ type Props = {
   count: number;
   Ep: number;
   entrepriseId: string;
+  isTest?: boolean;
   onCountUpdate: (newCount: number) => void;
 };
 
@@ -14,7 +15,7 @@ type Toast = { msg: string; type: 'success' | 'warning' };
 
 const TODAY = () => new Date().toISOString().split('T')[0];
 
-export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: Props) {
+export default function CarteJauge({ count, Ep, entrepriseId, isTest = false, onCountUpdate }: Props) {
   const { session } = useAuth();
   // inputValue represents total tickets sold (cumulative entries), not current occupancy
   const [inputValue, setInputValue] = useState('');
@@ -32,6 +33,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: P
       .eq('entreprise_id', entrepriseId)
       .eq('action', 'entree')
       .eq('source', 'manuel')
+      .eq('is_test', isTest)
       .gte('created_at', TODAY() + 'T00:00:00Z')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -62,6 +64,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, onCountUpdate }: P
       p_entreprise_id: entrepriseId,
       p_entrees: entrees,
       p_user_id: session.user.id,
+      p_is_test: isTest,
     });
 
     setSaving(false);

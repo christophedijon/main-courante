@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Clock, Flame, Users, ChevronDown, Radio, X } from 'lucide-react';
+import { Shield, Clock, Flame, Users, ChevronDown, Radio, X, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useEntreprise } from '../../hooks/useEntreprise';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
@@ -12,6 +12,7 @@ import CarteJauge from '../components/CarteJauge';
 import { BeaconScannerBanner } from '../components/BeaconScannerBanner';
 import { useBeaconScanner } from '../../hooks/useBeaconScanner';
 import { useJauge } from '../../hooks/useJauge';
+import { useSessionActive } from '../../hooks/useSessionActive';
 import { supabase } from '../../lib/supabase';
 import { computeConformite, type ConformiteResult, type RegistreItemMin } from '../../lib/registreStatut';
 import ConformiteDonut from '../components/ConformiteDonut';
@@ -26,7 +27,8 @@ export default function HomePage() {
   const { startType } = useSaisie();
   const [saisieOpen, setSaisieOpen] = useState(true);
   const { isActive, startRonde, scanError } = useBeaconScanner();
-  const { count, Ep, taux, niveau, loading: jaugeLoading, mode_jauge, entrepriseId } = useJauge();
+  const sessionState = useSessionActive();
+  const { count, Ep, taux, niveau, loading: jaugeLoading, mode_jauge, entrepriseId } = useJauge(sessionState.isTest);
 
   const isAgent = !isSuperAdmin && userFonction === 'Agent de Sécurité';
 
@@ -39,6 +41,8 @@ export default function HomePage() {
   const [registreItems, setRegistreItems] = useState<RegistreItemMin[]>([]);
   const [jaugeModalOpen, setJaugeModalOpen] = useState(false);
   const [jaugeCount, setJaugeCount] = useState<number | null>(null);
+  const [exceptionnelleModalOpen, setExceptionnelleModalOpen] = useState(false);
+  const [openingExceptionnelle, setOpeningExceptionnelle] = useState(false);
 
   const showJaugeAction = !jaugeLoading && (mode_jauge === 'sortie' || mode_jauge === 'automatique') && entrepriseId !== null && Ep > 0;
 
@@ -312,11 +316,78 @@ export default function HomePage() {
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <div>
             <p className="text-emerald-300 text-sm font-semibold">
-              ✓ Signal Flic reçu — {lastFlicAction.time}
+              Signal Flic reçu — {lastFlicAction.time}
             </p>
             <p className="text-emerald-400 text-xs">
               Action : {lastFlicAction.action} | Delta : {lastFlicAction.delta > 0 ? '+' : ''}{lastFlicAction.delta}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Ouverture Exceptionnelle button — shown only when no session is active */}
+      {!sessionState.isActive && (
+        <div className="mx-4 mt-4">
+          <button
+            onClick={() => setExceptionnelleModalOpen(true)}
+            className="w-full flex items-center justify-center gap-3 rounded-2xl px-5 py-3.5 font-bold text-sm transition-all active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(217,119,6,0.10) 100%)',
+              border: '1px solid rgba(245,158,11,0.35)',
+              color: '#f59e0b',
+            }}
+          >
+            <Zap size={16} />
+            Ouverture Exceptionnelle
+          </button>
+        </div>
+      )}
+
+      {/* Exceptionnelle session confirmation modal */}
+      {exceptionnelleModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+          onClick={(e) => { if (e.target === e.currentTarget) setExceptionnelleModalOpen(false); }}
+        >
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-t-2xl p-6 pb-8 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                <Zap className="w-5 h-5 text-amber-400" />
+              </div>
+              <button
+                onClick={() => setExceptionnelleModalOpen(false)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <h3 className="text-white font-bold text-lg mb-1">Ouverture Exceptionnelle</h3>
+            <p className="text-slate-400 text-sm mb-1">
+              Ouvre une session de soirée hors horaires habituels.
+            </p>
+            <p className="text-amber-400 text-sm font-medium mb-6">
+              Fermeture automatique demain à 08h00.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setExceptionnelleModalOpen(false)}
+                className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 text-sm font-semibold hover:bg-slate-800 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={async () => {
+                  setOpeningExceptionnelle(true);
+                  await sessionState.openExceptionnelleSession();
+                  setOpeningExceptionnelle(false);
+                  setExceptionnelleModalOpen(false);
+                }}
+                disabled={openingExceptionnelle}
+                className="flex-1 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-50"
+              >
+                {openingExceptionnelle ? 'Ouverture…' : 'Confirmer'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -338,6 +409,7 @@ export default function HomePage() {
               count={jaugeCount ?? count}
               Ep={Ep}
               entrepriseId={entrepriseId!}
+              isTest={sessionState.isTest}
               onCountUpdate={(n) => { setJaugeCount(n); setJaugeModalOpen(false); }}
             />
           </div>

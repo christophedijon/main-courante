@@ -28,7 +28,7 @@ export type UseJaugeReturn = {
 const TODAY = () => new Date().toISOString().split('T')[0];
 const POLL_INTERVAL_MS = 30_000;
 
-export function useJauge(): UseJaugeReturn {
+export function useJauge(isTest = false): UseJaugeReturn {
   const { session } = useAuth();
 
   const [config, setConfig] = useState<EntrepriseJaugeConfig | null>(null);
@@ -44,11 +44,14 @@ export function useJauge(): UseJaugeReturn {
       .select('count_actuel')
       .eq('entreprise_id', entrepriseId)
       .eq('date_soiree', TODAY())
+      .eq('is_test', isTest)
       .maybeSingle();
     if (data != null) {
       setCount(data.count_actuel);
+    } else {
+      setCount(0);
     }
-  }, []);
+  }, [isTest]);
 
   // Initial load
   useEffect(() => {
@@ -73,10 +76,11 @@ export function useJauge(): UseJaugeReturn {
           .select('count_actuel')
           .eq('entreprise_id', cfg.id)
           .eq('date_soiree', TODAY())
+          .eq('is_test', isTest)
           .maybeSingle();
 
-        if (!cancelled && etat != null) {
-          setCount(etat.count_actuel);
+        if (!cancelled) {
+          setCount(etat?.count_actuel ?? 0);
         }
       }
 
@@ -85,7 +89,7 @@ export function useJauge(): UseJaugeReturn {
 
     load();
     return () => { cancelled = true; };
-  }, [fetchCount]);
+  }, [fetchCount, isTest]);
 
   // Realtime subscription + continuous polling (mobile-reliable)
   useEffect(() => {
@@ -93,19 +97,15 @@ export function useJauge(): UseJaugeReturn {
 
     const entrepriseId = config.id;
 
-    // Realtime: use payload.new directly — no async re-fetch, instant update
     const channel = supabase
-      .channel(`jauge_etat_${entrepriseId}`)
+      .channel(`jauge_etat_${entrepriseId}_${isTest ? 'test' : 'real'}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'jauge_etat',
-        },
+        { event: '*', schema: 'public', table: 'jauge_etat' },
         (payload) => {
-          const row = payload.new as { count_actuel?: number; entreprise_id?: string };
+          const row = payload.new as { count_actuel?: number; entreprise_id?: string; is_test?: boolean };
           if (row.entreprise_id !== entrepriseId) return;
+          if (row.is_test !== isTest) return;
           if (typeof row.count_actuel === 'number') {
             setCount(row.count_actuel);
           }
@@ -113,10 +113,8 @@ export function useJauge(): UseJaugeReturn {
       )
       .subscribe();
 
-    // Always-on polling: reliable fallback for Android (WebSocket instability)
     const pollInterval = setInterval(() => fetchCount(entrepriseId), POLL_INTERVAL_MS);
 
-    // Immediate re-fetch when tab/app returns to foreground
     function handleVisibility() {
       if (document.visibilityState === 'visible') fetchCount(entrepriseId);
     }
@@ -127,11 +125,11 @@ export function useJauge(): UseJaugeReturn {
       document.removeEventListener('visibilitychange', handleVisibility);
       supabase.removeChannel(channel);
     };
-  }, [config, fetchCount]);
+  }, [config, fetchCount, isTest]);
 
-  // Automatic billetterie polling (mode automatique only)
+  // Automatic billetterie polling (mode automatique only, never in test mode)
   useEffect(() => {
-    if (!config || config.mode_jauge !== 'automatique' || !config.url_billetterie) return;
+    if (!config || config.mode_jauge !== 'automatique' || !config.url_billetterie || isTest) return;
 
     async function fetchBilletterie() {
       try {
@@ -149,20 +147,19 @@ export function useJauge(): UseJaugeReturn {
         const today = new Date().toISOString().slice(0, 10);
         if (lastZapsisCountRef.current === null) {
           lastZapsisCountRef.current = entrees;
-          // Initialiser la jauge : entrees ZAPSIS − sorties Flic du jour
           await supabase.rpc('set_entrees_manuelles', {
             p_entreprise_id: config!.id,
             p_entrees: entrees,
             p_user_id: null,
+            p_is_test: false,
           });
-          // Stocker le max ZAPSIS
           await supabase
             .from('jauge_etat')
             .update({ entrees_max_zapsis: entrees })
             .eq('entreprise_id', config!.id)
             .eq('date_soiree', today)
+            .eq('is_test', false)
             .lt('entrees_max_zapsis', entrees);
-          console.log('[Billetterie] Init ZAPSIS:', entrees, '— jauge initialisée');
           return;
         }
         const diff = entrees - lastZapsisCountRef.current;
@@ -172,14 +169,15 @@ export function useJauge(): UseJaugeReturn {
             p_delta: diff,
             p_source: 'app',
             p_user_id: session?.user?.id ?? null,
+            p_is_test: false,
           });
-          console.log('[Billetterie] +', diff, 'nouvelles entrées (total ZAPSIS:', entrees, ')');
         }
         await supabase
           .from('jauge_etat')
           .update({ entrees_max_zapsis: entrees })
           .eq('entreprise_id', config!.id)
           .eq('date_soiree', today)
+          .eq('is_test', false)
           .lt('entrees_max_zapsis', entrees);
         lastZapsisCountRef.current = entrees;
       } catch (err) {
@@ -194,7 +192,7 @@ export function useJauge(): UseJaugeReturn {
       clearInterval(interval);
       lastZapsisCountRef.current = null;
     };
-  }, [config?.mode_jauge, config?.url_billetterie, config?.frequence_billetterie, session?.user?.id]);
+  }, [config?.mode_jauge, config?.url_billetterie, config?.frequence_billetterie, session?.user?.id, isTest]);
 
   async function incrementJauge(delta: number, source: 'app' | 'flic' | 'manuel') {
     if (!config || !session?.user) return;
@@ -204,6 +202,7 @@ export function useJauge(): UseJaugeReturn {
       p_delta: delta,
       p_source: source,
       p_user_id: session.user.id,
+      p_is_test: isTest,
     });
   }
 
@@ -213,6 +212,7 @@ export function useJauge(): UseJaugeReturn {
     await supabase.rpc('reset_jauge', {
       p_entreprise_id: config.id,
       p_user_id: session.user.id,
+      p_is_test: isTest,
     });
   }
 

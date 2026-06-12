@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeftRight, ArrowRight, Users, RotateCcw, CheckCircle,
-  AlertCircle, ExternalLink, Gauge, X, Wifi,
+  AlertCircle, ExternalLink, Gauge, X, Wifi, FlaskConical, Power,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
+import { useSessionActive } from '../hooks/useSessionActive';
 
 type ModeJauge = 'entree_sortie' | 'sortie' | 'automatique';
 
@@ -27,6 +28,7 @@ type Toast = { msg: string; type: 'success' | 'error' };
 export default function JaugeConfigPage() {
   const { signOut, session } = useAuth();
   const navigate = useNavigate();
+  const sessionState = useSessionActive();
 
   const [entreprise, setEntreprise] = useState<EntrepriseJauge | null>(null);
   const [jaugeEtat, setJaugeEtat] = useState<JaugeEtat | null>(null);
@@ -35,6 +37,7 @@ export default function JaugeConfigPage() {
   const [resetting, setResetting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [togglingTest, setTogglingTest] = useState(false);
 
   const [countdown, setCountdown] = useState<number>(0);
   const [dernierAjout, setDernierAjout] = useState<{ delta: number; heure: string } | null>(null);
@@ -58,6 +61,7 @@ export default function JaugeConfigPage() {
         .from('jauge_etat')
         .select('count_actuel')
         .eq('date_soiree', new Date().toISOString().slice(0, 10))
+        .eq('is_test', false)
         .maybeSingle(),
     ]);
 
@@ -77,6 +81,7 @@ export default function JaugeConfigPage() {
           .from('jauge_etat')
           .select('count_actuel')
           .eq('date_soiree', new Date().toISOString().slice(0, 10))
+          .eq('is_test', false)
           .maybeSingle()
           .then(({ data }) => setJaugeEtat(data ?? { count_actuel: 0 }));
       })
@@ -96,6 +101,7 @@ export default function JaugeConfigPage() {
         .select('delta')
         .eq('entreprise_id', entreprise!.id)
         .eq('action', 'sortie')
+        .eq('is_test', false)
         .gte('created_at', startOfDay.toISOString());
       if (!error) {
         const total = (data ?? []).reduce((sum, r) => sum + Math.abs(r.delta), 0);
@@ -112,6 +118,7 @@ export default function JaugeConfigPage() {
         .eq('entreprise_id', entreprise!.id)
         .eq('action', 'entree')
         .in('source', ['app', 'manuel'])
+        .eq('is_test', false)
         .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
@@ -182,6 +189,7 @@ export default function JaugeConfigPage() {
     const { error } = await supabase.rpc('reset_jauge', {
       p_entreprise_id: entreprise.id,
       p_user_id: session.user.id,
+      p_is_test: false,
     });
 
     if (error) {
@@ -192,6 +200,27 @@ export default function JaugeConfigPage() {
     }
     setResetting(false);
   }
+
+  async function handleToggleTest() {
+    if (togglingTest) return;
+    setTogglingTest(true);
+    try {
+      if (sessionState.sessionType === 'test') {
+        await sessionState.requestCloseTestSession();
+        showToast('Session de test fermée — rapport envoyé', 'success');
+      } else {
+        await sessionState.openTestSession();
+        showToast('Session de test ouverte', 'success');
+      }
+    } catch {
+      showToast('Erreur lors du changement de mode', 'error');
+    } finally {
+      setTogglingTest(false);
+    }
+  }
+
+  const isTestActive = sessionState.sessionType === 'test';
+  const isRealSessionActive = sessionState.sessionType === 'normale' || sessionState.sessionType === 'exceptionnelle';
 
   const count = jaugeEtat?.count_actuel ?? 0;
   const max = entreprise?.effectif_public ?? 0;
@@ -525,6 +554,60 @@ export default function JaugeConfigPage() {
                 <RotateCcw className="w-4 h-4" />
                 Remettre à zéro
               </button>
+            </section>
+
+            {/* Section 4 — Session de test */}
+            <section className={`border rounded-2xl p-6 transition-colors ${
+              isTestActive
+                ? 'bg-amber-950/40 border-amber-700/60'
+                : isRealSessionActive
+                  ? 'bg-slate-900/50 border-slate-800 opacity-60'
+                  : 'bg-slate-900 border-slate-800'
+            }`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isTestActive ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-800 border border-slate-700'
+                  }`}>
+                    <FlaskConical className={`w-5 h-5 ${isTestActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                  </div>
+                  <div>
+                    <h2 className="text-white font-semibold text-base">Session de test</h2>
+                    <p className="text-slate-500 text-sm mt-0.5">
+                      {isTestActive
+                        ? `Active depuis ${sessionState.sessionOpenedAt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) ?? '—'} — fermeture auto à 08h00`
+                        : isRealSessionActive
+                          ? 'Indisponible — session réelle en cours'
+                          : 'Ouvre une session fictive pour tester le Flic et la saisie'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleToggleTest}
+                  disabled={togglingTest || isRealSessionActive}
+                  className={`relative shrink-0 w-12 h-6 rounded-full transition-colors focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
+                    isTestActive ? 'bg-amber-500' : 'bg-slate-700'
+                  }`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    isTestActive ? 'translate-x-6' : 'translate-x-0.5'
+                  }`} />
+                </button>
+              </div>
+
+              {isTestActive && (
+                <div className="mt-4 p-3 rounded-xl bg-amber-900/30 border border-amber-700/40">
+                  <div className="flex items-start gap-2">
+                    <Power className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-300 leading-relaxed space-y-1">
+                      <p className="font-semibold">Mode test actif — données non opérationnelles</p>
+                      <p>Le Flic enregistre les appuis sur une ligne isolée. Ces données seront purgées et un rapport de test sera envoyé par mail à la fermeture.</p>
+                      <p>La session se ferme automatiquement à 08h00 ou dès l'ouverture d'une vraie session.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
           </>
         )}
