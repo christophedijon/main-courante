@@ -8,7 +8,6 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import { useEntreprise } from '../../hooks/useEntreprise';
-import { useSessionActive } from '../../hooks/useSessionActive';
 import { useSaisie, SaisieType } from './SaisieContext';
 import StepHeader from '../components/StepHeader';
 
@@ -120,7 +119,6 @@ export default function StepRecap() {
   const { session, userFonction } = useAuth();
   const { profile } = useCurrentProfile();
   const { nom: entrepriseNom } = useEntreprise();
-  const { entrepriseId } = useSessionActive();
 
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -161,7 +159,6 @@ export default function StepRecap() {
       .from('evenements')
       .insert({
         type,
-        etablissement_id: entrepriseId,
         espace_id: draft.espace?.id || null,
         zone_id: isSsiFlow ? null : (draft.zone?.id || null),
         zone_ssi_id: isSsiFlow ? (draft.zone?.id || null) : null,
