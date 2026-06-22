@@ -1,12 +1,57 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge } from 'lucide-react';
+import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronDown } from 'lucide-react';
 import { useEntreprise } from '../hooks/useEntreprise';
 import { useAuth } from '../context/AuthContext';
 
 interface Props {
   onSignOut: () => void;
 }
+
+const GROUPES = [
+  {
+    id: 'equipe',
+    label: 'Équipe',
+    icon: Users,
+    items: [
+      { path: '/profile',               label: 'Mon Profil',       icon: User,            superOnly: false, adminOnly: false },
+      { path: '/dashboard',             label: 'Utilisateurs',     icon: LayoutDashboard, superOnly: true,  adminOnly: false },
+    ],
+  },
+  {
+    id: 'etablissement',
+    label: 'Établissement',
+    icon: Building2,
+    items: [
+      { path: '/entreprise',            label: 'Entreprise',       icon: Building2,       superOnly: false, adminOnly: true },
+      { path: '/espaces-zones',         label: 'Espaces & Zones',  icon: MapPin,          superOnly: false, adminOnly: true },
+      { path: '/motifs',                label: 'Motifs',           icon: ShieldAlert,     superOnly: false, adminOnly: true },
+      { path: '/documents',             label: 'Documents',        icon: FileText,        superOnly: false, adminOnly: true },
+      { path: '/postes',                label: 'Postes',           icon: MapPin,          superOnly: false, adminOnly: true },
+    ],
+  },
+  {
+    id: 'operations',
+    label: 'Opérations',
+    icon: Gauge,
+    items: [
+      { path: '/jauge',                 label: 'Jauge',            icon: Gauge,           superOnly: false, adminOnly: true },
+      { path: '/balises-rondes',        label: 'Balises & Rondes', icon: Radio,           superOnly: false, adminOnly: true },
+      { path: '/rapports',              label: 'Rapports',         icon: BarChart2,       superOnly: false, adminOnly: true },
+      { path: '/emails',                label: 'Emails',           icon: Mail,            superOnly: true,  adminOnly: false },
+    ],
+  },
+  {
+    id: 'conformite',
+    label: 'Conformité',
+    icon: ClipboardList,
+    items: [
+      { path: '/registre-securite',     label: 'Registre',         icon: ClipboardList,   superOnly: false, adminOnly: true },
+      { path: '/ia',                    label: 'IA',               icon: Bot,             superOnly: false, adminOnly: true },
+      { path: '/dashboard-signatures',  label: 'Signatures',       icon: PenLine,         superOnly: false, adminOnly: true },
+    ],
+  },
+];
 
 export default function AppHeader({ onSignOut }: Props) {
   const navigate = useNavigate();
@@ -15,6 +60,10 @@ export default function AppHeader({ onSignOut }: Props) {
   const { isSuperAdmin, hasAdminAccess } = useAuth();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(() => {
+    const active = GROUPES.find(g => g.items.some(i => i.path === pathname));
+    return active?.id ?? null;
+  });
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,32 +85,16 @@ export default function AppHeader({ onSignOut }: Props) {
     };
   }, [menuOpen]);
 
-  const allTabs = [
-    { path: '/dashboard',           label: 'Utilisateurs',    icon: LayoutDashboard, superOnly: true,  adminOnly: false },
-    { path: '/profile',             label: 'Mon Profil',      icon: User,            superOnly: false, adminOnly: false },
-    { path: '/entreprise',          label: 'Entreprise',      icon: Building2,       superOnly: false, adminOnly: true  },
-    { path: '/espaces-zones',       label: 'Espaces & Zones', icon: MapPin,          superOnly: false, adminOnly: true  },
-    { path: '/motifs',              label: 'Motifs',          icon: ShieldAlert,     superOnly: false, adminOnly: true  },
-    { path: '/documents',           label: 'Documents',       icon: FileText,        superOnly: false, adminOnly: true  },
-    { path: '/postes',              label: 'Postes',          icon: MapPin,          superOnly: false, adminOnly: true  },
-    { path: '/rapports',            label: 'Rapports',        icon: BarChart2,       superOnly: false, adminOnly: true  },
-    { path: '/registre-securite',   label: 'Registre',        icon: ClipboardList,   superOnly: false, adminOnly: true  },
-    { path: '/ia',                  label: 'IA',              icon: Bot,             superOnly: false, adminOnly: true  },
-    { path: '/dashboard-signatures',label: 'Signatures',      icon: PenLine,         superOnly: false, adminOnly: true  },
-    { path: '/emails',              label: 'Emails',          icon: Mail,            superOnly: true,  adminOnly: false },
-    { path: '/balises-rondes',     label: 'Balises & Rondes',icon: Radio,           superOnly: false, adminOnly: true  },
-    { path: '/jauge',              label: 'Jauge',           icon: Gauge,           superOnly: false, adminOnly: true  },
-  ];
+  const visibleGroupes = GROUPES.map(g => ({
+    ...g,
+    items: g.items.filter(item => {
+      if (item.superOnly && !isSuperAdmin) return false;
+      if (item.adminOnly && !hasAdminAccess) return false;
+      return true;
+    }),
+  })).filter(g => g.items.length > 0);
 
-  const tabs = allTabs.filter((t) => {
-    if (t.superOnly && !isSuperAdmin) return false;
-    if (t.adminOnly && !hasAdminAccess) return false;
-    return true;
-  });
-
-  const superTabs = tabs.filter(t => t.superOnly);
-  const generalTabs = tabs.filter(t => !t.superOnly);
-  const activeLabel = tabs.find(t => t.path === pathname)?.label ?? '';
+  const activeLabel = GROUPES.flatMap(g => g.items).find(t => t.path === pathname)?.label ?? '';
 
   const isImageLogo = logo_url && logo_url.match(/\.(png|jpe?g|gif|webp)$/i);
 
@@ -111,64 +144,62 @@ export default function AppHeader({ onSignOut }: Props) {
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-50">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900
+                              border border-slate-700 rounded-2xl shadow-2xl
+                              shadow-black/50 overflow-hidden z-50 py-2">
+                {visibleGroupes.map(groupe => {
+                  const GroupIcon = groupe.icon;
+                  const isOpen = openGroup === groupe.id;
+                  const hasActive = groupe.items.some(i => i.path === pathname);
+                  return (
+                    <div key={groupe.id}>
+                      <button
+                        onClick={() => setOpenGroup(isOpen ? null : groupe.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm
+                                    font-semibold transition-all
+                                    ${hasActive
+                                      ? 'text-white'
+                                      : 'text-slate-400 hover:text-white'}`}
+                      >
+                        <GroupIcon className={`w-4 h-4 shrink-0
+                          ${hasActive ? 'text-blue-400' : ''}`} />
+                        <span className="flex-1 text-left">{groupe.label}</span>
+                        {hasActive && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mr-1" />
+                        )}
+                        <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform
+                          text-slate-500 ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
 
-                {/* Groupe superAdmin */}
-                {isSuperAdmin && superTabs.length > 0 && (
-                  <div className="px-3 pt-3 pb-1">
-                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider px-2 mb-1">
-                      Administration
-                    </p>
-                    {superTabs.map(tab => {
-                      const Icon = tab.icon;
-                      const active = pathname === tab.path;
-                      return (
-                        <button
-                          key={tab.path}
-                          onClick={() => { navigate(tab.path); setMenuOpen(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
-                            ${active ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-                        >
-                          <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-blue-400' : ''}`} />
-                          {tab.label}
-                          {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Séparateur */}
-                {isSuperAdmin && generalTabs.length > 0 && (
-                  <div className="mx-3 my-1 border-t border-slate-800" />
-                )}
-
-                {/* Groupe général */}
-                {generalTabs.length > 0 && (
-                  <div className="px-3 pb-3 pt-1">
-                    {!isSuperAdmin && (
-                      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider px-2 mb-1 pt-2">
-                        Navigation
-                      </p>
-                    )}
-                    {generalTabs.map(tab => {
-                      const Icon = tab.icon;
-                      const active = pathname === tab.path;
-                      return (
-                        <button
-                          key={tab.path}
-                          onClick={() => { navigate(tab.path); setMenuOpen(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
-                            ${active ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-                        >
-                          <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-blue-400' : ''}`} />
-                          {tab.label}
-                          {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                      {isOpen && (
+                        <div className="pb-1 px-2">
+                          {groupe.items.map(tab => {
+                            const Icon = tab.icon;
+                            const active = pathname === tab.path;
+                            return (
+                              <button
+                                key={tab.path}
+                                onClick={() => { navigate(tab.path); setMenuOpen(false); }}
+                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl
+                                            text-sm font-medium transition-all
+                                            ${active
+                                              ? 'bg-slate-800 text-white'
+                                              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                              >
+                                <Icon className={`w-4 h-4 shrink-0
+                                  ${active ? 'text-blue-400' : ''}`} />
+                                {tab.label}
+                                {active && (
+                                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
