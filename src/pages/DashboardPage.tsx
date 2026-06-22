@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users, UserPlus, Search, Trash2,
   ChevronUp, ChevronDown, RefreshCw, Mail, Pencil,
-  X, Copy, CheckCircle, AlertCircle,
+  X, Copy, CheckCircle, AlertCircle, UserX, UserCheck, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { ManagedUser } from '../lib/supabase';
@@ -54,6 +54,8 @@ export default function DashboardPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [suspendedOpen, setSuspendedOpen] = useState(false);
+  const [suspendLoading, setSuspendLoading] = useState<string | null>(null);
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -124,15 +126,56 @@ export default function DashboardPage() {
     setDeleteLoading(false);
     setDeleteTarget(null);
     if (error) {
-      setToast({ message: 'Erreur lors de la suppression.', type: 'error' });
+      if (error.code === '23503') {
+        setToast({
+          message: `Impossible de supprimer ${deleteTarget!.email} — des données lui sont liées. Utilisez "Suspendre" à la place.`,
+          type: 'error'
+        });
+      } else {
+        setToast({ message: 'Erreur lors de la suppression.', type: 'error' });
+      }
+      setDeleteTarget(null);
     } else {
       setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       setToast({ message: `${deleteTarget.email} a été supprimé.`, type: 'success' });
     }
   }
 
-  function handleCreated(user: ManagedUser) {
-    setUsers((prev) => [user, ...prev]);
+  async function handleSuspend(user: ManagedUser) {
+    setSuspendLoading(user.id);
+    const { error } = await supabase
+      .from('managed_users')
+      .update({ status: 'suspended' })
+      .eq('id', user.id);
+    setSuspendLoading(null);
+    if (error) {
+      setToast({ message: 'Erreur lors de la suspension.', type: 'error' });
+    } else {
+      setUsers(prev => prev.map(u =>
+        u.id === user.id ? { ...u, status: 'suspended' } : u
+      ));
+      setToast({ message: `${user.email} a été suspendu.`, type: 'success' });
+    }
+  }
+
+  async function handleReactivate(user: ManagedUser) {
+    setSuspendLoading(user.id);
+    const { error } = await supabase
+      .from('managed_users')
+      .update({ status: 'active' })
+      .eq('id', user.id);
+    setSuspendLoading(null);
+    if (error) {
+      setToast({ message: 'Erreur lors de la réactivation.', type: 'error' });
+    } else {
+      setUsers(prev => prev.map(u =>
+        u.id === user.id ? { ...u, status: 'active' } : u
+      ));
+      setToast({ message: `${user.email} a été réactivé.`, type: 'success' });
+    }
+  }
+
+  function handleCreated(user: ManagedUser) {    setUsers((prev) => [user, ...prev]);
     setShowCreate(false);
     setToast({ message: `${user.email} a été créé avec succès.`, type: 'success' });
   }
@@ -257,6 +300,9 @@ export default function DashboardPage() {
       ? av < bv ? -1 : av > bv ? 1 : 0
       : av > bv ? -1 : av < bv ? 1 : 0;
   });
+
+  const activeUsers = sorted.filter(u => u.status !== 'suspended');
+  const suspendedUsers = sorted.filter(u => u.status === 'suspended');
 
   function SortIcon({ col }: { col: SortKey }) {
     if (col !== sortKey) return <ChevronUp className="w-3 h-3 opacity-20" />;
@@ -420,7 +466,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((user, i) => (
+                  {activeUsers.map((user, i) => (
                     <tr
                       key={user.id}
                       className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group
@@ -462,9 +508,19 @@ export default function DashboardPage() {
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleSuspend(user)}
+                            disabled={suspendLoading === user.id}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
+                            title="Suspendre"
+                          >
+                            {suspendLoading === user.id
+                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                              : <UserX className="w-4 h-4" />}
+                          </button>
+                          <button
                             onClick={() => setDeleteTarget(user)}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                            title="Supprimer"
+                            title="Supprimer définitivement"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -477,6 +533,79 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {suspendedUsers.length > 0 && (
+          <div className="mt-4 bg-slate-900 border border-amber-500/20 rounded-2xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSuspendedOpen(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-800/40 transition-colors"
+            >
+              <span className="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                <UserX className="w-4 h-4" />
+                Utilisateurs suspendus
+                <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                  {suspendedUsers.length}
+                </span>
+              </span>
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${suspendedOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {suspendedOpen && (
+              <div className="border-t border-slate-800 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {suspendedUsers.map((user, i) => (
+                      <tr key={user.id}
+                          className={`border-b border-slate-800/50 ${i % 2 === 0 ? '' : 'bg-slate-800/10'}`}>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center shrink-0 opacity-50">
+                              <span className="text-xs font-semibold text-slate-400">
+                                {avatarLetter(user.email)}
+                              </span>
+                            </div>
+                            <span className="text-slate-400">{user.email}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${FONCTION_STYLES[user.fonction] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
+                            {user.fonction}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
+                          Suspendu le {formatDate(user.created_at)}
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-1 justify-end">
+                            <button
+                              onClick={() => handleReactivate(user)}
+                              disabled={suspendLoading === user.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all"
+                            >
+                              {suspendLoading === user.id
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <UserCheck className="w-3.5 h-3.5" />}
+                              Réactiver
+                            </button>
+                            <button
+                              onClick={() => setDeleteTarget(user)}
+                              className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                              title="Supprimer définitivement"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
 
       {showCreate && (
