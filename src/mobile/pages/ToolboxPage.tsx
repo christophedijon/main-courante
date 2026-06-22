@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen } from 'lucide-react';
+import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen, Zap, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useSessionActive } from '../../hooks/useSessionActive';
 import EntrepriseBadge from '../components/EntrepriseBadge';
 
 type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
@@ -25,6 +26,11 @@ export default function ToolboxPage() {
   const navigate = useNavigate();
   const { isSuperAdmin, userFonction, session } = useAuth();
   const canAssign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
+  const canOpenExceptionnelle = userFonction === 'Direction' || isSuperAdmin;
+
+  const sessionState = useSessionActive();
+  const [exceptionnelleModalOpen, setExceptionnelleModalOpen] = useState(false);
+  const [openingExceptionnelle, setOpeningExceptionnelle] = useState(false);
 
   const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
 
@@ -155,6 +161,86 @@ export default function ToolboxPage() {
           </button>
         )}
       </div>
+
+      {canOpenExceptionnelle && !sessionState.isActive && (
+        <div className="mx-4 mt-6 mb-2">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-slate-800" />
+            <span className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold">
+              Gestion de session
+            </span>
+            <div className="flex-1 h-px bg-slate-800" />
+          </div>
+
+          <button
+            onClick={() => setExceptionnelleModalOpen(true)}
+            className="w-full flex items-center justify-center gap-3 rounded-2xl
+                       px-5 py-3.5 font-bold text-sm transition-all active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(217,119,6,0.10) 100%)',
+              border: '1px solid rgba(245,158,11,0.35)',
+              color: '#f59e0b',
+            }}
+          >
+            <Zap size={16} />
+            Ouverture Exceptionnelle
+          </button>
+          <p className="text-center text-[11px] text-slate-600 mt-2">
+            Hors horaires habituels — fermeture automatique à 08h00
+          </p>
+        </div>
+      )}
+
+      {exceptionnelleModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70"
+          onClick={(e) => { if (e.target === e.currentTarget) setExceptionnelleModalOpen(false); }}
+        >
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30
+                              flex items-center justify-center">
+                <Zap className="w-5 h-5 text-amber-400" />
+              </div>
+              <button
+                onClick={() => setExceptionnelleModalOpen(false)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <h3 className="text-white font-bold text-lg mb-1">Ouverture Exceptionnelle</h3>
+            <p className="text-slate-400 text-sm mb-1">
+              Ouvre une session de soirée hors horaires habituels.
+            </p>
+            <p className="text-amber-400 text-sm font-medium mb-6">
+              Fermeture automatique demain à 08h00.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setExceptionnelleModalOpen(false)}
+                className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300
+                           text-sm font-semibold hover:bg-slate-800 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={async () => {
+                  setOpeningExceptionnelle(true);
+                  await sessionState.openExceptionnelleSession();
+                  setOpeningExceptionnelle(false);
+                  setExceptionnelleModalOpen(false);
+                }}
+                disabled={openingExceptionnelle}
+                className="flex-1 py-3 rounded-xl bg-amber-600 hover:bg-amber-500
+                           text-white text-sm font-bold transition-colors disabled:opacity-50"
+              >
+                {openingExceptionnelle ? 'Ouverture…' : 'Confirmer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
