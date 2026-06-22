@@ -302,10 +302,10 @@ export default function HomePage() {
       {/* Exceptionnelle session confirmation modal */}
       {exceptionnelleModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70"
           onClick={(e) => { if (e.target === e.currentTarget) setExceptionnelleModalOpen(false); }}
         >
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-t-2xl p-6 pb-8 shadow-2xl">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
                 <Zap className="w-5 h-5 text-amber-400" />
