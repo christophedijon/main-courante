@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronDown } from 'lucide-react';
+import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronRight } from 'lucide-react';
 import { useEntreprise } from '../hooks/useEntreprise';
 import { useAuth } from '../context/AuthContext';
 
@@ -144,22 +144,28 @@ export default function AppHeader({ onSignOut }: Props) {
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900
+              <div className="absolute right-0 top-full mt-2 bg-slate-900
                               border border-slate-700 rounded-2xl shadow-2xl
-                              shadow-black/50 overflow-hidden z-50 py-2">
+                              shadow-black/50 z-50 py-2 w-56">
                 {visibleGroupes.map(groupe => {
                   const GroupIcon = groupe.icon;
                   const isOpen = openGroup === groupe.id;
                   const hasActive = groupe.items.some(i => i.path === pathname);
                   return (
-                    <div key={groupe.id}>
+                    <div
+                      key={groupe.id}
+                      className="relative"
+                      onMouseEnter={() => setOpenGroup(groupe.id)}
+                      onMouseLeave={() => setOpenGroup(null)}
+                    >
                       <button
                         onClick={() => setOpenGroup(isOpen ? null : groupe.id)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm
-                                    font-semibold transition-all
-                                    ${hasActive
-                                      ? 'text-white'
-                                      : 'text-slate-400 hover:text-white'}`}
+                                    font-semibold transition-all rounded-xl mx-1
+                                    ${hasActive || isOpen
+                                      ? 'bg-slate-800 text-white'
+                                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                        style={{ width: 'calc(100% - 8px)' }}
                       >
                         <GroupIcon className={`w-4 h-4 shrink-0
                           ${hasActive ? 'text-blue-400' : ''}`} />
@@ -167,24 +173,34 @@ export default function AppHeader({ onSignOut }: Props) {
                         {hasActive && (
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mr-1" />
                         )}
-                        <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform
-                          text-slate-500 ${isOpen ? 'rotate-180' : ''}`} />
+                        <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-500" />
                       </button>
 
                       {isOpen && (
-                        <div className="pb-1 px-2">
+                        <div
+                          className="absolute top-0 right-full mr-2 w-52 bg-slate-900
+                                     border border-slate-700 rounded-2xl shadow-2xl
+                                     shadow-black/50 py-2 z-60"
+                          onMouseEnter={() => setOpenGroup(groupe.id)}
+                          onMouseLeave={() => setOpenGroup(null)}
+                        >
+                          <p className="text-[10px] font-bold text-slate-600 uppercase
+                                        tracking-wider px-4 pb-1 pt-1">
+                            {groupe.label}
+                          </p>
                           {groupe.items.map(tab => {
                             const Icon = tab.icon;
                             const active = pathname === tab.path;
                             return (
                               <button
                                 key={tab.path}
-                                onClick={() => { navigate(tab.path); setMenuOpen(false); }}
-                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl
-                                            text-sm font-medium transition-all
+                                onClick={() => { navigate(tab.path); setMenuOpen(false); setOpenGroup(null); }}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 mx-1
+                                            rounded-xl text-sm font-medium transition-all
                                             ${active
                                               ? 'bg-slate-800 text-white'
                                               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                                style={{ width: 'calc(100% - 8px)' }}
                               >
                                 <Icon className={`w-4 h-4 shrink-0
                                   ${active ? 'text-blue-400' : ''}`} />
