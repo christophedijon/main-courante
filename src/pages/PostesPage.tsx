@@ -2,7 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin, Plus, Pencil, Trash2, Save, X, AlertCircle, CheckCircle,
-  Users, GripVertical, Eye, EyeOff,
+  Users, Loader2, ChevronDown, Building2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -16,28 +16,21 @@ type Poste = {
   description: string;
   actif: boolean;
   ordre: number;
+  etablissement_id: string;
   created_at: string;
 };
 
 type Assignation = {
   id: string;
   poste_id: string;
-  agent_id: string;
   agent_nom: string;
   agent_fonction: string;
-  assigned_at: string;
   actif: boolean;
 };
 
-type ManagedUser = {
-  id: string;
-  email: string;
-  fonction: string;
-  auth_user_id: string | null;
-};
+type Etab = { id: string; nom: string };
 
-type UserProfile = { id: string; first_name: string; last_name: string };
-
+const FONCTIONS = ['Agent de Sécurité', 'Serveur', 'Direction', 'Chef de poste', 'Tous'];
 
 const FONCTION_BADGE: Record<string, string> = {
   'Agent de Sécurité': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -47,133 +40,164 @@ const FONCTION_BADGE: Record<string, string> = {
   'Tous':              'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
-const EMPTY_FORM = { nom: '', fonction: '', description: '', ordre: 0 };
+const inputCls = `w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white
+  placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+  focus:border-transparent transition-all`;
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className={`relative w-10 h-5 rounded-full transition-all shrink-0
+        ${checked ? 'bg-emerald-500' : 'bg-slate-600'}`}
+    >
+      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all
+        ${checked ? 'left-5' : 'left-0.5'}`} />
+    </button>
+  );
+}
+
+const EMPTY_FORM = { nom: '', fonction: 'Agent de Sécurité', description: '', ordre: 0, actif: true };
+type Form = typeof EMPTY_FORM;
 
 export default function PostesPage() {
-  const { signOut } = useAuth();
+  const { signOut, isSuperAdmin, session } = useAuth();
   const navigate = useNavigate();
 
+  // ── Établissement selector ──────────────────────────────────────────────────
+  const [etablissements, setEtablissements] = useState<Etab[]>([]);
+  const [etablissementId, setEtablissementId] = useState<string | null>(null);
+  const [etabLoading, setEtabLoading] = useState(true);
+
+  // ── Data ───────────────────────────────────────────────────────────────────
   const [postes, setPostes] = useState<Poste[]>([]);
   const [assignations, setAssignations] = useState<Assignation[]>([]);
-  const [agents, setAgents] = useState<ManagedUser[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, UserProfile>>({});
-  const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Poste form
-  const [editingPoste, setEditingPoste] = useState<Poste | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  // ── UI state ───────────────────────────────────────────────────────────────
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Poste | null>(null);
+  const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [formMsg, setFormMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Poste | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Assignation
-  const [assignOpen, setAssignOpen] = useState<string | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState('');
-  const [assignLoading, setAssignLoading] = useState(false);
+  // ── Initialisation établissement ───────────────────────────────────────────
+  useEffect(() => {
+    async function init() {
+      setEtabLoading(true);
+      if (isSuperAdmin) {
+        const { data } = await supabase
+          .from('etablissements')
+          .select('id, nom')
+          .order('nom');
+        setEtablissements((data ?? []) as Etab[]);
+        if (data && data.length > 0) setEtablissementId(data[0].id);
+      } else if (session?.user.id) {
+        const { data } = await supabase
+          .from('managed_users')
+          .select('etablissement_id')
+          .eq('auth_user_id', session.user.id)
+          .maybeSingle();
+        setEtablissementId(data?.etablissement_id ?? null);
+      }
+      setEtabLoading(false);
+    }
+    init();
+  }, [isSuperAdmin, session?.user.id]);
 
-  // Filter
-  const [showInactif, setShowInactif] = useState(false);
+  // ── Chargement des postes ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!etablissementId) return;
+    loadData();
+  }, [etablissementId]);
 
-  async function load() {
+  async function loadData() {
+    if (!etablissementId) return;
     setLoading(true);
-    const [postesRes, assignRes, agentsRes] = await Promise.all([
-      supabase.from('postes').select('*').order('ordre').order('nom'),
-      supabase.from('assignations').select('*').eq('actif', true),
-      supabase.from('managed_users').select('id, email, fonction, auth_user_id').order('email'),
+    const [postesRes, assignRes] = await Promise.all([
+      supabase.from('postes').select('*')
+        .eq('etablissement_id', etablissementId)
+        .order('ordre').order('nom'),
+      supabase.from('assignations').select('id, poste_id, agent_nom, agent_fonction, actif')
+        .eq('etablissement_id', etablissementId)
+        .eq('actif', true),
     ]);
     setPostes((postesRes.data ?? []) as Poste[]);
     setAssignations((assignRes.data ?? []) as Assignation[]);
-    setAgents((agentsRes.data ?? []) as ManagedUser[]);
-
-    // Load profiles for display names
-    const authIds = ((agentsRes.data ?? []) as ManagedUser[])
-      .map((u) => u.auth_user_id)
-      .filter(Boolean) as string[];
-    if (authIds.length > 0) {
-      const { data: profs } = await supabase
-        .from('user_profiles')
-        .select('id, first_name, last_name')
-        .in('id', authIds);
-      const map: Record<string, UserProfile> = {};
-      (profs ?? []).forEach((p: UserProfile) => { map[p.id] = p; });
-      setProfiles(map);
-    }
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
-
-  // Realtime assignations
+  // ── Realtime ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!etablissementId) return;
     const channel = supabase
-      .channel('assignations-backoffice')
+      .channel('postes-backoffice-' + etablissementId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'assignations' }, () => {
-        supabase.from('assignations').select('*').eq('actif', true)
+        supabase.from('assignations').select('id, poste_id, agent_nom, agent_fonction, actif')
+          .eq('etablissement_id', etablissementId).eq('actif', true)
           .then(({ data }) => setAssignations((data ?? []) as Assignation[]));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [etablissementId]);
 
-  function agentDisplayName(agent: ManagedUser): string {
-    if (agent.auth_user_id) {
-      const p = profiles[agent.auth_user_id];
-      if (p) {
-        const full = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
-        if (full) return full;
-      }
-    }
-    return agent.email;
-  }
-
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function openCreate() {
-    setEditingPoste(null);
-    setForm(EMPTY_FORM);
+    setEditTarget(null);
+    const maxOrdre = postes.length > 0 ? Math.max(...postes.map((p) => p.ordre)) + 1 : 0;
+    setForm({ ...EMPTY_FORM, ordre: maxOrdre });
     setFormMsg(null);
-    setShowCreate(true);
+    setModalOpen(true);
   }
 
   function openEdit(p: Poste) {
-    setEditingPoste(p);
-    setForm({ nom: p.nom, fonction: p.fonction, description: p.description, ordre: p.ordre });
+    setEditTarget(p);
+    setForm({ nom: p.nom, fonction: p.fonction, description: p.description, ordre: p.ordre, actif: p.actif });
     setFormMsg(null);
-    setShowCreate(true);
+    setModalOpen(true);
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!form.nom.trim()) { setFormMsg({ type: 'error', text: 'Le nom du poste est requis.' }); return; }
-    if (!form.fonction.trim()) { setFormMsg({ type: 'error', text: 'La fonction est requise.' }); return; }
+    if (!etablissementId) { setFormMsg({ type: 'error', text: 'Aucun établissement sélectionné.' }); return; }
     setFormLoading(true);
     setFormMsg(null);
 
-    if (editingPoste) {
+    if (editTarget) {
       const { error } = await supabase.from('postes').update({
         nom: form.nom.trim(),
         fonction: form.fonction,
         description: form.description.trim(),
         ordre: form.ordre,
+        actif: form.actif,
         updated_at: new Date().toISOString(),
-      }).eq('id', editingPoste.id);
+      }).eq('id', editTarget.id);
       if (error) { setFormMsg({ type: 'error', text: `Erreur : ${error.message}` }); setFormLoading(false); return; }
-      setPostes((prev) => prev.map((p) => p.id === editingPoste.id ? { ...p, ...form, nom: form.nom.trim(), description: form.description.trim(), updated_at: new Date().toISOString() } : p));
-      setToast({ message: 'Poste modifié avec succès.', type: 'success' });
+      setPostes((prev) => prev.map((p) => p.id === editTarget.id
+        ? { ...p, nom: form.nom.trim(), fonction: form.fonction, description: form.description.trim(), ordre: form.ordre, actif: form.actif }
+        : p
+      ).sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom)));
+      setToast({ message: 'Poste modifié.', type: 'success' });
     } else {
       const { data, error } = await supabase.from('postes').insert({
         nom: form.nom.trim(),
-        fonction: form.fonction.trim(),
+        fonction: form.fonction,
         description: form.description.trim(),
-        actif: true,
-        ordre: 0,
+        ordre: form.ordre,
+        actif: form.actif,
+        etablissement_id: etablissementId,
       }).select().maybeSingle();
       if (error) { setFormMsg({ type: 'error', text: `Erreur : ${error.message}` }); setFormLoading(false); return; }
-      if (!data) { setFormMsg({ type: 'error', text: 'Erreur : aucune donnée retournée.' }); setFormLoading(false); return; }
-      setPostes((prev) => [...prev, data as Poste].sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom)));
-      setToast({ message: 'Poste créé avec succès.', type: 'success' });
+      if (data) setPostes((prev) => [...prev, data as Poste].sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom)));
+      setToast({ message: 'Poste créé.', type: 'success' });
     }
     setFormLoading(false);
-    setShowCreate(false);
+    setModalOpen(false);
   }
 
   async function toggleActif(p: Poste) {
@@ -182,82 +206,64 @@ export default function PostesPage() {
     setPostes((prev) => prev.map((x) => x.id === p.id ? { ...x, actif: !p.actif } : x));
   }
 
-  async function deletePoste(p: Poste) {
-    const { error } = await supabase.from('postes').delete().eq('id', p.id);
-    if (error) { setToast({ message: 'Erreur lors de la suppression.', type: 'error' }); return; }
-    setPostes((prev) => prev.filter((x) => x.id !== p.id));
-    setToast({ message: `Poste "${p.nom}" supprimé.`, type: 'success' });
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    const { error } = await supabase.from('postes').delete().eq('id', deleteTarget.id);
+    if (error) { setToast({ message: 'Erreur lors de la suppression.', type: 'error' }); setDeleteLoading(false); return; }
+    setPostes((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+    setToast({ message: `"${deleteTarget.nom}" supprimé.`, type: 'success' });
+    setDeleteLoading(false);
+    setDeleteTarget(null);
   }
 
-  async function handleAssign(posteId: string) {
-    if (!selectedAgent) return;
-    setAssignLoading(true);
-    const agent = agents.find((a) => a.id === selectedAgent);
-    if (!agent?.auth_user_id) {
-      setToast({ message: 'Cet agent n\'a pas encore de compte actif.', type: 'error' });
-      setAssignLoading(false);
-      return;
-    }
-    // Désactiver l'assignation active existante de cet agent
-    await supabase.from('assignations').update({ actif: false }).eq('agent_id', agent.auth_user_id).eq('actif', true);
-
-    const displayName = agentDisplayName(agent);
-    const { error } = await supabase.from('assignations').insert({
-      poste_id: posteId,
-      agent_id: agent.auth_user_id,
-      agent_nom: displayName,
-      agent_fonction: agent.fonction,
-    });
-    if (error) { setToast({ message: 'Erreur lors de l\'assignation.', type: 'error' }); setAssignLoading(false); return; }
-
-    // Refresh
-    const { data } = await supabase.from('assignations').select('*').eq('actif', true);
-    setAssignations((data ?? []) as Assignation[]);
-    setAssignOpen(null);
-    setSelectedAgent('');
-    setToast({ message: `${displayName} assigné au poste.`, type: 'success' });
-    setAssignLoading(false);
-  }
-
-  async function handleUnassign(assignation: Assignation) {
-    const { error } = await supabase.from('assignations').update({ actif: false }).eq('id', assignation.id);
-    if (error) { setToast({ message: 'Erreur lors du retrait.', type: 'error' }); return; }
-    setAssignations((prev) => prev.filter((a) => a.id !== assignation.id));
-    setToast({ message: `${assignation.agent_nom} retiré du poste.`, type: 'success' });
-  }
-
-  const displayed = postes.filter((p) => showInactif || p.actif);
+  const etabNom = isSuperAdmin
+    ? etablissements.find((e) => e.id === etablissementId)?.nom ?? ''
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
       <AppHeader onSignOut={async () => { await signOut(); navigate('/'); }} />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+        {/* ── Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
             <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
               <MapPin className="w-6 h-6 text-blue-400" />
               Postes
             </h2>
             <p className="text-slate-400 text-sm mt-1">
-              {postes.filter((p) => p.actif).length} poste{postes.filter((p) => p.actif).length !== 1 ? 's' : ''} actif{postes.filter((p) => p.actif).length !== 1 ? 's' : ''}
-              {' · '}
-              {assignations.length} agent{assignations.length !== 1 ? 's' : ''} assigné{assignations.length !== 1 ? 's' : ''}
+              Configuration des postes opérationnels — pris par les agents en début de service
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowInactif((v) => !v)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-all
-                ${showInactif ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
-            >
-              {showInactif ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              {showInactif ? 'Masquer inactifs' : 'Voir inactifs'}
-            </button>
+
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            {/* Sélecteur établissement (superadmin uniquement) */}
+            {isSuperAdmin && (
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <select
+                  value={etablissementId ?? ''}
+                  onChange={(e) => setEtablissementId(e.target.value || null)}
+                  className="bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-8 py-2 text-sm text-white
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                    transition-all appearance-none cursor-pointer"
+                >
+                  {etablissements.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nom}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+              </div>
+            )}
+
             <button
               onClick={openCreate}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition-all shadow-lg shadow-blue-900/30"
+              disabled={!etablissementId}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700
+                disabled:cursor-not-allowed text-white font-medium px-4 py-2 rounded-xl text-sm
+                transition-all shadow-lg shadow-blue-900/30"
             >
               <Plus className="w-4 h-4" />
               Nouveau poste
@@ -265,256 +271,250 @@ export default function PostesPage() {
           </div>
         </div>
 
-        {/* Liste des postes */}
-        {loading ? (
+        {/* ── État de chargement initial ── */}
+        {etabLoading ? (
           <div className="flex items-center justify-center py-32 text-slate-500 gap-3">
-            <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
+            <Loader2 className="w-5 h-5 animate-spin" />
             Chargement…
           </div>
-        ) : displayed.length === 0 ? (
+        ) : !etablissementId ? (
+          <div className="flex flex-col items-center justify-center py-32 text-slate-500">
+            <Building2 className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm">Sélectionnez un établissement pour voir ses postes.</p>
+          </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center py-32 text-slate-500 gap-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Chargement…
+          </div>
+        ) : postes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 text-slate-500">
             <MapPin className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm">Aucun poste configuré. Créez votre premier poste.</p>
+            <p className="text-sm mb-3">Aucun poste configuré{etabNom ? ` pour ${etabNom}` : ''}.</p>
+            <button
+              onClick={openCreate}
+              className="text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors"
+            >
+              Créer le premier poste
+            </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {displayed.map((poste) => {
-              const posteAssigns = assignations.filter((a) => a.poste_id === poste.id);
-              const isAssignOpen = assignOpen === poste.id;
-              const assignedAgentIds = new Set(assignations.map((a) => a.agent_id));
-              const availableAgents = agents.filter((ag) => {
-                if (!ag.auth_user_id) return false;
-                if (ag.fonction !== 'Agent de Sécurité' && ag.fonction !== 'Chef de poste') return false;
-                const alreadyAssigned = assignedAgentIds.has(ag.auth_user_id);
-                return !alreadyAssigned;
-              });
+          <>
+            <p className="text-sm text-slate-500 mb-4">
+              {postes.filter((p) => p.actif).length} actif{postes.filter((p) => p.actif).length !== 1 ? 's' : ''}
+              {' · '}
+              {postes.length} au total
+              {' · '}
+              {assignations.length} agent{assignations.length !== 1 ? 's' : ''} en poste
+            </p>
 
-              return (
-                <div
-                  key={poste.id}
-                  className={`bg-slate-900 border rounded-2xl overflow-hidden transition-all
-                    ${poste.actif ? 'border-slate-800' : 'border-slate-800/50 opacity-60'}`}
-                >
-                  {/* Poste header */}
-                  <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-                        <GripVertical className="w-4 h-4 text-slate-500" />
+            {/* ── Grid des cards ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {postes.map((poste) => {
+                const posteAssigns = assignations.filter((a) => a.poste_id === poste.id);
+                const badgeCls = FONCTION_BADGE[poste.fonction] ?? FONCTION_BADGE['Tous'];
+
+                return (
+                  <div
+                    key={poste.id}
+                    className={`bg-slate-900 border rounded-2xl overflow-hidden flex flex-col transition-all
+                      ${poste.actif ? 'border-slate-800' : 'border-slate-800/50 opacity-60'}`}
+                  >
+                    {/* Card body */}
+                    <div className="p-5 flex-1">
+                      {/* Titre + badge */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="text-white font-bold text-base leading-snug">{poste.nom}</h3>
+                        <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badgeCls}`}>
+                          {poste.fonction}
+                        </span>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className={`font-semibold text-sm ${poste.actif ? 'text-white' : 'text-slate-400'}`}>
-                            {poste.nom}
-                          </p>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${FONCTION_BADGE[poste.fonction] ?? FONCTION_BADGE['Tous']}`}>
-                            {poste.fonction}
-                          </span>
-                          {!poste.actif && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-slate-600/20 text-slate-500 border-slate-600/30">
-                              Inactif
+
+                      {/* Description tronquée */}
+                      {poste.description && (
+                        <p className="text-slate-400 text-xs leading-relaxed line-clamp-3 mb-3">
+                          {poste.description}
+                        </p>
+                      )}
+
+                      {/* Agents assignés */}
+                      {posteAssigns.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {posteAssigns.slice(0, 3).map((a) => (
+                            <span key={a.id}
+                              className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-0.5 text-[11px] text-slate-300">
+                              <div className="w-3.5 h-3.5 rounded-full bg-slate-600 flex items-center justify-center shrink-0">
+                                <span className="text-[7px] font-bold text-white">{a.agent_nom.charAt(0).toUpperCase()}</span>
+                              </div>
+                              {a.agent_nom}
                             </span>
+                          ))}
+                          {posteAssigns.length > 3 && (
+                            <span className="text-[11px] text-slate-500 flex items-center">+{posteAssigns.length - 3}</span>
                           )}
                         </div>
-                        {poste.description && (
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">{poste.description}</p>
-                        )}
+                      )}
+                    </div>
+
+                    {/* Card footer */}
+                    <div className="border-t border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
+                      {/* Indicateurs gauche */}
+                      <div className="flex items-center gap-3">
+                        {/* Toggle actif */}
+                        <div className="flex items-center gap-2">
+                          <Toggle checked={poste.actif} onChange={() => toggleActif(poste)} />
+                          <span className={`text-xs font-medium ${poste.actif ? 'text-emerald-400' : 'text-slate-500'}`}>
+                            {poste.actif ? 'Actif' : 'Inactif'}
+                          </span>
+                        </div>
+
+                        {/* Ordre */}
+                        <span className="text-[10px] text-slate-600 border border-slate-800 rounded-lg px-1.5 py-0.5 font-mono">
+                          #{poste.ordre}
+                        </span>
+
+                        {/* Nb agents */}
+                        <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {posteAssigns.length}
+                        </span>
+                      </div>
+
+                      {/* Actions droite */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEdit(poste)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
+                          title="Modifier"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(poste)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
-                        {posteAssigns.length}
-                      </span>
-
-                      {/* Toggle actif/inactif pill */}
-                      <button
-                        onClick={() => toggleActif(poste)}
-                        title={poste.actif ? 'Désactiver' : 'Activer'}
-                        className={`relative inline-flex items-center gap-1.5 pl-2 pr-3 py-1 rounded-full text-[11px] font-semibold border transition-all
-                          ${poste.actif
-                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
-                            : 'bg-slate-700/40 border-slate-600/40 text-slate-500 hover:bg-slate-700/60'
-                          }`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${poste.actif ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-                        {poste.actif ? 'Actif' : 'Inactif'}
-                      </button>
-
-                      <button
-                        onClick={() => openEdit(poste)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
-                        title="Modifier"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => deletePoste(poste)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
                   </div>
-
-                  {/* Agents assignés */}
-                  {(posteAssigns.length > 0 || poste.actif) && (
-                    <div className="border-t border-slate-800 px-5 py-3 space-y-2">
-                      {posteAssigns.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {posteAssigns.map((a) => (
-                            <div
-                              key={a.id}
-                              className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5"
-                            >
-                              <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
-                                <span className="text-[9px] font-bold text-slate-300">
-                                  {a.agent_nom.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <span className="text-xs text-white font-medium">{a.agent_nom}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${FONCTION_BADGE[a.agent_fonction] ?? FONCTION_BADGE['Tous']}`}>
-                                {a.agent_fonction}
-                              </span>
-                              <button
-                                onClick={() => handleUnassign(a)}
-                                className="w-4 h-4 rounded-full hover:bg-red-500/20 text-slate-500 hover:text-red-400 flex items-center justify-center transition-all"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-600 italic">Aucun agent assigné</p>
-                      )}
-
-                      {/* Assign panel */}
-                      {poste.actif && (
-                        isAssignOpen ? (
-                          <div className="flex items-center gap-2 mt-2">
-                            <select
-                              value={selectedAgent}
-                              onChange={(e) => setSelectedAgent(e.target.value)}
-                              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                            >
-                              <option value="">Choisir un agent…</option>
-                              {availableAgents.map((ag) => (
-                                <option key={ag.id} value={ag.id}>{agentDisplayName(ag)} — {ag.fonction}</option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => handleAssign(poste.id)}
-                              disabled={!selectedAgent || assignLoading}
-                              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:cursor-not-allowed text-white text-sm rounded-xl font-medium transition-colors"
-                            >
-                              {assignLoading ? '…' : 'Assigner'}
-                            </button>
-                            <button
-                              onClick={() => { setAssignOpen(null); setSelectedAgent(''); }}
-                              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm rounded-xl transition-colors"
-                            >
-                              Annuler
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => { setAssignOpen(poste.id); setSelectedAgent(''); }}
-                            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors mt-1"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            Assigner un agent
-                          </button>
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </main>
 
-      {/* Modal création/édition poste */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
-          <div className="relative bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      {/* ── Modal création / édition ── */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                    <MapPin className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <h2 className="text-lg font-semibold text-white">
-                    {editingPoste ? 'Modifier le poste' : 'Nouveau poste'}
-                  </h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                  <MapPin className="w-4 h-4 text-blue-400" />
                 </div>
-                <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
+                <h3 className="text-white font-semibold">
+                  {editTarget ? 'Modifier le poste' : 'Nouveau poste'}
+                </h3>
               </div>
+              <button type="button" onClick={() => setModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
+            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               {formMsg && (
-                <div className={`flex items-start gap-3 rounded-xl p-3 mb-4 text-sm border
+                <div className={`flex items-center gap-2 rounded-xl p-3 text-sm border
                   ${formMsg.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                  {formMsg.type === 'success' ? <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
-                  <span>{formMsg.text}</span>
+                  {formMsg.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                  {formMsg.text}
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Nom du poste *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.nom}
-                    onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
-                    placeholder="Ex : Entrée principale, Bar VIP"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Nom du poste <span className="text-red-400">*</span></label>
+                <input type="text" required value={form.nom}
+                  onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
+                  placeholder="Ex : Entrée principale, Bar VIP, Parking B2"
+                  className={inputCls} />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Fonction *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.fonction}
-                    onChange={(e) => setForm((f) => ({ ...f, fonction: e.target.value }))}
-                    placeholder="Ex : Filtre les entrées, Surveillance périmètre"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Fonction <span className="text-red-400">*</span></label>
+                <select value={form.fonction}
+                  onChange={(e) => setForm((f) => ({ ...f, fonction: e.target.value }))}
+                  className={`${inputCls} appearance-none`}>
+                  {FONCTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Description / consigne</label>
-                  <textarea
-                    rows={2}
-                    value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="Ex : Contrôler les sacs, refuser les mineurs"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Description / consignes</label>
+                <textarea rows={4} value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Ex : Contrôle des accès, vérification des invitations, refus des mineurs…"
+                  className={`${inputCls} resize-none`} />
+              </div>
 
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowCreate(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl py-2.5 text-sm transition-colors">
-                    Annuler
-                  </button>
-                  <button type="submit" disabled={formLoading} className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
-                    <Save className="w-4 h-4" />
-                    {formLoading ? 'Enregistrement…' : editingPoste ? 'Modifier' : 'Créer'}
-                  </button>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Ordre d'affichage</label>
+                  <input type="number" min={0} value={form.ordre}
+                    onChange={(e) => setForm((f) => ({ ...f, ordre: parseInt(e.target.value) || 0 }))}
+                    className={inputCls} />
                 </div>
-              </form>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Statut</label>
+                  <div className="flex items-center gap-3 mt-3">
+                    <Toggle checked={form.actif} onChange={() => setForm((f) => ({ ...f, actif: !f.actif }))} />
+                    <span className={`text-sm font-medium ${form.actif ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      {form.actif ? 'Actif' : 'Inactif'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all">
+                  Annuler
+                </button>
+                <button type="submit" disabled={formLoading}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed transition-all">
+                  {formLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {formLoading ? 'Enregistrement…' : editTarget ? 'Modifier' : 'Créer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm suppression ── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-400" />
+            </div>
+            <h3 className="text-white font-semibold text-center text-base mb-1">Supprimer le poste</h3>
+            <p className="text-slate-400 text-sm text-center mb-6">
+              "<span className="text-white">{deleteTarget.nom}</span>" sera définitivement supprimé ainsi que toutes ses assignations.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors">
+                Annuler
+              </button>
+              <button onClick={confirmDelete} disabled={deleteLoading}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 disabled:bg-red-800 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+                {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {deleteLoading ? 'Suppression…' : 'Supprimer'}
+              </button>
             </div>
           </div>
         </div>

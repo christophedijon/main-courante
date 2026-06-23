@@ -38,7 +38,7 @@ type Agent = {
 type Profile = { id: string; first_name: string; last_name: string };
 
 const CAT_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; accent: string; badge: string }> = {
-  RONDE:     { label: 'Rôle',          icon: Shield,   accent: 'text-blue-400',  badge: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
+  RONDE:     { label: 'Fiches métier', icon: Shield,   accent: 'text-blue-400',  badge: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
   SSI:       { label: 'Consignes SSI', icon: Flame,    accent: 'text-red-400',   badge: 'bg-red-500/15 text-red-400 border-red-500/20' },
   PROCEDURE: { label: 'Info & Doc',    icon: FileText, accent: 'text-slate-300', badge: 'bg-slate-600/25 text-slate-300 border-slate-500/30' },
   RADIO:     { label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  badge: 'bg-teal-500/15 text-teal-400 border-teal-500/20' },
