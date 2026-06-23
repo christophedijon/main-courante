@@ -77,7 +77,7 @@ export default function ToolboxPage() {
   }
 
   const tools = [
-    { Icon: UserCheck, title: 'Postes',          desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE',      route: () => navigate('/mobile/postes') },
+    { Icon: UserCheck, title: 'Postes',          desc: 'Prendre mon poste',     accent: 'blue',  cat: 'ROLE',      route: () => navigate('/mobile/postes') },
     { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes',   accent: 'red',   cat: 'SSI',       route: () => navigate('/mobile/outils/documents/SSI') },
     { Icon: FileText,  title: 'Info & Doc',      desc: 'Fiches & procédures',   accent: 'slate', cat: 'PROCEDURE', route: () => navigate('/mobile/outils/documents/PROCEDURE') },
     { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',    accent: 'teal',  cat: 'RADIO',     route: () => navigate('/mobile/outils/documents/RADIO') },
@@ -143,7 +143,7 @@ export default function ToolboxPage() {
               <UserCheck className="w-5 h-5 text-emerald-400" strokeWidth={2.3} />
             </div>
             <p className="text-white font-semibold text-[14px] leading-tight">Assignation</p>
-            <p className="text-slate-500 text-[11px] mt-0.5">Postes ce soir</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Attribuer les agents</p>
           </button>
         )}
 
