@@ -43,6 +43,7 @@ export default function PostesMobilePage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [etablissementId, setEtablissementId] = useState<string | null>(null);
 
   // Pour chef/direction : panneau d'assignation rapide
   const [assignPanel, setAssignPanel] = useState<string | null>(null);
@@ -50,10 +51,27 @@ export default function PostesMobilePage() {
 
   async function loadData() {
     setLoading(true);
-    const [postesRes, assignRes] = await Promise.all([
-      supabase.from('postes').select('*').eq('actif', true).order('ordre').order('nom'),
-      supabase.from('assignations').select('*').eq('actif', true),
-    ]);
+
+    // Récupérer l'etablissement_id de l'utilisateur connecté
+    let etabId: string | null = etablissementId;
+    if (!etabId && myAuthId) {
+      const { data: mu } = await supabase
+        .from('managed_users')
+        .select('etablissement_id')
+        .eq('auth_user_id', myAuthId)
+        .maybeSingle();
+      etabId = mu?.etablissement_id ?? null;
+      setEtablissementId(etabId);
+    }
+
+    let postesQuery = supabase.from('postes').select('*').eq('actif', true).order('ordre').order('nom');
+    let assignQuery = supabase.from('assignations').select('*').eq('actif', true);
+    if (etabId) {
+      postesQuery = postesQuery.eq('etablissement_id', etabId) as typeof postesQuery;
+      assignQuery = assignQuery.eq('etablissement_id', etabId) as typeof assignQuery;
+    }
+
+    const [postesRes, assignRes] = await Promise.all([postesQuery, assignQuery]);
     setPostes((postesRes.data ?? []) as Poste[]);
     setAssignations((assignRes.data ?? []) as Assignation[]);
     setLoading(false);
@@ -66,12 +84,13 @@ export default function PostesMobilePage() {
     const channel = supabase
       .channel('assignations-mobile')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'assignations' }, () => {
-        supabase.from('assignations').select('*').eq('actif', true)
-          .then(({ data }) => setAssignations((data ?? []) as Assignation[]));
+        let q = supabase.from('assignations').select('*').eq('actif', true);
+        if (etablissementId) q = q.eq('etablissement_id', etablissementId) as typeof q;
+        q.then(({ data }) => setAssignations((data ?? []) as Assignation[]));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [etablissementId]);
 
   // Toast auto-dismiss
   useEffect(() => {
