@@ -4,7 +4,7 @@ import { ArrowLeft, Shield, Flame, FileText, Radio, CheckCircle, ChevronDown } f
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
-type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
+type Categorie = 'fiches_metier' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
 type Doc = {
   id: string;
@@ -29,10 +29,10 @@ const META: Record<Categorie, {
   accent: string;
   iconBg: string;
 }> = {
-  RONDE:     { label: 'Ronde',         icon: Shield,   accent: 'text-blue-400',  iconBg: 'bg-blue-500/15 border-blue-500/30' },
-  SSI:       { label: 'Consignes SSI', icon: Flame,    accent: 'text-red-400',   iconBg: 'bg-red-500/15 border-red-500/30' },
-  PROCEDURE: { label: 'Procédure',     icon: FileText, accent: 'text-slate-300', iconBg: 'bg-slate-600/25 border-slate-500/30' },
-  RADIO:     { label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  iconBg: 'bg-teal-500/15 border-teal-500/30' },
+  fiches_metier: { label: 'Fiches métier', icon: Shield,   accent: 'text-blue-400',  iconBg: 'bg-blue-500/15 border-blue-500/30' },
+  SSI:           { label: 'Consignes SSI', icon: Flame,    accent: 'text-red-400',   iconBg: 'bg-red-500/15 border-red-500/30' },
+  PROCEDURE:     { label: 'Procédure',     icon: FileText, accent: 'text-slate-300', iconBg: 'bg-slate-600/25 border-slate-500/30' },
+  RADIO:         { label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  iconBg: 'bg-teal-500/15 border-teal-500/30' },
 };
 
 function isRichHtml(content: string): boolean {
@@ -62,7 +62,7 @@ export default function DocumentDetailPage() {
   const [signError, setSignError] = useState<string | null>(null);
   const [openPdfHref, setOpenPdfHref] = useState<string | null>(null);
 
-  const cat = (categorie?.toUpperCase() ?? '') as Categorie;
+  const cat = (categorie ?? '') as Categorie;
   const meta = META[cat];
 
   const markAsRead = useCallback(() => {

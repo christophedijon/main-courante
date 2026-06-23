@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, MapPin, FileText, UserCheck, BookOpen, Zap, X } from 'lucide-react';
+import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionActive } from '../../hooks/useSessionActive';
 import EntrepriseBadge from '../components/EntrepriseBadge';
 
-type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
+type Categorie = 'fiches_metier' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
 const colorMap: Record<string, { wrap: string; icon: string }> = {
   blue:  { wrap: 'bg-blue-500/15 border-blue-500/30',   icon: 'text-blue-400' },
@@ -16,7 +16,7 @@ const colorMap: Record<string, { wrap: string; icon: string }> = {
 };
 
 const CAT_TO_ROUTE: Record<string, Categorie> = {
-  ROLE:      'RONDE',
+  ROLE:      'fiches_metier',
   SSI:       'SSI',
   PROCEDURE: 'PROCEDURE',
   RADIO:     'RADIO',
@@ -77,7 +77,7 @@ export default function ToolboxPage() {
   }
 
   const tools = [
-    { Icon: MapPin,    title: 'Rôle',           desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE',      route: () => navigate('/mobile/postes') },
+    { Icon: UserCheck, title: 'Postes',          desc: 'Postes & assignations', accent: 'blue',  cat: 'ROLE',      route: () => navigate('/mobile/postes') },
     { Icon: Flame,     title: 'Consignes SSI',  desc: 'Évacuation, alarmes',   accent: 'red',   cat: 'SSI',       route: () => navigate('/mobile/outils/documents/SSI') },
     { Icon: FileText,  title: 'Info & Doc',      desc: 'Fiches & procédures',   accent: 'slate', cat: 'PROCEDURE', route: () => navigate('/mobile/outils/documents/PROCEDURE') },
     { Icon: Radio,     title: 'Radio',          desc: 'Codes & phonétique',    accent: 'teal',  cat: 'RADIO',     route: () => navigate('/mobile/outils/documents/RADIO') },

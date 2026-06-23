@@ -4,7 +4,7 @@ import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronRight, FileX, PenLine
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
-type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
+type Categorie = 'fiches_metier' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
 type Doc = {
   id: string;
@@ -21,10 +21,10 @@ const META: Record<Categorie, {
   accent: string;
   iconBg: string;
 }> = {
-  RONDE:     { label: 'Rôle',          icon: Shield,   accent: 'text-blue-400', iconBg: 'bg-blue-500/15 border-blue-500/30' },
-  SSI:       { label: 'Consignes SSI', icon: Flame,    accent: 'text-red-400',  iconBg: 'bg-red-500/15 border-red-500/30' },
-  PROCEDURE: { label: 'Info & Doc',    icon: FileText, accent: 'text-slate-300',iconBg: 'bg-slate-600/25 border-slate-500/30' },
-  RADIO:     { label: 'Radio',         icon: Radio,    accent: 'text-teal-400', iconBg: 'bg-teal-500/15 border-teal-500/30' },
+  fiches_metier: { label: 'Fiches métier', icon: Shield,   accent: 'text-blue-400', iconBg: 'bg-blue-500/15 border-blue-500/30' },
+  SSI:           { label: 'Consignes SSI', icon: Flame,    accent: 'text-red-400',  iconBg: 'bg-red-500/15 border-red-500/30' },
+  PROCEDURE:     { label: 'Info & Doc',    icon: FileText, accent: 'text-slate-300',iconBg: 'bg-slate-600/25 border-slate-500/30' },
+  RADIO:         { label: 'Radio',         icon: Radio,    accent: 'text-teal-400', iconBg: 'bg-teal-500/15 border-teal-500/30' },
 };
 
 export default function DocumentListPage() {
@@ -35,7 +35,7 @@ export default function DocumentListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const cat = (categorie?.toUpperCase() ?? '') as Categorie;
+  const cat = (categorie ?? '') as Categorie;
   const meta = META[cat];
 
   useEffect(() => {

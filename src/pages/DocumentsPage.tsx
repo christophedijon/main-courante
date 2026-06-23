@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
 import RichEditor from '../components/RichEditor';
 
-type Categorie = 'RONDE' | 'SSI' | 'PROCEDURE' | 'RADIO';
+type Categorie = 'fiches_metier' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
 type Doc = {
   id: string;
@@ -39,7 +39,7 @@ type Msg = { type: 'success' | 'error'; text: string };
 const ROLES = ['Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur'];
 
 const CATEGORIES: { id: Categorie; label: string; icon: React.ComponentType<{ className?: string }>; accent: string; activeClass: string }[] = [
-  { id: 'RONDE',     label: 'Fiches métier', icon: Shield,   accent: 'text-blue-400',  activeClass: 'border-blue-500 bg-blue-500/10 text-blue-300' },
+  { id: 'fiches_metier', label: 'Fiches métier', icon: Shield,   accent: 'text-blue-400',  activeClass: 'border-blue-500 bg-blue-500/10 text-blue-300' },
   { id: 'SSI',       label: 'Consignes SSI', icon: Flame,    accent: 'text-red-400',   activeClass: 'border-red-500 bg-red-500/10 text-red-300' },
   { id: 'PROCEDURE', label: 'Info & Doc',    icon: FileText, accent: 'text-slate-300', activeClass: 'border-slate-400 bg-slate-700/50 text-slate-200' },
   { id: 'RADIO',     label: 'Radio',         icon: Radio,    accent: 'text-teal-400',  activeClass: 'border-teal-500 bg-teal-500/10 text-teal-300' },
@@ -49,7 +49,7 @@ const EMPTY_DRAFT: DocDraft = {
   titre: '',
   description: '',
   contenu: '',
-  categorie: 'RONDE',
+  categorie: 'fiches_metier',
   ordre: 0,
   actif: true,
   destinataires: [],
@@ -107,7 +107,7 @@ function ContentEditor({ value, onChange }: { value: string; onChange: (html: st
 export default function DocumentsPage() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Categorie>('RONDE');
+  const [activeTab, setActiveTab] = useState<Categorie>('fiches_metier');
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
