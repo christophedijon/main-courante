@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronRight } from 'lucide-react';
+import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronRight, Briefcase } from 'lucide-react';
 import { useEntreprise } from '../hooks/useEntreprise';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,6 +16,7 @@ const GROUPES = [
     items: [
       { path: '/profile',               label: 'Mon Profil',       icon: User,            superOnly: false, adminOnly: false },
       { path: '/dashboard',             label: 'Utilisateurs',     icon: LayoutDashboard, superOnly: true,  adminOnly: false },
+      { path: '/clients',               label: 'Mes Clients',      icon: Briefcase,       superOnly: true,  adminOnly: false },
     ],
   },
   {
