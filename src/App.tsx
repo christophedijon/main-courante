@@ -172,6 +172,14 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { session, loading, userMetaReady, isSuperAdmin } = useAuth();
+  if (loading || !userMetaReady) return <Spinner />;
+  if (!session) return <Navigate to="/" replace />;
+  if (!isSuperAdmin) return <Navigate to="/mobile" replace />;
+  return <>{children}</>;
+}
+
 function MobileRoute({ children }: { children: React.ReactNode }) {
   const { session, loading, userMetaReady, mustCompleteProfile } = useAuth();
   if (loading || !userMetaReady) return <Spinner />;
@@ -204,7 +212,7 @@ export default function App() {
             <Route path="/dashboard-signatures" element={<AdminRoute><DashboardSignaturesPage /></AdminRoute>} />
             <Route path="/rapports" element={<AdminRoute><RapportsPage /></AdminRoute>} />
             <Route path="/registre-securite" element={<AdminRoute><RegistreSecuritePage /></AdminRoute>} />
-            <Route path="/emails" element={<AdminRoute><EmailsPage /></AdminRoute>} />
+            <Route path="/emails" element={<SuperAdminRoute><EmailsPage /></SuperAdminRoute>} />
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
             <Route path="/jauge" element={<AdminRoute><JaugeConfigPage /></AdminRoute>} />
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
@@ -320,9 +328,9 @@ export default function App() {
               <Route path="balises-rondes" element={<BaliseRondesPage />} />
               <Route path="jauge" element={<JaugeConfigPage />} />
             </Route>
-            <Route path="/backup" element={<AdminRoute><BackupPage /></AdminRoute>} />
-            <Route path="/onboarding" element={<AdminRoute><OnboardingPage /></AdminRoute>} />
-            <Route path="/clients" element={<AdminRoute><ClientsPage /></AdminRoute>} />
+            <Route path="/backup" element={<SuperAdminRoute><BackupPage /></SuperAdminRoute>} />
+            <Route path="/onboarding" element={<SuperAdminRoute><OnboardingPage /></SuperAdminRoute>} />
+            <Route path="/clients" element={<SuperAdminRoute><ClientsPage /></SuperAdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </SaisieProvider>
