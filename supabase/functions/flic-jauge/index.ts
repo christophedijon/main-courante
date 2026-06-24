@@ -23,7 +23,8 @@ Deno.serve(async (req: Request) => {
     // Secret header check — fail closed if env var is not configured
     const flicSecret = Deno.env.get("FLIC_HUB_SECRET");
     if (!flicSecret) {
-      return json({ success: false, error: "Server misconfigured: missing FLIC_HUB_SECRET" }, 500);
+      console.error("[flic-jauge] FLIC_HUB_SECRET not configured");
+      return json({ success: false, error: "Service unavailable" }, 500);
     }
     const provided = req.headers.get("x-flic-secret");
     if (provided !== flicSecret) {
@@ -56,7 +57,8 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (entErr || !entreprise) {
-      return json({ success: false, error: "entreprise not found" }, 500);
+      console.error("[flic-jauge] entreprise lookup failed:", entErr);
+      return json({ success: false, error: "Service unavailable" }, 500);
     }
 
     const entrepriseId: string = entreprise.id;
@@ -66,7 +68,10 @@ Deno.serve(async (req: Request) => {
         p_entreprise_id: entrepriseId,
         p_user_id: null,
       });
-      if (error) return json({ success: false, error: error.message }, 500);
+      if (error) {
+        console.error("[flic-jauge] reset_jauge rpc error:", error);
+        return json({ success: false, error: "An error occurred processing your request." }, 500);
+      }
       return json({ success: true, count: data ?? 0 });
     }
 
@@ -79,11 +84,14 @@ Deno.serve(async (req: Request) => {
       p_user_id: null,
     });
 
-    if (error) return json({ success: false, error: error.message }, 500);
+    if (error) {
+      console.error("[flic-jauge] increment_jauge rpc error:", error);
+      return json({ success: false, error: "An error occurred processing your request." }, 500);
+    }
 
     return json({ success: true, count: data ?? 0 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return json({ success: false, error: message }, 500);
+    console.error("[flic-jauge] unhandled error:", err);
+    return json({ success: false, error: "An error occurred processing your request." }, 500);
   }
 });

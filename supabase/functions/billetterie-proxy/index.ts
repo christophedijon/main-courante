@@ -65,10 +65,7 @@ Deno.serve(async (req) => {
   );
 
   if (!isAllowed) {
-    return json(
-      { error: `Host '${hostname}' not in allowlist. Allowed: ${Array.from(ALLOWED_HOSTS).join(", ")}` },
-      403
-    );
+    return json({ error: "Host not allowed" }, 403);
   }
 
   // Fetch ZAPSIS
@@ -79,10 +76,8 @@ Deno.serve(async (req) => {
     });
 
     if (!response.ok) {
-      return json(
-        { error: `ZAPSIS returned ${response.status}`, details: await response.text() },
-        response.status
-      );
+      console.error(`[billetterie-proxy] upstream returned ${response.status}`);
+      return json({ error: "External service returned an error" }, 502);
     }
 
     const data = await response.json();

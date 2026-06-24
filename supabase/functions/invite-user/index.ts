@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -19,10 +26,7 @@ Deno.serve(async (req: Request) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Non autorisé' }, 401);
     }
 
     // Vérifier l'identité de l'invitant
@@ -33,10 +37,7 @@ Deno.serve(async (req: Request) => {
     );
     const { data: { user: caller }, error: callerErr } = await callerClient.auth.getUser();
     if (callerErr || !caller) {
-      return new Response(JSON.stringify({ error: 'Session invalide' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Session invalide' }, 401);
     }
 
     // Récupérer la fonction de l'invitant
@@ -58,35 +59,23 @@ Deno.serve(async (req: Request) => {
     const isChefDePoste = callerFonction === 'Chef de poste';
 
     if (!isDirection && !isChefDePoste) {
-      return new Response(JSON.stringify({ error: 'Permission refusée' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Permission refusée' }, 403);
     }
 
     const { email, password, fonction, invited_by } = await req.json();
 
     if (!email || !password || !fonction) {
-      return new Response(JSON.stringify({ error: 'Champs manquants' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Champs manquants' }, 400);
     }
 
     // Chef de poste ne peut inviter que des Agents de Sécurité
     if (isChefDePoste && fonction !== 'Agent de Sécurité') {
-      return new Response(JSON.stringify({ error: 'Un Chef de poste ne peut inviter que des Agents de Sécurité' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Un Chef de poste ne peut inviter que des Agents de Sécurité' }, 403);
     }
 
     const allowedFonctions = ['Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur'];
     if (!allowedFonctions.includes(fonction)) {
-      return new Response(JSON.stringify({ error: 'Fonction non autorisée' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Fonction non autorisée' }, 400);
     }
 
     // Créer le compte auth
@@ -97,10 +86,8 @@ Deno.serve(async (req: Request) => {
     });
 
     if (authErr || !authData.user) {
-      return new Response(JSON.stringify({ error: authErr?.message ?? 'Erreur création compte' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      // Supabase auth errors (e.g. "email already registered") are safe to surface
+      return json({ error: authErr?.message ?? 'Erreur création compte' }, 400);
     }
 
     // Créer l'entrée managed_users
@@ -122,22 +109,15 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (managedErr) {
+      console.error("[invite-user] managed_users insert error:", managedErr);
       // Rollback auth user if managed_users insert failed
       await supabase.auth.admin.deleteUser(authData.user.id);
-      return new Response(JSON.stringify({ error: managedErr.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'An error occurred processing your request.' }, 500);
     }
 
-    return new Response(
-      JSON.stringify({ success: true, email, managed_user: managedData }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ success: true, email, managed_user: managedData });
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : 'Erreur inconnue' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("[invite-user] unhandled error:", err);
+    return json({ error: 'An error occurred processing your request.' }, 500);
   }
 });

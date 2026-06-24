@@ -26,7 +26,8 @@ Deno.serve(async (req: Request) => {
       .lt('provisoire_expires_at', now);
 
     if (fetchErr) {
-      return new Response(JSON.stringify({ error: fetchErr.message }), {
+      console.error("[clean-provisoire] managed_users fetch error:", fetchErr);
+      return new Response(JSON.stringify({ error: "An error occurred processing your request." }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -56,8 +57,9 @@ Deno.serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
+    console.error("[clean-provisoire] unhandled error:", err);
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : 'Erreur inconnue' }),
+      JSON.stringify({ error: "An error occurred processing your request." }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

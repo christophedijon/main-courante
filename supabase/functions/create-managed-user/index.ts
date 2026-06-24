@@ -118,7 +118,8 @@ Deno.serve(async (req: Request) => {
 
       const { error: delErr } = await adminClient.auth.admin.deleteUser(auth_user_id);
       if (delErr) {
-        return jsonResp({ error: delErr.message }, 400);
+        console.error("[create-managed-user] deleteUser error:", delErr);
+        return jsonResp({ error: "Failed to delete user." }, 400);
       }
       return jsonResp({ success: true });
     }
@@ -142,7 +143,8 @@ Deno.serve(async (req: Request) => {
 
       const { error: updateErr } = await adminClient.auth.admin.updateUserById(auth_user_id, updates);
       if (updateErr) {
-        return jsonResp({ error: updateErr.message }, 400);
+        console.error("[create-managed-user] updateUserById error:", updateErr);
+        return jsonResp({ error: "Failed to update user." }, 400);
       }
 
       return jsonResp({ success: true });
@@ -162,6 +164,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (createErr || !newUser.user) {
+      // Supabase auth errors (e.g. "email already registered") are safe to surface
       return jsonResp({ error: createErr?.message ?? "Failed to create user" }, 400);
     }
 
@@ -174,16 +177,19 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (managedErr) {
+      console.error("[create-managed-user] managed_users insert error:", managedErr);
       await adminClient.auth.admin.deleteUser(authUserId);
-      return jsonResp({ error: managedErr.message }, 400);
+      return jsonResp({ error: "Failed to create user record." }, 400);
     }
 
     await adminClient.from("user_profiles").insert({ id: authUserId });
 
     return jsonResp({ user: managed });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const status = message.startsWith("Forbidden") ? 403 : message.includes("not found") ? 404 : 500;
-    return jsonResp({ error: message }, status);
+    console.error("[create-managed-user] unhandled error:", err);
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("Forbidden")) return jsonResp({ error: "Forbidden" }, 403);
+    if (message.includes("not found")) return jsonResp({ error: "Not found" }, 404);
+    return jsonResp({ error: "An error occurred processing your request." }, 500);
   }
 });

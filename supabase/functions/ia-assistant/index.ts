@@ -266,7 +266,7 @@ ${ssiDocs.map((doc: { categorie: string; titre: string; contenu: string }) =>
 
     return json({ response: content, experts });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Erreur interne";
-    return json({ error: msg }, 500);
+    console.error("[ia-assistant] unhandled error:", err);
+    return json({ error: "An error occurred processing your request." }, 500);
   }
 });
