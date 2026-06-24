@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronRight, Briefcase } from 'lucide-react';
+import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronDown, Briefcase } from 'lucide-react';
 import { useEntreprise } from '../hooks/useEntreprise';
 import { useAuth } from '../context/AuthContext';
 
@@ -61,10 +61,7 @@ export default function AppHeader({ onSignOut }: Props) {
   const { isSuperAdmin, hasAdminAccess } = useAuth();
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openGroup, setOpenGroup] = useState<string | null>(() => {
-    const active = GROUPES.find(g => g.items.some(i => i.path === pathname));
-    return active?.id ?? null;
-  });
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -153,12 +150,7 @@ export default function AppHeader({ onSignOut }: Props) {
                   const isOpen = openGroup === groupe.id;
                   const hasActive = groupe.items.some(i => i.path === pathname);
                   return (
-                    <div
-                      key={groupe.id}
-                      className="relative"
-                      onMouseEnter={() => setOpenGroup(groupe.id)}
-                      onMouseLeave={() => setOpenGroup(null)}
-                    >
+                    <div key={groupe.id}>
                       <button
                         onClick={() => setOpenGroup(isOpen ? null : groupe.id)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm
@@ -168,27 +160,17 @@ export default function AppHeader({ onSignOut }: Props) {
                                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
                         style={{ width: 'calc(100% - 8px)' }}
                       >
-                        <GroupIcon className={`w-4 h-4 shrink-0
-                          ${hasActive ? 'text-blue-400' : ''}`} />
+                        <GroupIcon className={`w-4 h-4 shrink-0 ${hasActive ? 'text-blue-400' : ''}`} />
                         <span className="flex-1 text-left">{groupe.label}</span>
                         {hasActive && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mr-1" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                         )}
-                        <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                        <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform duration-200
+                          ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
 
                       {isOpen && (
-                        <div
-                          className="absolute top-0 right-full mr-2 w-52 bg-slate-900
-                                     border border-slate-700 rounded-2xl shadow-2xl
-                                     shadow-black/50 py-2 z-60"
-                          onMouseEnter={() => setOpenGroup(groupe.id)}
-                          onMouseLeave={() => setOpenGroup(null)}
-                        >
-                          <p className="text-[10px] font-bold text-slate-600 uppercase
-                                        tracking-wider px-4 pb-1 pt-1">
-                            {groupe.label}
-                          </p>
+                        <div className="pb-1">
                           {groupe.items.map(tab => {
                             const Icon = tab.icon;
                             const active = pathname === tab.path;
@@ -196,18 +178,17 @@ export default function AppHeader({ onSignOut }: Props) {
                               <button
                                 key={tab.path}
                                 onClick={() => { navigate(tab.path); setMenuOpen(false); setOpenGroup(null); }}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 mx-1
+                                className={`w-full flex items-center gap-3 pl-10 pr-3 py-2 mx-1
                                             rounded-xl text-sm font-medium transition-all
                                             ${active
                                               ? 'bg-slate-800 text-white'
                                               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
                                 style={{ width: 'calc(100% - 8px)' }}
                               >
-                                <Icon className={`w-4 h-4 shrink-0
-                                  ${active ? 'text-blue-400' : ''}`} />
-                                {tab.label}
+                                <Icon className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-blue-400' : ''}`} />
+                                <span className="flex-1 text-left">{tab.label}</span>
                                 {active && (
-                                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                                 )}
                               </button>
                             );
