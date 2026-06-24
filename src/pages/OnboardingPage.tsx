@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X, Building2, User, LayoutGrid, ShieldCheck, Cpu, CheckCircle2, CheckCheck, Loader2 } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
 import Step1 from './onboarding/Step1';
@@ -20,6 +20,9 @@ const STEPS = [
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const resumeId = searchParams.get('etabId') ?? undefined;
+
   const {
     state,
     updateData,
@@ -30,13 +33,14 @@ export default function OnboardingPage() {
     loadPostesTemplate,
     goToStep,
     setError,
-  } = useOnboarding();
+  } = useOnboarding(resumeId);
 
   const { etabId, etape, data, saving, error, activated } = state;
 
-  const [initDone, setInitDone] = useState(false);
+  const [initDone, setInitDone] = useState(!!resumeId);
 
   useEffect(() => {
+    if (resumeId) return; // resuming — hook loads data, no need to create new
     initEtab().then(id => {
       if (id) setInitDone(true);
     });
@@ -58,7 +62,7 @@ export default function OnboardingPage() {
     await loadPostesTemplate(etabId, t);
   }
 
-  if (!initDone) {
+  if (!initDone || (resumeId && saving && !data.nom)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">

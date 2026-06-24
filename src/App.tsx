@@ -23,6 +23,7 @@ import JaugeConfigPage from './pages/JaugeConfigPage';
 import ConfirmRegistrePage from './pages/ConfirmRegistrePage';
 import BackupPage from './pages/BackupPage';
 import OnboardingPage from './pages/OnboardingPage';
+import ClientsPage from './pages/ClientsPage';
 import EditorAccessPage from './pages/EditorAccessPage';
 import EditorBackofficePage from './pages/EditorBackofficePage';
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
@@ -321,6 +322,7 @@ export default function App() {
             </Route>
             <Route path="/backup" element={<AdminRoute><BackupPage /></AdminRoute>} />
             <Route path="/onboarding" element={<AdminRoute><OnboardingPage /></AdminRoute>} />
+            <Route path="/clients" element={<AdminRoute><ClientsPage /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </SaisieProvider>

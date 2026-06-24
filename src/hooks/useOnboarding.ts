@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { type OnboardingData, INITIAL_DATA, TEMPLATES_POSTES } from '../pages/onboarding/types';
 
@@ -11,15 +11,39 @@ export interface OnboardingState {
   activated: boolean;
 }
 
-export function useOnboarding() {
+export function useOnboarding(existingEtabId?: string) {
   const [state, setState] = useState<OnboardingState>({
-    etabId: null,
+    etabId: existingEtabId ?? null,
     etape: 1,
     data: { ...INITIAL_DATA },
     saving: false,
     error: null,
     activated: false,
   });
+
+  // Load existing draft when existingEtabId is provided
+  useEffect(() => {
+    if (!existingEtabId) return;
+    (async () => {
+      setState(s => ({ ...s, saving: true }));
+      const { data: etab } = await supabase
+        .from('etablissements')
+        .select('onboarding_data, onboarding_etape')
+        .eq('id', existingEtabId)
+        .maybeSingle();
+      if (etab) {
+        setState(s => ({
+          ...s,
+          saving: false,
+          data: { ...INITIAL_DATA, ...(etab.onboarding_data as Partial<OnboardingData> ?? {}) },
+          etape: etab.onboarding_etape ?? 1,
+        }));
+      } else {
+        setState(s => ({ ...s, saving: false }));
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingEtabId]);
 
   const setError = (error: string | null) =>
     setState(s => ({ ...s, error }));

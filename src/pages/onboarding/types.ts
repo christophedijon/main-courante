@@ -16,7 +16,7 @@ export type OnboardingData = {
   siret: string;
   type_erp: 'N' | 'P' | 'L' | '';
   effectif_public: number | '';
-  plan: 'light' | 'base' | 'premium';
+  plan: 'testeur' | 'light' | 'base' | 'premium';
   essai_duree_jours: number;
   direction_prenom: string;
   direction_nom: string;
@@ -106,6 +106,7 @@ export const TYPE_ERP_LABELS: Record<string, string> = {
 };
 
 export const PLAN_INFO = {
+  testeur: { label: 'Testeur', price: 'Gratuit 6 mois', color: 'text-teal-400', border: 'border-teal-500/40 bg-teal-500/5' },
   light: { label: 'Light', price: 'Gratuit 30j', color: 'text-emerald-400', border: 'border-emerald-500/40 bg-emerald-500/5' },
   base: { label: 'Base', price: '79 € / mois', color: 'text-blue-400', border: 'border-blue-500/40 bg-blue-500/5' },
   premium: { label: 'Premium', price: '149 € / mois', color: 'text-amber-400', border: 'border-amber-500/40 bg-amber-500/5' },
