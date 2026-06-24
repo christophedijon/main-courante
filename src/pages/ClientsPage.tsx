@@ -61,9 +61,21 @@ export default function ClientsPage() {
   const [sortKey, setSortKey] = useState<'nom' | 'created_at' | 'date_fin_essai'>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [actionMenu, setActionMenu] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
   const [toast, setToast] = useState<{ type: ToastType; msg: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!actionMenu) return;
+    function close() { setActionMenu(null); setMenuAnchor(null); }
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [actionMenu]);
 
   const showToast = (type: ToastType, msg: string) => {
     setToast({ type, msg });
@@ -91,7 +103,7 @@ export default function ClientsPage() {
     const { error } = await supabase.from('etablissements').update({ statut }).eq('id', id);
     if (error) showToast('error', 'Erreur lors de la mise à jour');
     else { showToast('success', 'Statut mis à jour'); load(); }
-    setActionMenu(null);
+    setActionMenu(null); setMenuAnchor(null);
     setActionLoading(null);
   }
 
@@ -100,7 +112,7 @@ export default function ClientsPage() {
     const { error } = await supabase.from('etablissements').update({ plan }).eq('id', id);
     if (error) showToast('error', 'Erreur lors de la mise à jour');
     else { showToast('success', 'Plan mis à jour'); load(); }
-    setActionMenu(null);
+    setActionMenu(null); setMenuAnchor(null);
     setActionLoading(null);
   }
 
@@ -112,7 +124,7 @@ export default function ClientsPage() {
     });
     if (error) showToast('error', "Erreur lors de l'activation");
     else { showToast('success', `${etab.nom} activé`); load(); }
-    setActionMenu(null);
+    setActionMenu(null); setMenuAnchor(null);
     setActionLoading(null);
   }
 
@@ -122,7 +134,7 @@ export default function ClientsPage() {
     if (error) showToast('error', 'Suppression impossible (brouillons uniquement)');
     else { showToast('success', 'Établissement supprimé'); load(); }
     setConfirmDelete(null);
-    setActionMenu(null);
+    setActionMenu(null); setMenuAnchor(null);
     setActionLoading(null);
   }
 
@@ -367,77 +379,24 @@ export default function ClientsPage() {
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3 text-right relative">
+                      <td className="px-4 py-3 text-right">
                         {actionLoading === etab.id ? (
                           <Loader2 className="w-4 h-4 text-blue-400 animate-spin ml-auto" />
                         ) : (
-                          <div className="relative inline-block">
-                            <button
-                              onClick={() => setActionMenu(actionMenu === etab.id ? null : etab.id)}
-                              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-
-                            {actionMenu === etab.id && (
-                              <>
-                                <div className="fixed inset-0 z-10" onClick={() => setActionMenu(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-52 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-20 py-1 overflow-hidden">
-                                  {/* Reprendre onboarding si brouillon */}
-                                  {etab.statut === 'brouillon' && (
-                                    <MenuItem icon={Play} onClick={() => { navigate(`/onboarding?etabId=${etab.id}`); setActionMenu(null); }}>
-                                      Reprendre l'onboarding
-                                    </MenuItem>
-                                  )}
-                                  {/* Activer si brouillon */}
-                                  {etab.statut === 'brouillon' && (
-                                    <MenuItem icon={Zap} onClick={() => activerEtablissement(etab)}>
-                                      Activer maintenant
-                                    </MenuItem>
-                                  )}
-                                  {/* Convertir en testeur */}
-                                  {etab.plan !== 'testeur' && etab.statut !== 'brouillon' && (
-                                    <MenuItem icon={FlaskConical} onClick={() => { changePlan(etab.id, 'testeur'); }}>
-                                      Passer en Testeur
-                                    </MenuItem>
-                                  )}
-                                  {/* Convertir en actif (depuis essai) */}
-                                  {etab.statut === 'essai' && (
-                                    <MenuItem icon={CheckCircle2} onClick={() => changeStatut(etab.id, 'actif')}>
-                                      Marquer actif
-                                    </MenuItem>
-                                  )}
-                                  {/* Suspendre */}
-                                  {['actif', 'essai'].includes(etab.statut) && (
-                                    <MenuItem icon={Pause} onClick={() => changeStatut(etab.id, 'suspendu')}>
-                                      Suspendre
-                                    </MenuItem>
-                                  )}
-                                  {/* Réactiver */}
-                                  {etab.statut === 'suspendu' && (
-                                    <MenuItem icon={Play} onClick={() => changeStatut(etab.id, 'actif')}>
-                                      Réactiver
-                                    </MenuItem>
-                                  )}
-                                  {/* Résilier */}
-                                  {!['brouillon', 'resilie'].includes(etab.statut) && (
-                                    <MenuItem icon={XCircle} className="text-rose-400 hover:bg-rose-500/10" onClick={() => changeStatut(etab.id, 'resilie')}>
-                                      Résilier
-                                    </MenuItem>
-                                  )}
-                                  {/* Supprimer (brouillon uniquement) */}
-                                  {etab.statut === 'brouillon' && (
-                                    <>
-                                      <div className="h-px bg-slate-700 my-1" />
-                                      <MenuItem icon={Trash2} className="text-rose-400 hover:bg-rose-500/10" onClick={() => { setConfirmDelete(etab.id); setActionMenu(null); }}>
-                                        Supprimer
-                                      </MenuItem>
-                                    </>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              if (actionMenu === etab.id) {
+                                setActionMenu(null); setMenuAnchor(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setMenuAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                setActionMenu(etab.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -456,6 +415,65 @@ export default function ClientsPage() {
           </p>
         )}
       </div>
+
+      {/* Action dropdown — fixed positioning to escape overflow:hidden */}
+      {actionMenu && menuAnchor && (() => {
+        const etab = etablissements.find(e => e.id === actionMenu);
+        if (!etab) return null;
+        return (
+          <>
+            <div className="fixed inset-0 z-[100]" onClick={() => { setActionMenu(null); setMenuAnchor(null); }} />
+            <div
+              className="fixed w-52 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[101] py-1 overflow-hidden"
+              style={{ top: menuAnchor.top, right: menuAnchor.right }}
+            >
+              {etab.statut === 'brouillon' && (
+                <MenuItem icon={Play} onClick={() => { navigate(`/onboarding?etabId=${etab.id}`); setActionMenu(null); setMenuAnchor(null); }}>
+                  Reprendre l'onboarding
+                </MenuItem>
+              )}
+              {etab.statut === 'brouillon' && (
+                <MenuItem icon={Zap} onClick={() => activerEtablissement(etab)}>
+                  Activer maintenant
+                </MenuItem>
+              )}
+              {etab.plan !== 'testeur' && etab.statut !== 'brouillon' && (
+                <MenuItem icon={FlaskConical} onClick={() => changePlan(etab.id, 'testeur')}>
+                  Passer en Testeur
+                </MenuItem>
+              )}
+              {etab.statut === 'essai' && (
+                <MenuItem icon={CheckCircle2} onClick={() => changeStatut(etab.id, 'actif')}>
+                  Marquer actif
+                </MenuItem>
+              )}
+              {['actif', 'essai'].includes(etab.statut) && (
+                <MenuItem icon={Pause} onClick={() => changeStatut(etab.id, 'suspendu')}>
+                  Suspendre
+                </MenuItem>
+              )}
+              {etab.statut === 'suspendu' && (
+                <MenuItem icon={Play} onClick={() => changeStatut(etab.id, 'actif')}>
+                  Réactiver
+                </MenuItem>
+              )}
+              {!['brouillon', 'resilie'].includes(etab.statut) && (
+                <MenuItem icon={XCircle} className="text-rose-400 hover:bg-rose-500/10" onClick={() => changeStatut(etab.id, 'resilie')}>
+                  Résilier
+                </MenuItem>
+              )}
+              {etab.statut === 'brouillon' && (
+                <>
+                  <div className="h-px bg-slate-700 my-1" />
+                  <MenuItem icon={Trash2} className="text-rose-400 hover:bg-rose-500/10" onClick={() => { setConfirmDelete(etab.id); setActionMenu(null); setMenuAnchor(null); }}>
+                    Supprimer
+                  </MenuItem>
+                </>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {/* Delete confirmation */}
       {confirmDelete && (
