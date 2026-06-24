@@ -14,7 +14,8 @@ export type VerificateurItem = {
 export type OnboardingData = {
   nom: string;
   siret: string;
-  type_erp: 'N' | 'P' | 'L' | '';
+  type_erp: 'N' | 'P' | 'L' | 'O' | '';
+  type_erp_secondaires: string[];
   effectif_public: number | '';
   plan: 'testeur' | 'light' | 'base' | 'premium';
   essai_duree_jours: number;
@@ -37,7 +38,7 @@ export type OnboardingData = {
 };
 
 export const INITIAL_DATA: OnboardingData = {
-  nom: '', siret: '', type_erp: '', effectif_public: '', plan: 'light', essai_duree_jours: 30,
+  nom: '', siret: '', type_erp: '', type_erp_secondaires: [], effectif_public: '', plan: 'light', essai_duree_jours: 30,
   direction_prenom: '', direction_nom: '', direction_email: '', direction_telephone: '',
   espaces: [], zones: [], niveaux: [],
   verificateurs: [],
@@ -100,9 +101,10 @@ export const CATEGORIE_LABELS: Record<string, string> = {
 };
 
 export const TYPE_ERP_LABELS: Record<string, string> = {
-  N: 'Type N — Discothèque',
-  P: 'Type P — Bar / débit de boissons',
-  L: 'Type L — Restaurant / café / salle polyvalente',
+  N: 'Type N — Restaurant & débit de boissons',
+  P: 'Type P — Salles de jeux et de danse',
+  L: 'Type L — Salles d\'audition, spectacle, cabaret',
+  O: 'Type O — Hôtels et hébergements',
 };
 
 export const PLAN_INFO = {
