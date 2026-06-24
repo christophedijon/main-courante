@@ -36,13 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadUserMeta(userEmail: string, userId: string) {
     try {
       const [adminRes, managedRes] = await Promise.all([
-        supabase.from('super_admins').select('id').eq('email', userEmail).maybeSingle(),
+        supabase.from('super_admins').select('id, is_mega_admin').eq('email', userEmail).maybeSingle(),
         supabase.from('managed_users')
           .select('fonction, is_provisoire, profile_completed')
           .eq('auth_user_id', userId)
           .maybeSingle(),
       ]);
-      setIsSuperAdmin(!!adminRes.data);
+      setIsSuperAdmin(!!(adminRes.data?.is_mega_admin));
       setUserFonction(managedRes.data?.fonction ?? null);
 
       const mu = managedRes.data;
