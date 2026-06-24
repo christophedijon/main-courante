@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X, Building2, User, LayoutGrid, ShieldCheck, Cpu, CheckCircle2, CheckCheck, Loader2 } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
@@ -38,9 +38,12 @@ export default function OnboardingPage() {
   const { etabId, etape, data, saving, error, activated } = state;
 
   const [initDone, setInitDone] = useState(!!resumeId);
+  const initStarted = useRef(false);
 
   useEffect(() => {
-    if (resumeId) return; // resuming — hook loads data, no need to create new
+    if (resumeId) return;
+    if (initStarted.current) return;
+    initStarted.current = true;
     initEtab().then(id => {
       if (id) setInitDone(true);
     });
