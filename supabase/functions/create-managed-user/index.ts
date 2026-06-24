@@ -7,6 +7,57 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+function jsonResp(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// Guard: called before any DELETE or PATCH.
+// operatorIsSuperAdmin = true  → full access, no hierarchy check.
+// operatorFonction = "Direction" → cannot touch other Directions or super-admins.
+async function assertCanModify(
+  adminClient: ReturnType<typeof createClient>,
+  targetAuthUserId: string,
+  operatorIsSuperAdmin: boolean,
+  operatorFonction: string | null,
+) {
+  if (operatorIsSuperAdmin) return; // super-admins can modify anyone
+
+  // Resolve target email to check if they are a super-admin
+  const { data: { user: targetAuthUser } } = await adminClient.auth.admin.getUserById(targetAuthUserId);
+  if (!targetAuthUser) {
+    throw new Error("Target user not found");
+  }
+
+  const { data: targetSuperAdmin } = await adminClient
+    .from("super_admins")
+    .select("id")
+    .eq("email", targetAuthUser.email!)
+    .maybeSingle();
+
+  if (targetSuperAdmin) {
+    throw new Error("Forbidden: cannot modify a super-admin");
+  }
+
+  // Resolve target's fonction in managed_users
+  const { data: targetManaged } = await adminClient
+    .from("managed_users")
+    .select("fonction")
+    .eq("auth_user_id", targetAuthUserId)
+    .maybeSingle();
+
+  if (!targetManaged) {
+    throw new Error("Target user not found in managed_users");
+  }
+
+  // Direction cannot modify another Direction
+  if (operatorFonction === "Direction" && targetManaged.fonction === "Direction") {
+    throw new Error("Forbidden: Direction cannot modify other Directors");
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -21,9 +72,7 @@ Deno.serve(async (req: Request) => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: "Unauthorized" }, 401);
     }
 
     const callerClient = createClient(
@@ -34,9 +83,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: { user: caller }, error: callerErr } = await callerClient.auth.getUser();
     if (callerErr || !caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: "Unauthorized" }, 401);
     }
 
     // Check super_admins OR Direction
@@ -52,71 +99,60 @@ Deno.serve(async (req: Request) => {
       .eq("auth_user_id", caller.id)
       .maybeSingle();
 
-    const isAuthorized = !!adminRow || managedRow?.fonction === "Direction";
+    const isSuperAdmin = !!adminRow;
+    const operatorFonction = managedRow?.fonction ?? null;
+    const isAuthorized = isSuperAdmin || operatorFonction === "Direction";
 
     if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: "Forbidden" }, 403);
     }
 
     // ── DELETE ────────────────────────────────────────────────────
     if (req.method === "DELETE") {
       const { auth_user_id } = await req.json();
       if (!auth_user_id) {
-        return new Response(JSON.stringify({ error: "Missing auth_user_id" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ error: "Missing auth_user_id" }, 400);
       }
+
+      await assertCanModify(adminClient, auth_user_id, isSuperAdmin, operatorFonction);
+
       const { error: delErr } = await adminClient.auth.admin.deleteUser(auth_user_id);
       if (delErr) {
-        return new Response(JSON.stringify({ error: delErr.message }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ error: delErr.message }, 400);
       }
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ success: true });
     }
 
     // ── PATCH (update email and/or password) ──────────────────────
     if (req.method === "PATCH") {
       const { auth_user_id, email, password } = await req.json();
       if (!auth_user_id) {
-        return new Response(JSON.stringify({ error: "Missing auth_user_id" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ error: "Missing auth_user_id" }, 400);
       }
+
+      await assertCanModify(adminClient, auth_user_id, isSuperAdmin, operatorFonction);
 
       const updates: Record<string, string> = {};
       if (email) updates.email = email;
       if (password) updates.password = password;
 
       if (Object.keys(updates).length === 0) {
-        return new Response(JSON.stringify({ error: "Nothing to update" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ error: "Nothing to update" }, 400);
       }
 
       const { error: updateErr } = await adminClient.auth.admin.updateUserById(auth_user_id, updates);
       if (updateErr) {
-        return new Response(JSON.stringify({ error: updateErr.message }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ error: updateErr.message }, 400);
       }
 
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ success: true });
     }
 
     // ── POST (create user) ────────────────────────────────────────
     const { email, password, fonction, status } = await req.json();
 
     if (!email || !password || !fonction || !status) {
-      return new Response(JSON.stringify({ error: "Missing fields" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: "Missing fields" }, 400);
     }
 
     const { data: newUser, error: createErr } = await adminClient.auth.admin.createUser({
@@ -126,9 +162,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (createErr || !newUser.user) {
-      return new Response(JSON.stringify({ error: createErr?.message ?? "Failed to create user" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: createErr?.message ?? "Failed to create user" }, 400);
     }
 
     const authUserId = newUser.user.id;
@@ -141,19 +175,15 @@ Deno.serve(async (req: Request) => {
 
     if (managedErr) {
       await adminClient.auth.admin.deleteUser(authUserId);
-      return new Response(JSON.stringify({ error: managedErr.message }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: managedErr.message }, 400);
     }
 
     await adminClient.from("user_profiles").insert({ id: authUserId });
 
-    return new Response(JSON.stringify({ user: managed }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResp({ user: managed });
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const message = err instanceof Error ? err.message : String(err);
+    const status = message.startsWith("Forbidden") ? 403 : message.includes("not found") ? 404 : 500;
+    return jsonResp({ error: message }, status);
   }
 });
