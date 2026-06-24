@@ -151,28 +151,45 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── POST (create user) ────────────────────────────────────────
-    const { email, password, fonction, status } = await req.json();
+    const { email, password, fonction, status, etablissement_id, invite } = await req.json();
 
-    if (!email || !password || !fonction || !status) {
+    if (!email || !fonction || !status) {
       return jsonResp({ error: "Missing fields" }, 400);
     }
-
-    const { data: newUser, error: createErr } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-
-    if (createErr || !newUser.user) {
-      // Supabase auth errors (e.g. "email already registered") are safe to surface
-      return jsonResp({ error: createErr?.message ?? "Failed to create user" }, 400);
+    if (!invite && !password) {
+      return jsonResp({ error: "Missing password" }, 400);
     }
 
-    const authUserId = newUser.user.id;
+    let authUserId: string;
+
+    if (invite) {
+      // Send Supabase invite email — user sets password on first login
+      const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email);
+      if (inviteErr || !inviteData?.user) {
+        return jsonResp({ error: inviteErr?.message ?? "Failed to invite user" }, 400);
+      }
+      authUserId = inviteData.user.id;
+    } else {
+      const { data: newUser, error: createErr } = await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (createErr || !newUser.user) {
+        return jsonResp({ error: createErr?.message ?? "Failed to create user" }, 400);
+      }
+      authUserId = newUser.user.id;
+    }
 
     const { data: managed, error: managedErr } = await adminClient
       .from("managed_users")
-      .insert({ email, fonction, status, auth_user_id: authUserId })
+      .insert({
+        email,
+        fonction,
+        status,
+        auth_user_id: authUserId,
+        ...(etablissement_id ? { etablissement_id } : {}),
+      })
       .select()
       .single();
 
