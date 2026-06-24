@@ -4,6 +4,7 @@ import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useEntreprise } from '../hooks/useEntreprise';
+import { ResetPasswordModal } from '../components/ResetPasswordModal';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,6 +67,7 @@ export default function LoginPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       {/* Background grid pattern */}
       <div
@@ -129,9 +132,18 @@ export default function LoginPage() {
 
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                  Mot de passe
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="password" className="block text-sm font-medium text-slate-300">
+                    Mot de passe
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowReset(true)}
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     id="password"
@@ -189,5 +201,8 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+
+    <ResetPasswordModal isOpen={showReset} onClose={() => setShowReset(false)} />
+    </>
   );
 }
