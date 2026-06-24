@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { invalidateEntrepriseCache } from '../hooks/useEntreprise';
 
 type AuthContextType = {
   session: Session | null;
@@ -63,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      invalidateEntrepriseCache();
       setSession(session);
       if (session?.user) {
         (async () => {
@@ -100,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    invalidateEntrepriseCache();
     await supabase.auth.signOut();
     setIsSuperAdmin(false);
     setUserFonction(null);
