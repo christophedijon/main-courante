@@ -300,6 +300,3 @@ export default function Step1({ data, onChange, onNext, saving }: Props) {
     </div>
   );
 }
-
-
-export default Step1
