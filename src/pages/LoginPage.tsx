@@ -1,7 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import bcrypt from 'bcryptjs';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useEntreprise } from '../hooks/useEntreprise';
@@ -30,11 +29,6 @@ export default function LoginPage() {
       setError('Email ou mot de passe incorrect.');
       return;
     }
-
-    // Stocker le hash du mot de passe pour la vérification hors ligne
-    bcrypt.hash(password, 10).then((hash) => {
-      localStorage.setItem('mc_pwd_hash', hash);
-    });
 
     const cleanEmail = email.trim().toLowerCase();
     const { data: { session: currentSession } } = await supabase.auth.getSession();
