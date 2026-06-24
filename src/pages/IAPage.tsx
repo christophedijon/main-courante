@@ -1,8 +1,8 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bot, Save, CheckCircle, AlertCircle, Eye, EyeOff,
-  Key, MessageSquare, Cpu, ChevronDown, Scale, Volume2, GitBranch,
+  Bot, Save, CheckCircle, AlertCircle,
+  MessageSquare, Cpu, ChevronDown, Scale, Volume2, GitBranch, ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +25,6 @@ const GPT_ROUTER_MODELS = [
 type IASettings = {
   id?: string;
   prompt: string;
-  openai_api_key: string;
   gpt_model: string;
   prompt_erp: string;
   gpt_model_erp: string;
@@ -37,7 +36,6 @@ type IASettings = {
 
 const EMPTY: IASettings = {
   prompt: '',
-  openai_api_key: '',
   gpt_model: 'gpt-4o',
   prompt_erp: '',
   gpt_model_erp: 'gpt-4o',
@@ -166,12 +164,10 @@ export default function IAPage() {
   const [rowId, setRowId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState(false);
 
   // Open/close state per section
   const [openRouter, setOpenRouter] = useState(true);
   const [openPrompt, setOpenPrompt] = useState(true);
-  const [openKey, setOpenKey] = useState(true);
   const [openModel, setOpenModel] = useState(true);
   const [openErp, setOpenErp] = useState(false);
   const [openBruit, setOpenBruit] = useState(false);
@@ -200,7 +196,6 @@ export default function IAPage() {
       if (data) {
         setSettings({
           prompt: data.prompt ?? '',
-          openai_api_key: data.openai_api_key ?? '',
           gpt_model: data.gpt_model ?? 'gpt-4o',
           prompt_erp: data.prompt_erp ?? '',
           gpt_model_erp: data.gpt_model_erp ?? 'gpt-4o',
@@ -256,7 +251,7 @@ export default function IAPage() {
   async function handleSaveTerrain(e: FormEvent) {
     e.preventDefault();
     await persist(
-      { prompt: settings.prompt.trim(), openai_api_key: settings.openai_api_key.trim(), gpt_model: settings.gpt_model },
+      { prompt: settings.prompt.trim(), gpt_model: settings.gpt_model },
       setSavingTerrain,
       setMsgTerrain,
     );
@@ -284,12 +279,6 @@ export default function IAPage() {
     await signOut();
     navigate('/');
   }
-
-  const maskedKey = settings.openai_api_key
-    ? showKey
-      ? settings.openai_api_key
-      : settings.openai_api_key.slice(0, 7) + '••••••••••••••••••••' + settings.openai_api_key.slice(-4)
-    : '';
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
@@ -466,52 +455,17 @@ export default function IAPage() {
                   )}
                 </div>
 
-                {/* API Key */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
-                  <CardHeader
-                    open={openKey}
-                    onToggle={() => setOpenKey((v) => !v)}
-                    iconBg="bg-amber-500/10 border border-amber-500/20"
-                    icon={<Key className="w-4 h-4 text-amber-400" />}
-                    title="Clé API OpenAI"
-                    collapsedPreview={
-                      settings.openai_api_key
-                        ? <p className="text-xs text-slate-500 mt-0.5 font-mono">{maskedKey}</p>
-                        : <p className="text-xs text-slate-600 mt-0.5 italic">Non configurée</p>
-                    }
-                  />
-                  {openKey && (
-                    <div className="border-t border-slate-800 px-5 pb-5 pt-4">
-                      <div className="relative">
-                        <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                        <input
-                          type={showKey ? 'text' : 'password'}
-                          value={settings.openai_api_key}
-                          onChange={(e) => setSettings((s) => ({ ...s, openai_api_key: e.target.value }))}
-                          placeholder="sk-proj-…"
-                          className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-12 py-2.5 text-white
-                            placeholder-slate-500 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500
-                            focus:border-transparent transition-all"
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setShowKey((v) => !v); }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1"
-                          title={showKey ? 'Masquer' : 'Afficher'}
-                        >
-                          {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      {settings.openai_api_key && !showKey && (
-                        <p className="text-xs text-slate-600 mt-2 font-mono">{maskedKey}</p>
-                      )}
-                      <p className="text-xs text-slate-500 mt-2">
-                        Trouvez votre clé sur{' '}
-                        <span className="text-amber-400/80">platform.openai.com/api-keys</span>
-                      </p>
-                    </div>
-                  )}
+                {/* API Key — now managed in Supabase Secrets */}
+                <div className="flex items-start gap-3 bg-emerald-500/8 border border-emerald-500/20 rounded-2xl px-4 py-3.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-emerald-300 text-sm font-semibold">Clé API gérée de manière sécurisée</p>
+                    <p className="text-emerald-400/70 text-xs mt-0.5">
+                      La clé OpenAI est stockée dans les Supabase Secrets (Settings › Edge Functions › Secrets)
+                      sous le nom <code className="font-mono bg-emerald-500/10 px-1 rounded">OPENAI_API_KEY</code>.
+                      Elle n'est jamais exposée côté client.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Model */}
