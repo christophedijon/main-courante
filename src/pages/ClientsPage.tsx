@@ -457,6 +457,11 @@ export default function ClientsPage() {
                   Réactiver
                 </MenuItem>
               )}
+              {etab.statut === 'resilie' && (
+                <MenuItem icon={Play} onClick={() => changeStatut(etab.id, 'actif')}>
+                  Réactiver
+                </MenuItem>
+              )}
               {!['brouillon', 'resilie'].includes(etab.statut) && (
                 <MenuItem icon={XCircle} className="text-rose-400 hover:bg-rose-500/10" onClick={() => changeStatut(etab.id, 'resilie')}>
                   Résilier
