@@ -20,13 +20,14 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Secret header check
+    // Secret header check — fail closed if env var is not configured
     const flicSecret = Deno.env.get("FLIC_HUB_SECRET");
-    if (flicSecret) {
-      const provided = req.headers.get("x-flic-secret");
-      if (provided !== flicSecret) {
-        return json({ success: false, error: "Unauthorized" }, 401);
-      }
+    if (!flicSecret) {
+      return json({ success: false, error: "Server misconfigured: missing FLIC_HUB_SECRET" }, 500);
+    }
+    const provided = req.headers.get("x-flic-secret");
+    if (provided !== flicSecret) {
+      return json({ success: false, error: "Unauthorized" }, 401);
     }
 
     if (req.method !== "POST") {
