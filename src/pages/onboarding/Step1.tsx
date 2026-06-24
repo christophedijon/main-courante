@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Zap, Music, Wine, PartyPopper } from 'lucide-react';
+import { Building2, Zap, Music, Wine, PartyPopper, FlaskConical } from 'lucide-react';
 import type { OnboardingData } from './types';
 import { TYPE_ERP_LABELS, PLAN_INFO } from './types';
 
@@ -11,6 +11,7 @@ interface Props {
 }
 
 const TEMPLATES = [
+  { icon: FlaskConical, label: 'Testeur', patch: { type_erp: 'N' as const, plan: 'testeur' as const, essai_duree_jours: 180 } },
   { icon: Music, label: 'Discothèque', patch: { type_erp: 'N' as const, plan: 'light' as const, essai_duree_jours: 30 } },
   { icon: Wine, label: 'Bar de nuit', patch: { type_erp: 'P' as const, plan: 'light' as const, essai_duree_jours: 30 } },
   { icon: PartyPopper, label: 'Salle événementielle', patch: { type_erp: 'L' as const, plan: 'light' as const, essai_duree_jours: 30 } },
@@ -126,8 +127,8 @@ export default function Step1({ data, onChange, onNext, saving }: Props) {
       {/* Plan */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-2">Plan tarifaire <span className="text-red-400">*</span></label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {(['light', 'base', 'premium'] as const).map(p => {
+        <div className="grid grid-cols-2 gap-3">
+          {(['testeur', 'light', 'base', 'premium'] as const).map(p => {
             const info = PLAN_INFO[p];
             return (
               <button
@@ -138,6 +139,7 @@ export default function Step1({ data, onChange, onNext, saving }: Props) {
               >
                 <div className={`font-semibold ${info.color}`}>{info.label}</div>
                 <div className="text-sm text-slate-400 mt-0.5">{info.price}</div>
+                {p === 'testeur' && <div className="text-xs text-slate-500 mt-1">Accès complet — validation</div>}
                 {p === 'light' && <div className="text-xs text-slate-500 mt-1">Essai gratuit</div>}
               </button>
             );
@@ -172,3 +174,6 @@ export default function Step1({ data, onChange, onNext, saving }: Props) {
     </div>
   );
 }
+
+
+export default Step1
