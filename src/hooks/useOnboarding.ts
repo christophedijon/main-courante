@@ -56,7 +56,8 @@ export function useOnboarding(existingEtabId?: string) {
     setState(s => ({ ...s, saving: true, error: null }));
     const { data, error } = await supabase.rpc('creer_client_brouillon');
     if (error || !data) {
-      setState(s => ({ ...s, saving: false, error: "Impossible de créer le brouillon." }));
+      console.error('[initEtab] Supabase error:', error);
+      setState(s => ({ ...s, saving: false, error: `Impossible de créer le brouillon. (${error?.code}: ${error?.message})` }));
       return null;
     }
     setState(s => ({ ...s, etabId: data as string, saving: false }));
@@ -80,7 +81,8 @@ export function useOnboarding(existingEtabId?: string) {
       .eq('id', etabId);
 
     if (error) {
-      setState(s => ({ ...s, saving: false, error: "Erreur lors de la sauvegarde." }));
+      console.error('[saveStep] Supabase error:', error);
+      setState(s => ({ ...s, saving: false, error: `Erreur lors de la sauvegarde. (${error.code}: ${error.message})` }));
       return false;
     }
     setState(s => ({
