@@ -20,6 +20,7 @@ import EmailsPage from './pages/EmailsPage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
 import BaliseRondesPage from './pages/BaliseRondesPage';
 import JaugeConfigPage from './pages/JaugeConfigPage';
+import JaugePage from './pages/JaugePage';
 import ConfirmRegistrePage from './pages/ConfirmRegistrePage';
 import BackupPage from './pages/BackupPage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -98,6 +99,7 @@ const EDITOR_REDIRECTABLE_PATHS = [
   '/dashboard', '/profile', '/entreprise', '/espaces-zones',
   '/ia', '/motifs', '/documents', '/postes', '/dashboard-signatures',
   '/rapports', '/registre-securite', '/emails', '/balises-rondes', '/jauge',
+  '/jauge/config',
 ];
 
 function EditorSessionGuard() {
@@ -216,7 +218,8 @@ export default function App() {
             <Route path="/registre-securite" element={<AdminRoute><RegistreSecuritePage /></AdminRoute>} />
             <Route path="/emails" element={<SuperAdminRoute><EmailsPage /></SuperAdminRoute>} />
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
-            <Route path="/jauge" element={<AdminRoute><JaugeConfigPage /></AdminRoute>} />
+            <Route path="/jauge" element={<AdminRoute><JaugePage /></AdminRoute>} />
+            <Route path="/jauge/config" element={<AdminRoute><JaugeConfigPage /></AdminRoute>} />
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
               {/* ALL roles */}
               <Route index element={<HomePage />} />
