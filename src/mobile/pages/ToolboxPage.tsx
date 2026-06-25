@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X } from 'lucide-react';
+import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, Maximize2, QrCode } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionActive } from '../../hooks/useSessionActive';
@@ -27,10 +27,15 @@ export default function ToolboxPage() {
   const { isSuperAdmin, userFonction, session } = useAuth();
   const canAssign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
   const canOpenExceptionnelle = userFonction === 'Direction' || isSuperAdmin;
+  const canSeeJauge = isSuperAdmin || userFonction === 'Direction';
 
   const sessionState = useSessionActive();
   const [exceptionnelleModalOpen, setExceptionnelleModalOpen] = useState(false);
   const [openingExceptionnelle, setOpeningExceptionnelle] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+
+  const appUrl = `${window.location.origin}/jauge`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=e2e8f0&bgcolor=0f172a&data=${encodeURIComponent(appUrl)}`;
 
   const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
 
@@ -160,6 +165,36 @@ export default function ToolboxPage() {
             <p className="text-slate-500 text-[11px] mt-0.5">Sécurité ERP</p>
           </button>
         )}
+
+        {canSeeJauge && (
+          <div className="col-span-2 rounded-2xl bg-slate-900 border border-slate-800 p-4 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 bg-cyan-500/15 border-cyan-500/30">
+              <Gauge className="w-5 h-5 text-cyan-400" strokeWidth={2.3} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold text-[14px] leading-tight">Jauge de capacité</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">Suivi des entrées en temps réel</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setQrModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium hover:bg-slate-700 transition-all active:scale-95"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                QR Code
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/jauge')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition-all active:scale-95"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                Plein écran
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {canOpenExceptionnelle && !sessionState.isActive && (
@@ -188,6 +223,54 @@ export default function ToolboxPage() {
           <p className="text-center text-[11px] text-slate-600 mt-2">
             Hors horaires habituels — fermeture automatique à 08h00
           </p>
+        </div>
+      )}
+
+      {qrModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+          onClick={(e) => { if (e.target === e.currentTarget) setQrModalOpen(false); }}
+        >
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-t-3xl p-6 pb-10 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+                  <QrCode className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="text-white font-bold text-[15px]">QR Code Jauge</p>
+                  <p className="text-slate-500 text-xs">Accès direct à la jauge</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQrModalOpen(false)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-[220px] h-[220px] rounded-2xl bg-slate-950 border border-slate-700 overflow-hidden flex items-center justify-center">
+                <img
+                  src={qrCodeUrl}
+                  alt="QR Code"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3">
+                <p className="text-slate-500 text-[10px] uppercase font-semibold tracking-wider mb-1">Lien public</p>
+                <p className="text-slate-300 text-xs font-mono break-all">{appUrl}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard?.writeText(appUrl); }}
+                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm font-medium transition-all active:scale-[0.98]"
+              >
+                Copier le lien
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
