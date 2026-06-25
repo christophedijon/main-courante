@@ -33,9 +33,24 @@ export default function ToolboxPage() {
   const [exceptionnelleModalOpen, setExceptionnelleModalOpen] = useState(false);
   const [openingExceptionnelle, setOpeningExceptionnelle] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [entrepriseId, setEntrepriseId] = useState<string | null>(null);
 
-  const appUrl = `${window.location.origin}/jauge`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=e2e8f0&bgcolor=0f172a&data=${encodeURIComponent(appUrl)}`;
+  // Load entreprise ID for the public jauge QR link
+  useEffect(() => {
+    if (!canSeeJauge) return;
+    supabase
+      .from('entreprise')
+      .select('id')
+      .order('enseigne', { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setEntrepriseId(data.id); });
+  }, [canSeeJauge]);
+
+  const publicJaugeUrl = entrepriseId
+    ? `${window.location.origin}/public/jauge/${entrepriseId}`
+    : `${window.location.origin}/jauge`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=e2e8f0&bgcolor=0f172a&data=${encodeURIComponent(publicJaugeUrl)}`;
 
   const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
 
@@ -260,11 +275,11 @@ export default function ToolboxPage() {
               </div>
               <div className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3">
                 <p className="text-slate-500 text-[10px] uppercase font-semibold tracking-wider mb-1">Lien public</p>
-                <p className="text-slate-300 text-xs font-mono break-all">{appUrl}</p>
+                <p className="text-slate-300 text-xs font-mono break-all">{publicJaugeUrl}</p>
               </div>
               <button
                 type="button"
-                onClick={() => { navigator.clipboard?.writeText(appUrl); }}
+                onClick={() => { navigator.clipboard?.writeText(publicJaugeUrl); }}
                 className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm font-medium transition-all active:scale-[0.98]"
               >
                 Copier le lien

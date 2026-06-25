@@ -21,6 +21,7 @@ import CompleteProfilePage from './pages/CompleteProfilePage';
 import BaliseRondesPage from './pages/BaliseRondesPage';
 import JaugeConfigPage from './pages/JaugeConfigPage';
 import JaugePage from './pages/JaugePage';
+import PublicJaugePage from './pages/PublicJaugePage';
 import ConfirmRegistrePage from './pages/ConfirmRegistrePage';
 import BackupPage from './pages/BackupPage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -220,6 +221,7 @@ export default function App() {
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
             <Route path="/jauge" element={<AdminRoute><JaugePage /></AdminRoute>} />
             <Route path="/jauge/config" element={<AdminRoute><JaugeConfigPage /></AdminRoute>} />
+            <Route path="/public/jauge/:entrepriseId" element={<PublicJaugePage />} />
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
               {/* ALL roles */}
               <Route index element={<HomePage />} />
