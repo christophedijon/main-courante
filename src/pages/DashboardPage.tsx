@@ -15,6 +15,7 @@ import AppHeader from '../components/AppHeader';
 
 type SortKey = keyof Pick<ManagedUser, 'email' | 'fonction' | 'status' | 'created_at'>;
 type SortDir = 'asc' | 'desc';
+type UserWithEtab = ManagedUser & { etablissements?: { nom: string } | null };
 
 const STATUS_STYLES: Record<string, string> = {
   active:    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -43,7 +44,7 @@ export default function DashboardPage() {
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [users, setUsers] = useState<UserWithEtab[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
@@ -73,9 +74,9 @@ export default function DashboardPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('managed_users')
-      .select('*')
+      .select('*, etablissements(nom)')
       .order('created_at', { ascending: false });
-    if (!error && data) setUsers(data as ManagedUser[]);
+    if (!error && data) setUsers(data as UserWithEtab[]);
     setLoading(false);
   }, []);
 
@@ -448,17 +449,18 @@ export default function DashboardPage() {
                     {([
                       { key: 'email',      label: 'E-mail' },
                       { key: 'fonction',   label: 'Fonction' },
+                      { key: null,         label: 'Établissement' },
                       { key: 'status',     label: 'Statut' },
                       { key: 'created_at', label: 'Créé le' },
-                    ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
+                    ] as { key: SortKey | null; label: string }[]).map(({ key, label }) => (
                       <th
-                        key={key}
-                        onClick={() => handleSort(key)}
-                        className="px-5 py-3 text-left font-medium uppercase tracking-wider cursor-pointer hover:text-slate-300 transition-colors select-none"
+                        key={label}
+                        onClick={key ? () => handleSort(key) : undefined}
+                        className={`px-5 py-3 text-left font-medium uppercase tracking-wider transition-colors select-none ${key ? 'cursor-pointer hover:text-slate-300' : ''}`}
                       >
                         <span className="flex items-center gap-1.5">
                           {label}
-                          <SortIcon col={key} />
+                          {key && <SortIcon col={key} />}
                         </span>
                       </th>
                     ))}
@@ -489,6 +491,12 @@ export default function DashboardPage() {
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${FONCTION_STYLES[user.fonction] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
                           {user.fonction}
                         </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        {user.etablissements?.nom
+                          ? <span className="text-slate-300 text-sm">{user.etablissements.nom}</span>
+                          : <span className="text-slate-600 text-xs">—</span>
+                        }
                       </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLES[user.status] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
@@ -572,6 +580,12 @@ export default function DashboardPage() {
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${FONCTION_STYLES[user.fonction] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
                             {user.fonction}
                           </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          {user.etablissements?.nom
+                            ? <span className="text-slate-400 text-sm">{user.etablissements.nom}</span>
+                            : <span className="text-slate-600 text-xs">—</span>
+                          }
                         </td>
                         <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">
                           Suspendu le {formatDate(user.created_at)}
