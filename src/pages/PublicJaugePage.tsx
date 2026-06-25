@@ -46,7 +46,7 @@ export default function PublicJaugePage() {
     async function load() {
       const { data: ent, error: entErr } = await supabase
         .from('entreprise')
-        .select('id, effectif_public_maximum, enseigne')
+        .select('id, effectif_public, enseigne')
         .eq('etablissement_id', etablissementId)
         .maybeSingle();
 
@@ -69,7 +69,7 @@ export default function PublicJaugePage() {
       if (cancelled) return;
 
       setEntrepriseId(ent.id);
-      setEp(ent.effectif_public_maximum ?? 0);
+      setEp(ent.effectif_public ?? 0);
       setEnseigne(ent.enseigne ?? '');
       setCount(etat?.count_actuel ?? 0);
       setLoading(false);
