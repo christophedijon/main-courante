@@ -47,8 +47,9 @@ export default function ToolboxPage() {
       .then(({ data }) => { if (data?.etablissement_id) setEntrepriseId(data.etablissement_id); });
   }, [canSeeJauge]);
 
+  const appOrigin = import.meta.env.VITE_APP_URL ?? window.location.origin;
   const publicJaugeUrl = entrepriseId
-    ? `${window.location.origin}/public/jauge/${entrepriseId}`
+    ? `${appOrigin}/public/jauge/${entrepriseId}`
     : null;
   const qrCodeUrl = publicJaugeUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=e2e8f0&bgcolor=0f172a&data=${encodeURIComponent(publicJaugeUrl)}`
