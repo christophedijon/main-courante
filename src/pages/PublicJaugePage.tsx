@@ -56,7 +56,7 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
-export default function PublicJaugePage() {
+function PublicJaugePage() {
   const { etablissementId } = useParams<{ etablissementId: string }>();
 
   const [entrepriseId, setEntrepriseId] = useState<string | null>(null);
