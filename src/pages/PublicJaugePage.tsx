@@ -212,35 +212,35 @@ function PublicJaugePage() {
             <p className="text-white/30 text-sm tracking-wide">Chargement…</p>
           </div>
         ) : (
-          <div className="w-full max-w-md flex flex-col items-center gap-0">
+          <div className="w-full max-w-5xl flex flex-col items-center gap-0 px-4">
 
             {/* Eyebrow */}
             <p
-              className="font-medium tracking-wider uppercase mb-4"
-              style={{ fontSize: 'clamp(11px, 2vw, 14px)', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.18em' }}
+              className="font-semibold tracking-widest uppercase mb-8"
+              style={{ fontSize: 'clamp(20px, 4vw, 48px)', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.22em' }}
             >
               Vous êtes actuellement
             </p>
 
             {/* Big counter */}
             <div
-              className="font-black tabular-nums leading-none mb-5 transition-all duration-700"
+              className="font-black tabular-nums leading-none mb-10 transition-all duration-700 text-center"
               style={{
-                fontSize: 'clamp(64px, 16vw, 150px)',
+                fontSize: 'clamp(100px, 22vw, 240px)',
                 color: t.accent,
-                textShadow: `0 0 60px ${t.accentSoft}, 0 0 120px ${t.accentSoft}`,
+                textShadow: `0 0 80px ${t.accentSoft}, 0 0 160px ${t.accentSoft}`,
               }}
             >
               {count.toLocaleString('fr-FR')}
               <span
                 className="font-light"
-                style={{ fontSize: 'clamp(32px, 7vw, 64px)', color: 'rgba(255,255,255,0.2)', margin: '0 0.1em' }}
+                style={{ fontSize: 'clamp(50px, 11vw, 120px)', color: 'rgba(255,255,255,0.2)', margin: '0 0.12em' }}
               >
                 /
               </span>
               <span
                 className="font-semibold"
-                style={{ fontSize: 'clamp(36px, 8vw, 72px)', color: 'rgba(255,255,255,0.45)' }}
+                style={{ fontSize: 'clamp(60px, 13vw, 140px)', color: 'rgba(255,255,255,0.45)' }}
               >
                 {ep.toLocaleString('fr-FR')}
               </span>
@@ -248,9 +248,9 @@ function PublicJaugePage() {
 
             {/* Subtitle */}
             <p
-              className="font-semibold mb-8 text-center transition-colors duration-700"
+              className="font-bold mb-12 text-center transition-colors duration-700"
               style={{
-                fontSize: 'clamp(15px, 3vw, 22px)',
+                fontSize: 'clamp(22px, 4.5vw, 52px)',
                 color: ep > 0
                   ? (reste === 0 ? THEME.rouge.badgeText : t.badgeText)
                   : 'rgba(255,255,255,0.3)',
@@ -265,11 +265,11 @@ function PublicJaugePage() {
 
             {/* Progress bar */}
             {ep > 0 && (
-              <div className="w-full mb-6">
+              <div className="w-full mb-10">
                 <div
                   className="w-full rounded-full overflow-hidden"
                   style={{
-                    height: 'clamp(10px, 1.5vw, 18px)',
+                    height: 'clamp(16px, 2.5vw, 32px)',
                     background: t.barBg,
                   }}
                 >
@@ -278,30 +278,33 @@ function PublicJaugePage() {
                     style={{
                       width: `${taux}%`,
                       background: t.bar,
-                      boxShadow: `0 0 16px ${t.accentSoft}`,
+                      boxShadow: `0 0 24px ${t.accentSoft}`,
                     }}
                   />
                 </div>
-                <div className="flex justify-between mt-2">
-                  <span className="text-white/20 text-xs">0</span>
+                <div className="flex justify-between mt-4">
+                  <span style={{ fontSize: 'clamp(14px, 2vw, 28px)', color: 'rgba(255,255,255,0.2)', fontWeight: 600 }}>0</span>
                   <span
-                    className="text-xs font-bold tabular-nums transition-colors duration-700"
-                    style={{ color: t.accent }}
+                    className="font-black tabular-nums transition-colors duration-700"
+                    style={{ fontSize: 'clamp(20px, 3.5vw, 44px)', color: t.accent }}
                   >
                     {taux}%
                   </span>
-                  <span className="text-white/20 text-xs">{ep.toLocaleString('fr-FR')}</span>
+                  <span style={{ fontSize: 'clamp(14px, 2vw, 28px)', color: 'rgba(255,255,255,0.2)', fontWeight: 600 }}>{ep.toLocaleString('fr-FR')}</span>
                 </div>
               </div>
             )}
 
             {/* Status badge */}
             <div
-              className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border transition-all duration-700"
+              className="font-bold uppercase tracking-widest border transition-all duration-700 rounded-full"
               style={{
+                fontSize: 'clamp(14px, 2vw, 26px)',
+                padding: 'clamp(8px, 1.2vw, 16px) clamp(20px, 3vw, 48px)',
                 color: t.badgeText,
                 background: t.badge,
                 borderColor: `${t.accent}40`,
+                letterSpacing: '0.2em',
               }}
             >
               {t.label}
