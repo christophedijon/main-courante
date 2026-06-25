@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 type Niveau = 'vert' | 'orange' | 'rouge';
@@ -65,6 +66,7 @@ function PublicJaugePage() {
   const [enseigne, setEnseigne] = useState('');
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const prevCountRef = useRef(count);
 
@@ -156,6 +158,23 @@ function PublicJaugePage() {
   // Track count changes for animation ref
   useEffect(() => { prevCountRef.current = count; }, [count]);
 
+  // Fullscreen API
+  useEffect(() => {
+    function onFsChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
   const taux   = ep > 0 ? Math.min(Math.round((count / ep) * 100), 100) : 0;
   const reste  = Math.max(ep - count, 0);
   const niveau = getNiveau(taux);
@@ -186,18 +205,31 @@ function PublicJaugePage() {
     >
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between px-6 pt-6 pb-2">
-        <p className="text-white/30 text-sm font-medium tracking-wide truncate max-w-[65%]">
+        <p className="text-white/30 text-sm font-medium tracking-wide truncate max-w-[55%]">
           {enseigne || '\u00A0'}
         </p>
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.06)' }}
-        >
-          <span
-            className="w-2 h-2 rounded-full animate-pulse"
-            style={{ backgroundColor: t.accent }}
-          />
-          <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Live</span>
+        <div className="flex items-center gap-3">
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+            style={{ background: 'rgba(255,255,255,0.06)' }}
+          >
+            <span
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ backgroundColor: t.accent }}
+            />
+            <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Live</span>
+          </div>
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded-xl text-white/40 hover:text-white/70 transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)' }}
+            title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+          >
+            {isFullscreen
+              ? <Minimize2 className="w-4 h-4" />
+              : <Maximize2 className="w-4 h-4" />
+            }
+          </button>
         </div>
       </div>
 
@@ -324,5 +356,7 @@ function PublicJaugePage() {
   );
 }
 
+
+export default PublicJaugePage
 
 export default PublicJaugePage
