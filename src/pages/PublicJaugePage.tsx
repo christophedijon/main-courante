@@ -358,5 +358,3 @@ function PublicJaugePage() {
 
 
 export default PublicJaugePage
-
-export default PublicJaugePage
