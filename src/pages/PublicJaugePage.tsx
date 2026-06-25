@@ -21,8 +21,9 @@ function today() {
 }
 
 export default function PublicJaugePage() {
-  const { entrepriseId } = useParams<{ entrepriseId: string }>();
+  const { etablissementId } = useParams<{ etablissementId: string }>();
 
+  const [entrepriseId, setEntrepriseId] = useState<string | null>(null);
   const [count, setCount] = useState(0);
   const [ep, setEp] = useState(0);
   const [enseigne, setEnseigne] = useState('');
@@ -32,9 +33,9 @@ export default function PublicJaugePage() {
   const prevCountRef = useRef(count);
   const flashRef = useRef<HTMLDivElement>(null);
 
-  // Initial load
+  // Initial load: find entreprise via etablissement_id, then fetch jauge state
   useEffect(() => {
-    if (!entrepriseId) {
+    if (!etablissementId) {
       setError('Identifiant établissement manquant.');
       setLoading(false);
       return;
@@ -42,34 +43,41 @@ export default function PublicJaugePage() {
 
     let cancelled = false;
 
-    Promise.all([
-      supabase
+    async function load() {
+      const { data: ent, error: entErr } = await supabase
         .from('entreprise')
-        .select('id, effectif_public, enseigne')
-        .eq('id', entrepriseId)
-        .maybeSingle(),
-      supabase
-        .from('jauge_etat')
-        .select('count_actuel')
-        .eq('entreprise_id', entrepriseId)
-        .eq('date_soiree', today())
-        .eq('is_test', false)
-        .maybeSingle(),
-    ]).then(([entRes, jaugeRes]) => {
+        .select('id, effectif_public_maximum, enseigne')
+        .eq('etablissement_id', etablissementId)
+        .maybeSingle();
+
       if (cancelled) return;
-      if (entRes.error || !entRes.data) {
+
+      if (entErr || !ent) {
         setError('Établissement introuvable ou accès refusé.');
         setLoading(false);
         return;
       }
-      setEp(entRes.data.effectif_public ?? 0);
-      setEnseigne(entRes.data.enseigne ?? '');
-      setCount(jaugeRes.data?.count_actuel ?? 0);
-      setLoading(false);
-    });
 
+      const { data: etat } = await supabase
+        .from('jauge_etat')
+        .select('count_actuel')
+        .eq('entreprise_id', ent.id)
+        .eq('date_soiree', today())
+        .eq('is_test', false)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      setEntrepriseId(ent.id);
+      setEp(ent.effectif_public_maximum ?? 0);
+      setEnseigne(ent.enseigne ?? '');
+      setCount(etat?.count_actuel ?? 0);
+      setLoading(false);
+    }
+
+    load();
     return () => { cancelled = true; };
-  }, [entrepriseId]);
+  }, [etablissementId]);
 
   // Polling every 3 seconds
   useEffect(() => {
@@ -125,7 +133,6 @@ export default function PublicJaugePage() {
   const niveau = getNiveau(taux);
   const c = COLORS[niveau];
 
-  // Error state
   if (!loading && error) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-950">
@@ -156,12 +163,9 @@ export default function PublicJaugePage() {
 
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-5 pt-5 pb-2">
-        {/* Venue name */}
         <p className="text-white/30 text-sm font-medium truncate max-w-[60%]">
           {enseigne || '\u00A0'}
         </p>
-
-        {/* LIVE indicator */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5">
           <span
             className="w-2 h-2 rounded-full animate-pulse"
@@ -183,7 +187,6 @@ export default function PublicJaugePage() {
           </div>
         ) : (
           <>
-            {/* Giant count */}
             <div
               className="font-black tabular-nums leading-none mb-2 transition-colors duration-700"
               style={{
@@ -207,11 +210,10 @@ export default function PublicJaugePage() {
                 className="text-white/25 mb-10"
                 style={{ fontSize: 'clamp(12px, 1.8vw, 18px)' }}
               >
-                Ep&nbsp;:&nbsp;{ep.toLocaleString('fr-FR')} personnes
+                Ep max&nbsp;:&nbsp;{ep.toLocaleString('fr-FR')} personnes
               </p>
             )}
 
-            {/* Progress bar */}
             {ep > 0 && (
               <div className="w-full max-w-lg mb-6">
                 <div className="h-3 sm:h-4 bg-white/10 rounded-full overflow-hidden">
@@ -227,7 +229,6 @@ export default function PublicJaugePage() {
               </div>
             )}
 
-            {/* Percentage + badge */}
             <div className="flex items-center gap-4">
               <span
                 className="font-bold tabular-nums transition-colors duration-700"
@@ -253,7 +254,6 @@ export default function PublicJaugePage() {
         )}
       </div>
 
-      {/* Footer */}
       <div className="relative z-10 pb-5 text-center">
         <p className="text-white/10 text-[10px] uppercase tracking-widest font-semibold">
           Jauge de capacité · Mise à jour en temps réel

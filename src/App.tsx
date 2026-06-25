@@ -221,7 +221,7 @@ export default function App() {
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
             <Route path="/jauge" element={<AdminRoute><JaugePage /></AdminRoute>} />
             <Route path="/jauge/config" element={<AdminRoute><JaugeConfigPage /></AdminRoute>} />
-            <Route path="/public/jauge/:entrepriseId" element={<PublicJaugePage />} />
+            <Route path="/public/jauge/:etablissementId" element={<PublicJaugePage />} />
             <Route path="/mobile" element={<MobileRoute><MobileLayout /></MobileRoute>}>
               {/* ALL roles */}
               <Route index element={<HomePage />} />

@@ -35,22 +35,24 @@ export default function ToolboxPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [entrepriseId, setEntrepriseId] = useState<string | null>(null);
 
-  // Load entreprise ID for the public jauge QR link
+  // Load etablissement_id for the public jauge QR link
   useEffect(() => {
     if (!canSeeJauge) return;
     supabase
       .from('entreprise')
-      .select('id')
+      .select('etablissement_id')
       .order('enseigne', { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => { if (data) setEntrepriseId(data.id); });
+      .then(({ data }) => { if (data?.etablissement_id) setEntrepriseId(data.etablissement_id); });
   }, [canSeeJauge]);
 
   const publicJaugeUrl = entrepriseId
     ? `${window.location.origin}/public/jauge/${entrepriseId}`
-    : `${window.location.origin}/jauge`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=e2e8f0&bgcolor=0f172a&data=${encodeURIComponent(publicJaugeUrl)}`;
+    : null;
+  const qrCodeUrl = publicJaugeUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=e2e8f0&bgcolor=0f172a&data=${encodeURIComponent(publicJaugeUrl)}`
+    : null;
 
   const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
 
@@ -267,20 +269,30 @@ export default function ToolboxPage() {
 
             <div className="flex flex-col items-center gap-4">
               <div className="w-[220px] h-[220px] rounded-2xl bg-slate-950 border border-slate-700 overflow-hidden flex items-center justify-center">
-                <img
-                  src={qrCodeUrl}
-                  alt="QR Code"
-                  className="w-full h-full object-contain"
-                />
+                {qrCodeUrl ? (
+                  <img
+                    src={qrCodeUrl}
+                    alt="QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-8 h-8 rounded-full border-2 border-t-transparent border-slate-600 animate-spin" />
+                    <p className="text-slate-600 text-xs">Chargement…</p>
+                  </div>
+                )}
               </div>
               <div className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3">
                 <p className="text-slate-500 text-[10px] uppercase font-semibold tracking-wider mb-1">Lien public</p>
-                <p className="text-slate-300 text-xs font-mono break-all">{publicJaugeUrl}</p>
+                <p className="text-slate-300 text-xs font-mono break-all">
+                  {publicJaugeUrl ?? 'Chargement en cours…'}
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => { navigator.clipboard?.writeText(publicJaugeUrl); }}
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm font-medium transition-all active:scale-[0.98]"
+                disabled={!publicJaugeUrl}
+                onClick={() => { if (publicJaugeUrl) navigator.clipboard?.writeText(publicJaugeUrl); }}
+                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 Copier le lien
               </button>
