@@ -114,10 +114,14 @@ export function useOnboarding(existingEtabId?: string) {
     });
 
     if (error || data?.error) {
-      // When HTTP >= 400, the SDK sets data=null — real error is in error.context
-      const errMsg = data?.error
-        ?? (error as any)?.context?.error
-        ?? "Impossible de créer le compte Direction.";
+      let errMsg = data?.error ?? "Impossible de créer le compte Direction.";
+      if (!data?.error && error) {
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) errMsg = body.error;
+          else if (body?.message) errMsg = body.message;
+        } catch {}
+      }
       setState(s => ({ ...s, saving: false, error: errMsg }));
       return null;
     }
