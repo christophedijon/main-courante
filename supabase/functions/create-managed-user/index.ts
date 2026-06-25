@@ -160,6 +160,17 @@ Deno.serve(async (req: Request) => {
       return jsonResp({ error: "Missing password" }, 400);
     }
 
+    // Check for existing email in managed_users before attempting auth creation
+    const { data: existingManaged } = await adminClient
+      .from("managed_users")
+      .select("id, auth_user_id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingManaged) {
+      return jsonResp({ error: `Un compte avec l'adresse ${email} existe déjà.` }, 400);
+    }
+
     let authUserId: string;
 
     if (invite) {
