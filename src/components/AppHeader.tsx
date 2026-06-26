@@ -202,7 +202,7 @@ export default function AppHeader({ onSignOut }: Props) {
             )}
           </div>
 
-          {hasAdminAccess && (
+          {hasAdminAccess && !isSuperAdmin && (
             <button
               onClick={() => navigate('/mobile')}
               className="flex items-center gap-2 text-slate-400 hover:text-blue-400 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-all"

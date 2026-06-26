@@ -209,6 +209,7 @@ export default function HomePage() {
       </div>
 
       {/* ── Saisie rapide section ── */}
+      {!isSuperAdmin && (
       <div className="relative overflow-hidden" style={{ minHeight: 380 }}>
         <div
           className="absolute inset-0 pointer-events-none"
@@ -278,6 +279,7 @@ export default function HomePage() {
           )}
         </div>
       </div>
+      )}
 
       {showJaugeAction && jaugeModalOpen && (
         <div

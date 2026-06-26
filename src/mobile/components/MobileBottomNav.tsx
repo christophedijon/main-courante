@@ -12,12 +12,13 @@ const baseTabs = [
 ];
 
 export default function MobileBottomNav() {
-  const { hasAdminAccess } = useAuth();
+  const { hasAdminAccess, isSuperAdmin } = useAuth();
   const { unsignedCount } = useUnsignedDocs();
 
-  const tabs = hasAdminAccess
-    ? [...baseTabs, { to: '/mobile/admin', label: 'Admin', Icon: Settings, end: false }]
-    : baseTabs;
+  const tabs = [
+    ...baseTabs.filter(t => isSuperAdmin ? t.to !== '/mobile/outils' : true),
+    ...(hasAdminAccess ? [{ to: '/mobile/admin', label: 'Admin', Icon: Settings, end: false }] : []),
+  ];
 
   return (
     <nav

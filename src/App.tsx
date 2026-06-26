@@ -155,9 +155,9 @@ function Spinner() {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
-  if (loading) return <Spinner />;
-  if (session) return <Navigate to="/mobile" replace />;
+  const { session, loading, isSuperAdmin, userMetaReady } = useAuth();
+  if (loading || !userMetaReady) return <Spinner />;
+  if (session) return <Navigate to={isSuperAdmin ? '/clients' : '/mobile'} replace />;
   return <>{children}</>;
 }
 
@@ -185,10 +185,11 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function MobileRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaReady, mustCompleteProfile } = useAuth();
+  const { session, loading, userMetaReady, mustCompleteProfile, isSuperAdmin } = useAuth();
   if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
+  if (isSuperAdmin) return <Navigate to="/clients" replace />;
   return <>{children}</>;
 }
 
