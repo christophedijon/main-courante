@@ -97,16 +97,86 @@ export default function AppHeader({ onSignOut }: Props) {
   const isImageLogo = logo_url && logo_url.match(/\.(png|jpe?g|gif|webp)$/i);
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <header
+      className="sticky top-0 z-30 backdrop-blur-md"
+      style={{
+        background: isSuperAdmin
+          ? 'rgba(20, 12, 0, 0.92)'
+          : 'rgba(15, 23, 42, 0.80)',
+        borderBottom: isSuperAdmin
+          ? '1px solid rgba(245, 158, 11, 0.4)'
+          : '1px solid rgb(30, 41, 59)',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Super admin watermark */}
+      {isSuperAdmin && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            zIndex: 0,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '-10%',
+              width: '120%',
+              transform: 'translateY(-50%) rotate(-8deg)',
+              display: 'flex',
+              gap: '48px',
+              whiteSpace: 'nowrap',
+              color: 'rgba(245, 158, 11, 0.12)',
+              fontSize: '11px',
+              fontWeight: 800,
+              letterSpacing: '0.22em',
+              userSelect: 'none',
+            }}
+          >
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span key={i}>SUPER ADMIN</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Brand */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-            <Shield className="w-4 h-4 text-blue-400" />
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={isSuperAdmin
+              ? { background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.35)' }
+              : { background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.20)' }
+            }
+          >
+            <Shield
+              className="w-4 h-4"
+              style={{ color: isSuperAdmin ? '#f59e0b' : '#60a5fa' }}
+            />
           </div>
           <span className="font-bold text-white text-sm sm:text-base whitespace-nowrap">Main Courante</span>
 
-          {(nom || isImageLogo) && (
+          {isSuperAdmin && (
+            <span
+              className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest"
+              style={{
+                background: 'rgba(245,158,11,0.15)',
+                border: '1px solid rgba(245,158,11,0.35)',
+                color: '#f59e0b',
+              }}
+            >
+              Super Admin
+            </span>
+          )}
+
+          {!isSuperAdmin && (nom || isImageLogo) && (
             <>
               <div className="hidden sm:block h-4 w-px bg-slate-700 mx-1 shrink-0" />
               <div className="hidden sm:flex items-center gap-2 min-w-0">
