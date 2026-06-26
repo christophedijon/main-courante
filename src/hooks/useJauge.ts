@@ -131,10 +131,11 @@ export function useJauge(isTest = false): UseJaugeReturn {
   useEffect(() => {
     if (!config || config.mode_jauge !== 'automatique' || !config.url_billetterie || isTest) return;
 
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+
     async function fetchBilletterie() {
       try {
-        const accessToken = session?.access_token;
-        if (!accessToken) return;
         const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/billetterie-proxy?url=${encodeURIComponent(config!.url_billetterie!)}`;
         const res = await fetch(proxyUrl, {
           headers: {
@@ -142,46 +143,55 @@ export function useJauge(isTest = false): UseJaugeReturn {
             'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           }
         });
+        if (!res.ok) {
+          console.warn('[Billetterie] Proxy erreur HTTP', res.status);
+          return;
+        }
         const json = await res.json();
         if (json.resultat !== 'success' || !json.data) return;
         const entrees = parseInt(json.data, 10);
         if (isNaN(entrees) || entrees < 0) return;
         const today = new Date().toISOString().slice(0, 10);
+
         if (lastZapsisCountRef.current === null) {
-          lastZapsisCountRef.current = entrees;
-          await supabase.rpc('set_entrees_manuelles', {
+          // Premier poll de la session : initialise la jauge avec le total Zapsis actuel.
+          // On set la ref APRÈS le RPC pour qu'en cas d'échec, le prochain poll réessaie.
+          const { error } = await supabase.rpc('set_entrees_manuelles', {
             p_entreprise_id: config!.id,
             p_entrees: entrees,
-            p_user_id: null,
+            p_user_id: session?.user?.id ?? null,
             p_is_test: false,
           });
+          if (error) {
+            console.warn('[Billetterie] Erreur initialisation RPC:', error.message);
+            return;
+          }
+          lastZapsisCountRef.current = entrees;
+        } else {
+          const diff = entrees - lastZapsisCountRef.current;
+          if (diff > 0) {
+            await supabase.rpc('increment_jauge', {
+              p_entreprise_id: config!.id,
+              p_delta: diff,
+              p_source: 'app',
+              p_user_id: session?.user?.id ?? null,
+              p_is_test: false,
+            });
+          }
+          lastZapsisCountRef.current = entrees;
+        }
+
+        // Met à jour le max Zapsis si la valeur est plus haute.
+        // Gère NULL et 0 avec .or() pour ne pas rater les nouvelles lignes.
+        if (entrees > 0) {
           await supabase
             .from('jauge_etat')
             .update({ entrees_max_zapsis: entrees })
             .eq('entreprise_id', config!.id)
             .eq('date_soiree', today)
             .eq('is_test', false)
-            .lt('entrees_max_zapsis', entrees);
-          return;
+            .or(`entrees_max_zapsis.is.null,entrees_max_zapsis.lt.${entrees}`);
         }
-        const diff = entrees - lastZapsisCountRef.current;
-        if (diff > 0) {
-          await supabase.rpc('increment_jauge', {
-            p_entreprise_id: config!.id,
-            p_delta: diff,
-            p_source: 'app',
-            p_user_id: session?.user?.id ?? null,
-            p_is_test: false,
-          });
-        }
-        await supabase
-          .from('jauge_etat')
-          .update({ entrees_max_zapsis: entrees })
-          .eq('entreprise_id', config!.id)
-          .eq('date_soiree', today)
-          .eq('is_test', false)
-          .lt('entrees_max_zapsis', entrees);
-        lastZapsisCountRef.current = entrees;
       } catch (err) {
         console.warn('[Billetterie] Erreur:', err);
       }
@@ -194,7 +204,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
       clearInterval(interval);
       lastZapsisCountRef.current = null;
     };
-  }, [config?.mode_jauge, config?.url_billetterie, config?.frequence_billetterie, session?.user?.id, isTest]);
+  }, [config?.mode_jauge, config?.url_billetterie, config?.frequence_billetterie, session?.user?.id, session?.access_token, isTest]);
 
   async function incrementJauge(delta: number, source: 'app' | 'flic' | 'manuel') {
     if (!config || !session?.user) return;
