@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, Maximize2, QrCode } from 'lucide-react';
+import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, Maximize2, QrCode, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionActive } from '../../hooks/useSessionActive';
@@ -25,9 +25,9 @@ const CAT_TO_ROUTE: Record<string, Categorie> = {
 export default function ToolboxPage() {
   const navigate = useNavigate();
   const { isSuperAdmin, userFonction, session } = useAuth();
-  const canAssign = isSuperAdmin || userFonction === 'Direction' || userFonction === 'Chef de poste';
-  const canOpenExceptionnelle = userFonction === 'Direction' || isSuperAdmin;
-  const canSeeJauge = isSuperAdmin || userFonction === 'Direction';
+  const canAssign = userFonction === 'Direction' || userFonction === 'Chef de poste';
+  const canOpenExceptionnelle = userFonction === 'Direction';
+  const canSeeJauge = userFonction === 'Direction';
 
   const sessionState = useSessionActive();
   const [exceptionnelleModalOpen, setExceptionnelleModalOpen] = useState(false);
@@ -134,6 +134,20 @@ export default function ToolboxPage() {
       </button>
 
       <div className="px-5 py-5 grid grid-cols-2 gap-3">
+        {isSuperAdmin && (
+          <div className="col-span-2 rounded-2xl bg-slate-900 border border-slate-700 p-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5">
+              <Shield className="w-4 h-4 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-amber-300 font-semibold text-[14px] leading-tight">Accès SuperAdmin</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">
+                Les fonctions opérationnelles (Jauge, Registre, Assignation) sont rattachées à un établissement.
+                Utilisez le backoffice pour gérer vos clients.
+              </p>
+            </div>
+          </div>
+        )}
         {tools.map(({ Icon, title, desc, accent, cat, route }) => {
           const c = colorMap[accent];
           const badgeCount = cat === 'ROLE' ? 0 : (unsignedByCat[CAT_TO_ROUTE[cat]] ?? 0);
