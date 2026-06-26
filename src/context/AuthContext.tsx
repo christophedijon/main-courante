@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { invalidateEntrepriseCache } from '../hooks/useEntreprise';
+import { invalidateEntrepriseCache, setEntrepriseMegaAdmin } from '../hooks/useEntreprise';
 
 type AuthContextType = {
   session: Session | null;
@@ -43,7 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('auth_user_id', userId)
           .maybeSingle(),
       ]);
-      setIsSuperAdmin(!!(adminRes.data?.is_mega_admin));
+      const isMega = !!(adminRes.data?.is_mega_admin);
+      setIsSuperAdmin(isMega);
+      setEntrepriseMegaAdmin(isMega);
       setUserFonction(managedRes.data?.fonction ?? null);
 
       const mu = managedRes.data;
@@ -102,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    invalidateEntrepriseCache();
+    setEntrepriseMegaAdmin(false);
     await supabase.auth.signOut();
     setIsSuperAdmin(false);
     setUserFonction(null);

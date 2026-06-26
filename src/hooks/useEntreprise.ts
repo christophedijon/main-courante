@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 type EntrepriseInfo = { nom: string; logo_url: string | null };
 
 let cache: EntrepriseInfo | null = null;
+let isMegaAdmin = false;
 const listeners: Array<(v: EntrepriseInfo) => void> = [];
 let fetchInFlight = false;
 
@@ -13,7 +14,7 @@ function notify(v: EntrepriseInfo) {
 }
 
 function doFetch() {
-  if (fetchInFlight) return;
+  if (fetchInFlight || isMegaAdmin) return;
   fetchInFlight = true;
   supabase
     .from('entreprise')
@@ -22,25 +23,41 @@ function doFetch() {
     .maybeSingle()
     .then(({ data }) => {
       fetchInFlight = false;
+      if (isMegaAdmin) return;
       notify(data ? { nom: data.nom, logo_url: data.logo_url } : { nom: '', logo_url: null });
     })
     .catch(() => { fetchInFlight = false; });
 }
 
+// Called by AuthContext on every auth state change to clear stale cache.
 export function invalidateEntrepriseCache() {
   cache = null;
-  if (listeners.length > 0) {
+  fetchInFlight = false;
+}
+
+// Called by AuthContext after loadUserMeta resolves.
+// v=true  → mega admin, no company; suppress all fetches and show empty.
+// v=false → normal user; trigger a fresh fetch for listeners already mounted.
+export function setEntrepriseMegaAdmin(v: boolean) {
+  isMegaAdmin = v;
+  cache = null;
+  fetchInFlight = false;
+  if (v) {
+    notify({ nom: '', logo_url: null });
+  } else if (listeners.length > 0) {
     doFetch();
   }
 }
 
 export function useEntreprise() {
   const [info, setInfo] = useState<EntrepriseInfo | null>(cache);
-  const [loading, setLoading] = useState(cache === null);
+  const [loading, setLoading] = useState(!cache && !isMegaAdmin);
 
   useEffect(() => {
     if (cache) {
       setInfo(cache);
+      setLoading(false);
+    } else if (isMegaAdmin) {
       setLoading(false);
     }
 
@@ -48,10 +65,9 @@ export function useEntreprise() {
       setInfo(v);
       setLoading(false);
     };
-
     listeners.push(handler);
 
-    if (!cache) {
+    if (!cache && !isMegaAdmin) {
       doFetch();
     }
 
