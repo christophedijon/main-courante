@@ -107,7 +107,6 @@ export default function AppHeader({ onSignOut }: Props) {
           ? '1px solid rgba(245, 158, 11, 0.4)'
           : '1px solid rgb(30, 41, 59)',
         position: 'relative',
-        overflow: 'hidden',
       }}
     >
       {/* Super admin watermark */}
