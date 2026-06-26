@@ -27,7 +27,7 @@ export default function ToolboxPage() {
   const { isSuperAdmin, userFonction, session } = useAuth();
   const canAssign = userFonction === 'Direction' || userFonction === 'Chef de poste';
   const canOpenExceptionnelle = userFonction === 'Direction';
-  const canSeeJauge = userFonction === 'Direction';
+  const canSeeJauge = !isSuperAdmin && userFonction === 'Direction';
 
   const sessionState = useSessionActive();
   const [exceptionnelleModalOpen, setExceptionnelleModalOpen] = useState(false);

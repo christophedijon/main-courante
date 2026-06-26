@@ -55,7 +55,7 @@ function getNiveau(taux: number): Niveau {
 
 export default function JaugePage() {
   const navigate = useNavigate();
-  const { count, Ep, loading } = useJauge();
+  const { count, Ep, loading, entrepriseId } = useJauge();
   const prevCountRef = useRef(count);
 
   useEffect(() => { prevCountRef.current = count; }, [count]);
@@ -64,6 +64,37 @@ export default function JaugePage() {
   const reste  = Math.max(Ep - count, 0);
   const niveau = getNiveau(taux);
   const t      = THEME[niveau];
+
+  // No entreprise attached to this user
+  if (!loading && entrepriseId === null) {
+    return (
+      <div className="fixed inset-0 flex flex-col overflow-hidden select-none bg-slate-950">
+        <div className="relative z-10 flex items-center px-6 pt-6 pb-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-white/40 hover:text-white/70 transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)' }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Retour</span>
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 border"
+            style={{ background: 'rgba(148,163,184,0.08)', borderColor: 'rgba(148,163,184,0.2)' }}
+          >
+            <Settings className="w-7 h-7 text-slate-500" />
+          </div>
+          <p className="text-white/50 text-lg font-semibold mb-2">Aucun établissement</p>
+          <p className="text-white/25 text-sm">
+            Cette fonction est rattachée à un établissement.
+            Connectez-vous avec un compte opérationnel.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

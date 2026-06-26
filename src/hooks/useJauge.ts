@@ -52,16 +52,25 @@ export function useJauge(isTest = false): UseJaugeReturn {
     }
   }, [isTest]);
 
-  // Initial load
+  // Initial load — use RPC to get the exact entreprise for this user.
+  // Avoids returning random rows for super admins who can read all entreprises.
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      const { data: myEntrepriseId } = await supabase.rpc('get_my_entreprise_id');
+
+      if (cancelled) return;
+
+      if (!myEntrepriseId) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
       const { data: cfg } = await supabase
         .from('entreprise')
         .select('id, effectif_public, mode_jauge, url_billetterie, frequence_billetterie')
-        .order('enseigne', { ascending: true, nullsFirst: false })
-        .limit(1)
+        .eq('id', myEntrepriseId)
         .maybeSingle();
 
       if (cancelled) return;
@@ -88,7 +97,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
 
     load();
     return () => { cancelled = true; };
-  }, [fetchCount, isTest]);
+  }, [isTest]);
 
   // Realtime subscription + continuous polling (mobile-reliable)
   useEffect(() => {
