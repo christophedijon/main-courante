@@ -29,6 +29,7 @@ import ClientsPage from './pages/ClientsPage';
 import EditorAccessPage from './pages/EditorAccessPage';
 import EditorBackofficePage from './pages/EditorBackofficePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import SetupPasswordPage from './pages/SetupPasswordPage';
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
 import HomePage from './mobile/pages/HomePage';
@@ -205,6 +206,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/setup-password" element={<SetupPasswordPage />} />
             <Route path="/complete-profile" element={<PrivateRoute><CompleteProfilePage /></PrivateRoute>} />
             <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
             <Route path="/dashboard/users/:id" element={<AdminRoute><UserEditPage /></AdminRoute>} />

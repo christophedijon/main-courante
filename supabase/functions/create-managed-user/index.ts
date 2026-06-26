@@ -151,7 +151,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── POST (create user) ────────────────────────────────────────
-    const { email, password, fonction, status, etablissement_id, invite } = await req.json();
+    const { email, password, fonction, status, etablissement_id, invite, first_name, last_name, telephone } = await req.json();
 
     if (!email || !fonction || !status) {
       return jsonResp({ error: "Missing fields" }, 400);
@@ -175,7 +175,10 @@ Deno.serve(async (req: Request) => {
 
     if (invite) {
       // Send Supabase invite email — user sets password on first login
-      const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email);
+      const appUrl = Deno.env.get("APP_URL") ?? "";
+      const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${appUrl}/setup-password`,
+      });
       if (inviteErr || !inviteData?.user) {
         return jsonResp({ error: inviteErr?.message ?? "Failed to invite user" }, 400);
       }
@@ -200,6 +203,10 @@ Deno.serve(async (req: Request) => {
         status,
         auth_user_id: authUserId,
         ...(etablissement_id ? { etablissement_id } : {}),
+        ...(invite ? {
+          invited_at: new Date().toISOString(),
+          profile_completed: true,
+        } : {}),
       })
       .select()
       .single();
@@ -210,7 +217,17 @@ Deno.serve(async (req: Request) => {
       return jsonResp({ error: "Failed to create user record." }, 400);
     }
 
-    await adminClient.from("user_profiles").insert({ id: authUserId });
+    // Store profile fields (prenom/nom/tel) for invited users
+    const profilePatch: Record<string, string> = {};
+    if (first_name) profilePatch.first_name = first_name;
+    if (last_name) profilePatch.last_name = last_name;
+    if (telephone) profilePatch.telephone = telephone;
+
+    if (Object.keys(profilePatch).length > 0) {
+      await adminClient.from("user_profiles").upsert({ id: authUserId, ...profilePatch });
+    } else {
+      await adminClient.from("user_profiles").insert({ id: authUserId });
+    }
 
     return jsonResp({ user: managed });
   } catch (err) {

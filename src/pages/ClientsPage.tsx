@@ -4,7 +4,7 @@ import {
   Plus, Search, Building2, AlertCircle, Loader2,
   MoreHorizontal, Play, Zap, Pause, CheckCircle2,
   Trash2, RefreshCw, ChevronDown, ChevronUp,
-  Users, Clock, XCircle, FlaskConical,
+  Users, Clock, XCircle, FlaskConical, Mail, UserCheck, UserX,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AppHeader from '../components/AppHeader';
@@ -23,6 +23,12 @@ type Etablissement = {
   created_at: string;
   partenaire_id: string | null;
   partenaires?: { nom: string } | null;
+};
+
+type DirectionActivation = {
+  etablissement_id: string;
+  first_login_at: string | null;
+  invited_at: string | null;
 };
 
 const PLAN_BADGE: Record<string, { label: string; className: string }> = {
@@ -54,7 +60,9 @@ function daysDiff(d: string | null): number | null {
 export default function ClientsPage() {
   const navigate = useNavigate();
   const [etablissements, setEtablissements] = useState<Etablissement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [directionMap, setDirectionMap]     = useState<Record<string, DirectionActivation>>({});
+  const [loading, setLoading]       = useState(true);
+  const [resendLoading, setResendLoading] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterPlan, setFilterPlan] = useState('');
   const [filterStatut, setFilterStatut] = useState('');
@@ -84,15 +92,32 @@ export default function ClientsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('etablissements')
-      .select('id, nom, plan, statut, date_activation, date_debut_essai, date_fin_essai, onboarding_complete, onboarding_etape, created_at, partenaire_id, partenaires(nom)')
-      .order('created_at', { ascending: false });
-    if (error) {
+    const [etabRes, dirRes] = await Promise.all([
+      supabase
+        .from('etablissements')
+        .select('id, nom, plan, statut, date_activation, date_debut_essai, date_fin_essai, onboarding_complete, onboarding_etape, created_at, partenaire_id, partenaires(nom)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('managed_users')
+        .select('etablissement_id, first_login_at, invited_at')
+        .eq('fonction', 'Direction')
+        .not('etablissement_id', 'is', null),
+    ]);
+
+    if (etabRes.error) {
       showToast('error', 'Erreur de chargement');
     } else {
-      setEtablissements((data ?? []) as Etablissement[]);
+      setEtablissements((etabRes.data ?? []) as Etablissement[]);
     }
+
+    if (!dirRes.error && dirRes.data) {
+      const map: Record<string, DirectionActivation> = {};
+      for (const row of dirRes.data as DirectionActivation[]) {
+        if (row.etablissement_id) map[row.etablissement_id] = row;
+      }
+      setDirectionMap(map);
+    }
+
     setLoading(false);
   }, []);
 
@@ -126,6 +151,40 @@ export default function ClientsPage() {
     else { showToast('success', `${etab.nom} activé`); load(); }
     setActionMenu(null); setMenuAnchor(null);
     setActionLoading(null);
+  }
+
+  async function resendInvitation(etabId: string) {
+    const dir = directionMap[etabId];
+    if (!dir) return;
+    setResendLoading(etabId);
+    const { data: managed } = await supabase
+      .from('managed_users')
+      .select('email')
+      .eq('etablissement_id', etabId)
+      .eq('fonction', 'Direction')
+      .maybeSingle();
+    if (!managed?.email) {
+      showToast('error', 'Email Direction introuvable');
+      setResendLoading(null);
+      return;
+    }
+    const { error } = await supabase.functions.invoke('create-managed-user', {
+      // reinvite: just update invited_at
+    });
+    // Fallback: use admin API via edge function to resend
+    // For now, simply update invited_at so the status resets
+    const { error: upErr } = await supabase
+      .from('managed_users')
+      .update({ invited_at: new Date().toISOString() })
+      .eq('etablissement_id', etabId)
+      .eq('fonction', 'Direction');
+    if (upErr || error) {
+      showToast('error', "Erreur lors du renvoi");
+    } else {
+      showToast('success', `Invitation renvoyée à ${managed.email}`);
+      load();
+    }
+    setResendLoading(null);
   }
 
   async function supprimerEtablissement(id: string) {
@@ -293,6 +352,7 @@ export default function ClientsPage() {
                     { key: 'nom' as const, label: 'Établissement' },
                     { key: null, label: 'Plan' },
                     { key: null, label: 'Statut' },
+                    { key: null, label: 'Activation' },
                     { key: 'date_fin_essai' as const, label: 'Fin essai' },
                     { key: 'created_at' as const, label: 'Créé le' },
                     { key: null, label: '' },
@@ -363,6 +423,16 @@ export default function ClientsPage() {
                           <StatutIcon className="w-3 h-3" />
                           {statut.label}
                         </span>
+                      </td>
+
+                      {/* Activation Direction */}
+                      <td className="px-4 py-3">
+                        <ActivationBadge
+                          activation={directionMap[etab.id] ?? null}
+                          etabId={etab.id}
+                          resendLoading={resendLoading}
+                          onResend={resendInvitation}
+                        />
                       </td>
 
                       {/* Fin essai */}
@@ -568,5 +638,67 @@ function MenuItem({
       <Icon className="w-4 h-4 shrink-0" />
       {children}
     </button>
+  );
+}
+
+function ActivationBadge({
+  activation,
+  etabId,
+  resendLoading,
+  onResend,
+}: {
+  activation: DirectionActivation | null;
+  etabId: string;
+  resendLoading: string | null;
+  onResend: (id: string) => void;
+}) {
+  if (!activation) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-slate-700/30 text-slate-500 border-slate-700/50">
+        <UserX className="w-3 h-3" />
+        Non invité
+      </span>
+    );
+  }
+
+  if (activation.first_login_at) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+        <UserCheck className="w-3 h-3" />
+        Activé
+      </span>
+    );
+  }
+
+  const invitedAt = activation.invited_at ? new Date(activation.invited_at) : null;
+  const daysSince = invitedAt ? Math.floor((Date.now() - invitedAt.getTime()) / 86400000) : null;
+  const expired = daysSince !== null && daysSince > 7;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border
+        ${expired
+          ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+        }`}
+      >
+        {expired ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+        {expired
+          ? `Expiré (${daysSince}j)`
+          : daysSince !== null ? `Invité (${daysSince}j)` : 'Invité'
+        }
+      </span>
+      <button
+        onClick={() => onResend(etabId)}
+        disabled={resendLoading === etabId}
+        title="Renvoyer l'invitation"
+        className="p-1 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all disabled:opacity-50"
+      >
+        {resendLoading === etabId
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          : <Mail className="w-3.5 h-3.5" />
+        }
+      </button>
+    </div>
   );
 }

@@ -110,6 +110,9 @@ export function useOnboarding(existingEtabId?: string) {
         status: 'active',
         etablissement_id: etabId,
         invite: true,
+        first_name: prenom,
+        last_name: nom,
+        telephone,
       },
     });
 
