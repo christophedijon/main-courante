@@ -133,10 +133,12 @@ export function useJauge(isTest = false): UseJaugeReturn {
 
     async function fetchBilletterie() {
       try {
+        const accessToken = session?.access_token;
+        if (!accessToken) return;
         const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/billetterie-proxy?url=${encodeURIComponent(config!.url_billetterie!)}`;
         const res = await fetch(proxyUrl, {
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${accessToken}`,
             'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           }
         });
