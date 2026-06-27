@@ -56,17 +56,6 @@ export default function HomePage() {
       });
   }, [canSeeRegistre]);
 
-  // Redirect Direction users who haven't completed their setup yet
-  useEffect(() => {
-    if (isSuperAdmin || userFonction !== 'Direction') return;
-    supabase
-      .from('espaces')
-      .select('id', { count: 'exact', head: true })
-      .then(({ count }) => {
-        if (count === 0) navigate('/client-setup', { replace: true });
-      });
-  }, [isSuperAdmin, userFonction, navigate]);
-
   const fullName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
     || profile?.email
