@@ -203,9 +203,7 @@ Deno.serve(async (req: Request) => {
     if (invite) {
       const appUrl = Deno.env.get("APP_URL") ?? "";
       const resendKey = Deno.env.get("RESEND_API_KEY");
-      // For testing without a verified domain, use onboarding@resend.dev (plain, no display name).
-      // Set FROM_EMAIL secret to send from a verified custom domain in production.
-      const fromEmail = Deno.env.get("FROM_EMAIL") ?? "onboarding@resend.dev";
+      const fromEmail = Deno.env.get("FROM_EMAIL") ?? "L'équipe Main Courante <noreply@send.maincourante.eu>";
 
       console.log("[create-managed-user] invite=true, email:", email, "resendKey:", !!resendKey);
 

@@ -86,9 +86,7 @@ Deno.serve(async (req: Request) => {
 
     const appUrl = Deno.env.get("APP_URL") ?? "";
     const resendKey = Deno.env.get("RESEND_API_KEY");
-    // onboarding@resend.dev works on Resend free plan but only to the account owner email.
-    // Set FROM_EMAIL secret to a verified domain sender for production use.
-    const fromEmail = Deno.env.get("FROM_EMAIL") ?? "onboarding@resend.dev";
+    const fromEmail = Deno.env.get("FROM_EMAIL") ?? "L'équipe Main Courante <noreply@send.maincourante.eu>";
 
     console.log("[resend-invitation] action:", action, "email:", managed.email);
     console.log("[resend-invitation] RESEND_API_KEY present:", !!resendKey);
