@@ -7,30 +7,27 @@ import './index.css';
 //   • Legacy implicit flow: #access_token=...&type=invite
 //   • PKCE flow (default in v2): ?token_hash=...&type=invite
 // In both cases Supabase may land on the Site URL (root) first.
-// We detect the token type in hash OR search and rewrite the URL to
-// /setup-password BEFORE React boots, so the correct page is rendered.
+// We detect the token type OR error in hash/search and rewrite the URL so
+// the correct page is rendered, BEFORE React boots.
 {
   const hash   = window.location.hash;
   const search = window.location.search;
 
-  const isInviteOrRecovery =
-    hash.includes('type=invite')     || hash.includes('type=recovery') ||
-    search.includes('type=invite')   || search.includes('type=recovery') ||
-    hash.includes('type=magiclink')  || search.includes('type=magiclink') ||
-    // token_hash is the PKCE invite/recovery indicator
-    (search.includes('token_hash=') && (
-      search.includes('type=invite') || search.includes('type=recovery') || search.includes('type=magiclink')
-    ));
-
   const alreadyOnSetup    = window.location.pathname.startsWith('/setup-password');
   const alreadyOnReset    = window.location.pathname.startsWith('/reset-password');
+  const alreadyOnActivate = window.location.pathname.startsWith('/activate');
 
-  if (isInviteOrRecovery && !alreadyOnSetup && !alreadyOnReset) {
-    // Invite always goes to /setup-password
+  if (!alreadyOnSetup && !alreadyOnReset && !alreadyOnActivate) {
+    const isInvite   = hash.includes('type=invite')   || search.includes('type=invite');
     const isRecovery = hash.includes('type=recovery') || search.includes('type=recovery');
-    const target = isRecovery ? '/reset-password' : '/setup-password';
-    // Preserve both search and hash so Supabase can process the token
-    window.history.replaceState(null, '', target + search + hash);
+    // Errors from Supabase (e.g. otp_expired) should go to /setup-password for a clear UX
+    const isError    = hash.includes('error=access_denied') || hash.includes('error_code=');
+
+    if (isRecovery) {
+      window.history.replaceState(null, '', '/reset-password' + search + hash);
+    } else if (isInvite || isError) {
+      window.history.replaceState(null, '', '/setup-password' + search + hash);
+    }
   }
 }
 

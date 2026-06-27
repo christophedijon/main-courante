@@ -20,14 +20,21 @@ export default function SetupPasswordPage() {
   const [session, setSession]       = useState<Session | null>(null);
   const [firstName, setFirstName]   = useState('');
   const [etabNom, setEtabNom]       = useState('');
-  const [loading, setLoading]       = useState(true);
+  // If the URL already has #error= we know immediately the link is expired/invalid
+  const [loading, setLoading]       = useState(() => !window.location.hash.includes('error='));
 
   const [password, setPassword]     = useState('');
   const [confirm, setConfirm]       = useState('');
   const [showPwd, setShowPwd]       = useState(false);
   const [showCfm, setShowCfm]       = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [error, setError]           = useState<string | null>(() => {
+    // Parse Supabase error from hash immediately so users don't wait 10s
+    const hash = window.location.hash;
+    if (hash.includes('error_code=otp_expired')) return 'otp_expired';
+    if (hash.includes('error=access_denied'))    return 'access_denied';
+    return null;
+  });
   const [success, setSuccess]       = useState(false);
 
   const checks  = passwordChecks(password);
@@ -132,15 +139,20 @@ export default function SetupPasswordPage() {
   }
 
   if (!session) {
+    const isExpired = error === 'otp_expired';
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 px-4">
-        <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
           <AlertCircle className="w-6 h-6 text-amber-400" />
         </div>
-        <div className="text-center">
-          <h1 className="text-white font-semibold text-lg">Lien invalide ou expiré</h1>
+        <div className="text-center max-w-sm">
+          <h1 className="text-white font-semibold text-lg">
+            {isExpired ? 'Lien expiré' : 'Lien invalide'}
+          </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Demandez un nouveau lien d'invitation à votre administrateur.
+            {isExpired
+              ? "Ce lien d'invitation a déjà été utilisé ou a expiré. Demandez un nouveau lien à votre administrateur via le bouton \"Renvoyer l'invitation\"."
+              : "Ce lien n'est pas valide. Demandez un nouveau lien d'invitation à votre administrateur."}
           </p>
         </div>
       </div>
