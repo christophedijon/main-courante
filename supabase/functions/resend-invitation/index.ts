@@ -90,7 +90,9 @@ Deno.serve(async (req: Request) => {
 
     const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(
       managed.email,
-      { redirectTo: `${appUrl}/setup-password` }
+      // Redirect to Site URL root — always in Supabase's allowlist.
+      // The hash interceptor in main.tsx reroutes type=invite → /setup-password.
+      { redirectTo: appUrl }
     );
 
     if (inviteErr || !inviteData?.user) {

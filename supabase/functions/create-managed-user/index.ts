@@ -177,7 +177,9 @@ Deno.serve(async (req: Request) => {
       // Send Supabase invite email — user sets password on first login
       const appUrl = Deno.env.get("APP_URL") ?? "";
       const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${appUrl}/setup-password`,
+        // Redirect to Site URL root — always in Supabase's allowlist.
+        // The hash interceptor in main.tsx reroutes type=invite → /setup-password.
+        redirectTo: appUrl,
       });
       if (inviteErr || !inviteData?.user) {
         return jsonResp({ error: inviteErr?.message ?? "Failed to invite user" }, 400);

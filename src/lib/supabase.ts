@@ -3,11 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
+// detectSessionInUrl: true lets Supabase JS process #access_token=... fragments
+// that the /auth/v1/verify endpoint always emits (implicit-style token in hash).
+// Do NOT set flowType: 'pkce' — it breaks implicit hash token detection.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // PKCE is the default in v2 — make it explicit so invite/recovery
-    // token_hash params in the URL search are processed correctly.
-    flowType: 'pkce',
     detectSessionInUrl: true,
     persistSession: true,
   },
