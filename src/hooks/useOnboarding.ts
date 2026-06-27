@@ -50,7 +50,7 @@ export function useOnboarding(existingEtabId?: string) {
       setState(s => ({ ...s, saving: true }));
       const { data: etab } = await supabase
         .from('etablissements')
-        .select('onboarding_data, onboarding_etape, onboarding_step')
+        .select('nom, onboarding_data, onboarding_etape, onboarding_step')
         .eq('id', existingEtabId)
         .maybeSingle();
       if (etab) {
@@ -58,10 +58,13 @@ export function useOnboarding(existingEtabId?: string) {
         const resolvedEtape = etab.onboarding_step
           ? (STEP_ETAPE_MAP[etab.onboarding_step] ?? etab.onboarding_etape ?? 1)
           : (etab.onboarding_etape ?? 1);
+        const loadedData = { ...INITIAL_DATA, ...(etab.onboarding_data as Partial<OnboardingData> ?? {}) };
+        // Pre-fill nom from the etablissements row if onboarding_data.nom is empty
+        if (!loadedData.nom && etab.nom) loadedData.nom = etab.nom;
         setState(s => ({
           ...s,
           saving: false,
-          data: { ...INITIAL_DATA, ...(etab.onboarding_data as Partial<OnboardingData> ?? {}) },
+          data: loadedData,
           etape: resolvedEtape,
         }));
       } else {
@@ -214,6 +217,7 @@ export function useOnboarding(existingEtabId?: string) {
       onboarding_data: { ...state.data, activated_at: new Date().toISOString() },
       onboarding_etape: 6,
       onboarding_step: 'done',
+      onboarding_complete: true,
       onboarding_completed_at: new Date().toISOString(),
     }).eq('id', etabId);
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { User, Mail, Loader2, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { User, Mail, Loader2, ChevronLeft, ChevronRight, Info, Building2 } from 'lucide-react';
 import type { OnboardingData } from './types';
+import { TYPE_ERP_LABELS, PLAN_INFO } from './types';
 
 interface Props {
   data: OnboardingData;
@@ -88,6 +89,24 @@ export default function Step2({ data, onChange, onNext, onBack, saving, etabId, 
         </div>
       </div>
 
+      {/* Context recap from previous steps */}
+      {(data.nom || data.type_erp || data.plan) && (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-slate-800/40 border border-slate-700/50 rounded-xl">
+          <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
+          {data.nom && <span className="text-sm font-medium text-slate-200">{data.nom}</span>}
+          {data.type_erp && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">
+              {TYPE_ERP_LABELS[data.type_erp] ?? `Type ${data.type_erp}`}
+            </span>
+          )}
+          {data.plan && (
+            <span className={`text-xs font-semibold ${PLAN_INFO[data.plan]?.color ?? 'text-slate-300'}`}>
+              {PLAN_INFO[data.plan]?.label ?? data.plan}
+            </span>
+          )}
+        </div>
+      )}
+
       {alreadyCreated && (
         <div className="flex items-start gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-sm text-emerald-400">
           <Info className="w-4 h-4 mt-0.5 shrink-0" />
@@ -129,7 +148,7 @@ export default function Step2({ data, onChange, onNext, onBack, saving, etabId, 
           {saving ? (
             <><Loader2 className="w-4 h-4 animate-spin" />Création en cours…</>
           ) : (
-            <><ChevronRight className="w-4 h-4" />{alreadyCreated ? 'Continuer' : "Créer le compte"}</>
+            <><ChevronRight className="w-4 h-4" />{alreadyCreated ? 'Continuer' : "Envoyer l'invitation"}</>
           )}
         </button>
       </div>

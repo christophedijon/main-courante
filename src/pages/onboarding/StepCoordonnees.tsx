@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Building2, Zap, Music, Wine, PartyPopper, FlaskConical, Hotel } from 'lucide-react';
+import { Building2, Zap, Music, Wine, PartyPopper, FlaskConical, Hotel, Lock } from 'lucide-react';
 import type { OnboardingData } from './types';
+import { PLAN_INFO } from './types';
 
 interface Props {
   data: OnboardingData;
@@ -42,22 +43,41 @@ export default function StepCoordonnees({ data, onChange, onNext, saving }: Prop
       </div>
 
       {/* Quick templates — pre-fill ERP + plan for subsequent steps */}
-      <div>
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Démarrage rapide</p>
-        <div className="flex gap-2 flex-wrap">
-          {TEMPLATES.map(({ icon: Icon, label, patch }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onChange(patch)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-sm text-slate-300 transition-all"
-            >
-              <Icon className="w-3.5 h-3.5 text-slate-400" />
-              {label}
-            </button>
-          ))}
+      {!data.type_erp ? (
+        <div>
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Démarrage rapide</p>
+          <div className="flex gap-2 flex-wrap">
+            {TEMPLATES.map(({ icon: Icon, label, patch }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onChange(patch)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-sm text-slate-300 transition-all"
+              >
+                <Icon className="w-3.5 h-3.5 text-slate-400" />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/60 border border-slate-700/50 rounded-xl">
+          <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+          <span className="text-xs text-slate-500">Template :</span>
+          <span className="text-xs font-semibold text-blue-400">Type {data.type_erp}</span>
+          <span className="text-xs text-slate-600">·</span>
+          <span className={`text-xs font-semibold ${PLAN_INFO[data.plan]?.color ?? 'text-slate-300'}`}>
+            {PLAN_INFO[data.plan]?.label ?? data.plan}
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange({ type_erp: '', type_erp_secondaires: [], plan: 'light', essai_duree_jours: 30 })}
+            className="ml-auto text-xs text-slate-600 hover:text-slate-400 transition-colors"
+          >
+            Modifier
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">

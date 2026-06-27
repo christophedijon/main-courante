@@ -71,7 +71,10 @@ export default function OnboardingPage() {
 
   async function handleActivate() {
     if (!etabId) return;
-    await activateClient(etabId);
+    const ok = await activateClient(etabId);
+    if (ok) {
+      window.location.replace('/mobile');
+    }
   }
 
   async function handleLoadTemplate(t: 'discotheque' | 'bar' | 'salle') {
