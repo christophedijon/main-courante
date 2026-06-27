@@ -1,22 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, Building2, User, LayoutGrid, ShieldCheck, Cpu, CheckCircle2, CheckCheck, Loader2 } from 'lucide-react';
+import { X, Building2, User, Cpu, CheckCircle2, CheckCheck, Loader2 } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
 import Step1 from './onboarding/Step1';
 import Step2 from './onboarding/Step2';
-import Step3 from './onboarding/Step3';
-import Step4 from './onboarding/Step4';
 import Step5 from './onboarding/Step5';
 import Step6 from './onboarding/Step6';
 
+// 4 visible steps — maps to DB etape values 1, 2, 5, 6
 const STEPS = [
   { label: 'Établissement', icon: Building2 },
-  { label: 'Direction', icon: User },
-  { label: 'Structure', icon: LayoutGrid },
-  { label: 'Vérificateurs', icon: ShieldCheck },
-  { label: 'Matériel', icon: Cpu },
+  { label: 'Direction',     icon: User },
+  { label: 'Matériel',      icon: Cpu },
   { label: 'Récap & Activation', icon: CheckCircle2 },
 ];
+const STEP_ETAPES = [1, 2, 5, 6] as const;
+const TOTAL_STEPS = STEPS.length;
+
+function uiStepIndex(etape: number): number {
+  if (etape <= 1) return 0;
+  if (etape <= 2) return 1;
+  if (etape <= 5) return 2;
+  return 3;
+}
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
@@ -52,7 +58,9 @@ export default function OnboardingPage() {
 
   async function handleNext(patch: Record<string, unknown>) {
     if (!etabId) return;
-    await saveStep(etabId, etape, patch as never);
+    // After Direction (etape 2), skip Structure+Vérificateurs → jump to etape 5 (Matériel)
+    const nextEtape = etape === 2 ? 5 : undefined;
+    await saveStep(etabId, etape, patch as never, nextEtape);
   }
 
   async function handleActivate() {
@@ -92,6 +100,9 @@ export default function OnboardingPage() {
     );
   }
 
+  const currentUiIdx = Math.min(uiStepIndex(etape), TOTAL_STEPS - 1);
+  const progressPct = activated ? 100 : ((currentUiIdx + 1) / TOTAL_STEPS) * 100;
+
   return (
     <div className="min-h-screen bg-slate-950 flex">
       {/* Sidebar */}
@@ -104,16 +115,17 @@ export default function OnboardingPage() {
         <nav className="flex-1">
           <ol className="space-y-1">
             {STEPS.map(({ label, icon: Icon }, idx) => {
-              const n = idx + 1;
-              const isCompleted = etape > n || activated;
-              const isActive = etape === n && !activated;
-              const isFuture = etape < n && !activated;
+              const dbEtape = STEP_ETAPES[idx];
+              const isLast = idx === STEPS.length - 1;
+              const isCompleted = activated || (!isLast && etape > dbEtape);
+              const isActive = !activated && (isLast ? etape >= dbEtape : etape === dbEtape);
+              const isFuture = !isCompleted && !isActive;
 
               return (
-                <li key={n}>
+                <li key={idx}>
                   <button
-                    onClick={() => n < etape && goToStep(n)}
-                    disabled={n >= etape && !activated}
+                    onClick={() => !isFuture && !isActive && goToStep(dbEtape)}
+                    disabled={isFuture || isActive}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all
                       ${isActive ? 'bg-blue-600/20 border border-blue-500/30' : ''}
                       ${isCompleted ? 'hover:bg-slate-800 cursor-pointer' : ''}
@@ -132,7 +144,7 @@ export default function OnboardingPage() {
                     </span>
                   </button>
                   {idx < STEPS.length - 1 && (
-                    <div className={`ml-6 w-px h-3 my-0.5 transition-colors ${n < etape ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
+                    <div className={`ml-6 w-px h-3 my-0.5 transition-colors ${!isFuture && etape > STEP_ETAPES[idx] ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
                   )}
                 </li>
               );
@@ -141,11 +153,13 @@ export default function OnboardingPage() {
         </nav>
 
         <div className="mt-auto pt-4 border-t border-slate-800">
-          <p className="text-xs text-slate-500">Étape {Math.min(etape, 6)} sur 6</p>
+          <p className="text-xs text-slate-500">
+            Étape {activated ? TOTAL_STEPS : currentUiIdx + 1} sur {TOTAL_STEPS}
+          </p>
           <div className="w-full bg-slate-800 rounded-full h-1.5 mt-2">
             <div
               className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${(Math.min(etape, 6) / 6) * 100}%` }}
+              style={{ width: `${progressPct}%` }}
             />
           </div>
         </div>
@@ -157,26 +171,31 @@ export default function OnboardingPage() {
         <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-10">
           {/* Mobile step indicator */}
           <div className="md:hidden flex items-center gap-2">
-            {STEPS.map((_, idx) => (
-              <div
-                key={idx}
-                className={`h-1.5 rounded-full transition-all ${
-                  idx + 1 < etape ? 'w-6 bg-emerald-500' :
-                  idx + 1 === etape ? 'w-8 bg-blue-500' :
-                  'w-3 bg-slate-700'
-                }`}
-              />
-            ))}
+            {STEPS.map((_, idx) => {
+              const dbEtape = STEP_ETAPES[idx];
+              const past = activated || etape > dbEtape;
+              const active = !activated && (idx === STEPS.length - 1 ? etape >= dbEtape : etape === dbEtape);
+              return (
+                <div
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all ${
+                    past ? 'w-6 bg-emerald-500' :
+                    active ? 'w-8 bg-blue-500' :
+                    'w-3 bg-slate-700'
+                  }`}
+                />
+              );
+            })}
           </div>
           <div className="hidden md:block">
             <span className="text-xs text-slate-500">
-              {STEPS[Math.min(etape - 1, 5)].label}
+              {STEPS[currentUiIdx].label}
             </span>
           </div>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/clients')}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-            title="Fermer et revenir au dashboard"
+            title="Fermer et revenir aux clients"
           >
             <X className="w-5 h-5" />
           </button>
@@ -211,30 +230,12 @@ export default function OnboardingPage() {
                 createDirectionUser={createDirectionUser}
               />
             )}
-            {etape === 3 && (
-              <Step3
-                data={data}
-                onChange={updateData}
-                onNext={patch => handleNext(patch)}
-                onBack={() => goToStep(2)}
-                saving={saving}
-              />
-            )}
-            {etape === 4 && (
-              <Step4
-                data={data}
-                onChange={updateData}
-                onNext={patch => handleNext(patch)}
-                onBack={() => goToStep(3)}
-                saving={saving}
-              />
-            )}
             {etape === 5 && (
               <Step5
                 data={data}
                 onChange={updateData}
                 onNext={patch => handleNext(patch)}
-                onBack={() => goToStep(4)}
+                onBack={() => goToStep(2)}
                 saving={saving}
               />
             )}

@@ -64,15 +64,16 @@ export function useOnboarding(existingEtabId?: string) {
     return data as string;
   }
 
-  async function saveStep(etabId: string, etape: number, patch: Partial<OnboardingData>): Promise<boolean> {
+  async function saveStep(etabId: string, etape: number, patch: Partial<OnboardingData>, nextEtape?: number): Promise<boolean> {
     setState(s => ({ ...s, saving: true, error: null }));
     const newData = { ...state.data, ...patch };
+    const actualNext = nextEtape ?? etape + 1;
 
     const { error } = await supabase
       .from('etablissements')
       .update({
         onboarding_data: newData,
-        onboarding_etape: etape + 1,
+        onboarding_etape: actualNext,
         ...(etape === 1 && {
           nom: newData.nom,
           plan: newData.plan,
@@ -89,7 +90,7 @@ export function useOnboarding(existingEtabId?: string) {
       ...s,
       saving: false,
       data: newData,
-      etape: etape + 1,
+      etape: actualNext,
     }));
     return true;
   }

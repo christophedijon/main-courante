@@ -17,19 +17,18 @@ function passwordChecks(pwd: string): CheckState[] {
 export default function SetupPasswordPage() {
   const navigate = useNavigate();
 
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession]       = useState<Session | null>(null);
   const [firstName, setFirstName]   = useState('');
   const [etabNom, setEtabNom]       = useState('');
   const [loading, setLoading]       = useState(true);
-  const [alreadyDone, setAlreadyDone] = useState(false);
 
-  const [password, setPassword]   = useState('');
-  const [confirm, setConfirm]     = useState('');
-  const [showPwd, setShowPwd]     = useState(false);
-  const [showCfm, setShowCfm]     = useState(false);
+  const [password, setPassword]     = useState('');
+  const [confirm, setConfirm]       = useState('');
+  const [showPwd, setShowPwd]       = useState(false);
+  const [showCfm, setShowCfm]       = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [success, setSuccess]     = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [success, setSuccess]       = useState(false);
 
   const checks  = passwordChecks(password);
   const pwdOk   = checks.every(c => c.ok);
@@ -37,7 +36,11 @@ export default function SetupPasswordPage() {
   const canSubmit = pwdOk && matchOk && !submitting;
 
   useEffect(() => {
+    let settled = false;
+
     async function handleSession(s: Session) {
+      if (settled) return;
+      settled = true;
       setSession(s);
 
       const [profileResult, managedResult] = await Promise.all([
@@ -54,35 +57,42 @@ export default function SetupPasswordPage() {
       setFirstName(profileResult.data?.first_name ?? '');
       setEtabNom((managedResult.data?.etablissements as { nom: string } | null)?.nom ?? '');
 
+      // If already activated, go straight to mobile
       if (managedResult.data?.first_login_at) {
-        setAlreadyDone(true);
+        navigate('/mobile', { replace: true });
+        return;
       }
       setLoading(false);
     }
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    // Listen for auth state changes (fires when Supabase processes the hash token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       if (s) {
         handleSession(s);
-      } else {
+      } else if (!settled) {
+        // fired with null session - keep waiting until timeout
+      }
+    });
+
+    // Also check for an existing session immediately
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (s) handleSession(s);
+    });
+
+    // Safety timeout: if no session after 10s, show invalid-link screen
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
         setLoading(false);
       }
-    });
+    }, 10_000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      if (s && !session) {
-        handleSession(s);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (alreadyDone) {
-      navigate('/mobile', { replace: true });
-    }
-  }, [alreadyDone, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,8 +115,9 @@ export default function SetupPasswordPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+        <p className="text-slate-500 text-sm">Vérification de votre invitation…</p>
       </div>
     );
   }
@@ -165,14 +176,11 @@ export default function SetupPasswordPage() {
           <span className="text-white font-bold text-lg tracking-tight">Main Courante</span>
         </div>
 
-        {/* Welcome card */}
         <div className="w-full max-w-md">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
-            {/* Top accent */}
             <div className="h-1 bg-gradient-to-r from-blue-500 via-blue-400 to-cyan-400" />
 
             <div className="px-8 py-8">
-              {/* Greeting */}
               <div className="mb-8 text-center">
                 <h1 className="text-2xl font-bold text-white mb-1">
                   Bienvenue{firstName ? `, ${firstName}` : ''} !
@@ -213,7 +221,6 @@ export default function SetupPasswordPage() {
                     </button>
                   </div>
 
-                  {/* Requirements */}
                   {password.length > 0 && (
                     <div className="mt-2.5 space-y-1">
                       {checks.map(c => (
