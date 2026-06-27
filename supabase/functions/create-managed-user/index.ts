@@ -14,6 +14,29 @@ function jsonResp(body: unknown, status = 200) {
   });
 }
 
+async function sendViaResend(
+  resendKey: string,
+  fromEmail: string,
+  to: string,
+  subject: string,
+  html: string,
+): Promise<void> {
+  console.log("[create-managed-user] Calling Resend API, to:", to, "from:", fromEmail);
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${resendKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from: fromEmail, to: [to], subject, html }),
+  });
+  const resBody = await res.text();
+  console.log("[create-managed-user] Resend response status:", res.status, "body:", resBody);
+  if (!res.ok) {
+    throw new Error(`Resend API error ${res.status}: ${resBody}`);
+  }
+}
+
 // Guard: called before any DELETE or PATCH.
 // operatorIsSuperAdmin = true  → full access, no hierarchy check.
 // operatorFonction = "Direction" → cannot touch other Directions or super-admins.
@@ -64,6 +87,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    console.log("[create-managed-user] START method:", req.method);
+    console.log("[create-managed-user] RESEND_API_KEY present:", !!Deno.env.get("RESEND_API_KEY"));
+    console.log("[create-managed-user] APP_URL:", Deno.env.get("APP_URL"));
+
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -176,57 +203,45 @@ Deno.serve(async (req: Request) => {
     if (invite) {
       const appUrl = Deno.env.get("APP_URL") ?? "";
       const resendKey = Deno.env.get("RESEND_API_KEY");
-      const fromEmail = Deno.env.get("FROM_EMAIL") ?? "Main Courante <onboarding@resend.dev>";
+      // For testing without a verified domain, use onboarding@resend.dev (plain, no display name).
+      // Set FROM_EMAIL secret to send from a verified custom domain in production.
+      const fromEmail = Deno.env.get("FROM_EMAIL") ?? "onboarding@resend.dev";
+
+      console.log("[create-managed-user] invite=true, email:", email, "resendKey:", !!resendKey);
 
       if (resendKey) {
-        // Click-through approach: prevents Gmail from pre-consuming the OTP token.
-        // generateLink creates the auth user + invite token but does NOT send the email.
         const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
           type: "invite",
           email,
           options: { redirectTo: appUrl },
         });
         if (linkErr || !linkData?.user) {
+          console.error("[create-managed-user] generateLink error:", linkErr);
           return jsonResp({ error: linkErr?.message ?? "Failed to generate invite link" }, 400);
         }
         authUserId = linkData.user.id;
+        console.log("[create-managed-user] Generated invite for auth user:", authUserId);
 
         const activateUrl = `${appUrl}/activate?link=${encodeURIComponent(linkData.properties.action_link)}`;
-        const displayName = first_name ? `, ${first_name}` : "";
-        const etabLabel   = etablissement_id ? "" : "";
+        console.log("[create-managed-user] activateUrl (truncated):", activateUrl.substring(0, 100));
 
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: fromEmail,
-            to: [email],
-            subject: "Activez votre compte Main Courante",
-            html: `
-              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:32px;border-radius:16px">
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px">
-                  <div style="width:40px;height:40px;background:#1e3a5f;border:1px solid #2563eb40;border-radius:10px;display:flex;align-items:center;justify-content:center">
-                    <span style="color:#60a5fa;font-size:20px">🛡</span>
-                  </div>
-                  <span style="color:#fff;font-weight:700;font-size:18px">Main Courante</span>
-                </div>
-                <h1 style="color:#fff;font-size:22px;margin:0 0 8px">Bienvenue${displayName}&nbsp;!</h1>
-                <p style="color:#94a3b8;font-size:14px;margin:0 0 24px">
-                  Vous avez été invité(e) à rejoindre <strong style="color:#e2e8f0">Main Courante</strong>.<br/>
-                  Cliquez sur le bouton ci-dessous pour activer votre compte${etabLabel}.
-                </p>
-                <a href="${activateUrl}"
-                   style="display:inline-block;background:#2563eb;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">
-                  Activer mon compte
-                </a>
-                <p style="color:#475569;font-size:12px;margin-top:24px">
-                  Ce lien est valable 24 heures. Si vous n'avez pas demandé cette invitation, ignorez cet email.
-                </p>
-              </div>`,
-          }),
-        });
+        const displayName = first_name ? `, ${first_name}` : "";
+        await sendViaResend(
+          resendKey, fromEmail, email,
+          "Activez votre compte Main Courante",
+          `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:32px;border-radius:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px">
+              <div style="width:40px;height:40px;background:#1e3a5f;border:1px solid rgba(37,99,235,0.25);border-radius:10px;text-align:center;line-height:40px;font-size:20px">🛡</div>
+              <span style="color:#fff;font-weight:700;font-size:18px">Main Courante</span>
+            </div>
+            <h1 style="color:#fff;font-size:22px;margin:0 0 8px">Bienvenue${displayName}&nbsp;!</h1>
+            <p style="color:#94a3b8;font-size:14px;margin:0 0 24px">Vous avez été invité(e) à rejoindre <strong style="color:#e2e8f0">Main Courante</strong>.<br/>Cliquez sur le bouton ci-dessous pour activer votre compte.</p>
+            <a href="${activateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">Activer mon compte</a>
+            <p style="color:#475569;font-size:12px;margin-top:24px">Ce lien est valable 24 heures. Si vous n'avez pas demandé cette invitation, ignorez cet email.</p>
+          </div>`,
+        );
       } else {
-        // Fallback: use Supabase built-in invite email (susceptible to Gmail pre-click)
+        console.log("[create-managed-user] No RESEND_API_KEY — falling back to Supabase invite email");
         const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
           redirectTo: appUrl,
         });
