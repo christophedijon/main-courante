@@ -17,6 +17,8 @@ type AuthContextType = {
   hasChefDePosteAccess: boolean;
   hasMobileAccess: boolean;
   mustCompleteProfile: boolean;
+  mustCompleteOnboarding: boolean;
+  onboardingEtabId: string | null;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   setProfileCompleted: () => Promise<void>;
@@ -33,13 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [userFonction, setUserFonction] = useState<string | null>(null);
   const [mustCompleteProfile, setMustCompleteProfile] = useState(false);
+  const [mustCompleteOnboarding, setMustCompleteOnboarding] = useState(false);
+  const [onboardingEtabId, setOnboardingEtabId] = useState<string | null>(null);
 
   async function loadUserMeta(userEmail: string, userId: string) {
     try {
       const [adminRes, managedRes] = await Promise.all([
         supabase.from('super_admins').select('id, is_mega_admin').eq('email', userEmail).maybeSingle(),
         supabase.from('managed_users')
-          .select('fonction, is_provisoire, profile_completed')
+          .select('fonction, is_provisoire, profile_completed, etablissement_id')
           .eq('auth_user_id', userId)
           .maybeSingle(),
       ]);
@@ -54,11 +58,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setMustCompleteProfile(false);
       }
+
+      // Check if a Direction user has an unfinished onboarding
+      let pendingOnboarding = false;
+      let pendingEtabId: string | null = null;
+      if (!isMega && mu?.fonction === 'Direction' && mu?.etablissement_id) {
+        const { data: etabRow } = await supabase
+          .from('etablissements')
+          .select('id, onboarding_step')
+          .eq('id', mu.etablissement_id)
+          .maybeSingle();
+        if (etabRow && etabRow.onboarding_step !== 'done') {
+          pendingOnboarding = true;
+          pendingEtabId = etabRow.id as string;
+        }
+      }
+      setMustCompleteOnboarding(pendingOnboarding);
+      setOnboardingEtabId(pendingEtabId);
     } catch (err) {
       console.error('loadUserMeta error:', err);
       setIsSuperAdmin(false);
       setUserFonction(null);
       setMustCompleteProfile(false);
+      setMustCompleteOnboarding(false);
+      setOnboardingEtabId(null);
     } finally {
       setUserMetaReady(true);
     }
@@ -82,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsSuperAdmin(false);
         setUserFonction(null);
         setMustCompleteProfile(false);
+        setMustCompleteOnboarding(false);
+        setOnboardingEtabId(null);
         setUserMetaReady(true);
         setLoading(false);
       }
@@ -109,6 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsSuperAdmin(false);
     setUserFonction(null);
     setMustCompleteProfile(false);
+    setMustCompleteOnboarding(false);
+    setOnboardingEtabId(null);
   }
 
   async function setProfileCompleted() {
@@ -135,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session, loading, userMetaReady, isSuperAdmin, userFonction,
         isDirection, isSecurite, isServeur, isChefDePoste,
         hasAdminAccess, hasChefDePosteAccess, hasMobileAccess,
-        mustCompleteProfile,
+        mustCompleteProfile, mustCompleteOnboarding, onboardingEtabId,
         signIn, signOut, setProfileCompleted,
       }}
     >

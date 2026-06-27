@@ -188,11 +188,21 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function MobileRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaReady, mustCompleteProfile, isSuperAdmin } = useAuth();
+  const { session, loading, userMetaReady, mustCompleteProfile, isSuperAdmin, mustCompleteOnboarding, onboardingEtabId } = useAuth();
   if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
+  if (mustCompleteOnboarding && onboardingEtabId) return <Navigate to={`/onboarding?etabId=${onboardingEtabId}`} replace />;
   if (isSuperAdmin) return <Navigate to="/clients" replace />;
+  return <>{children}</>;
+}
+
+// Allows SuperAdmin (creating) or Direction user with pending onboarding (resuming)
+function OnboardingRoute({ children }: { children: React.ReactNode }) {
+  const { session, loading, userMetaReady, isSuperAdmin, mustCompleteOnboarding } = useAuth();
+  if (loading || !userMetaReady) return <Spinner />;
+  if (!session) return <Navigate to="/" replace />;
+  if (!isSuperAdmin && !mustCompleteOnboarding) return <Navigate to="/mobile" replace />;
   return <>{children}</>;
 }
 
@@ -343,7 +353,7 @@ export default function App() {
               <Route path="jauge" element={<JaugeConfigPage />} />
             </Route>
             <Route path="/backup" element={<SuperAdminRoute><BackupPage /></SuperAdminRoute>} />
-            <Route path="/onboarding" element={<SuperAdminRoute><OnboardingPage /></SuperAdminRoute>} />
+            <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
             <Route path="/clients" element={<SuperAdminRoute><ClientsPage /></SuperAdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

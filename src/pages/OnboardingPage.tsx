@@ -1,22 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, Building2, Tag, User, Cpu, CheckCircle2, CheckCheck, Loader2 } from 'lucide-react';
+import { X, Building2, Tag, User, Cpu, CheckCircle2, CheckCheck, Loader2, Image as ImageIcon, LogOut } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
+import { useAuth } from '../context/AuthContext';
+import StepWelcome from './onboarding/StepWelcome';
 import StepCoordonnees from './onboarding/StepCoordonnees';
 import StepCategorieERP from './onboarding/StepCategorieERP';
 import Step2 from './onboarding/Step2';
 import Step5 from './onboarding/Step5';
+import StepLogo from './onboarding/StepLogo';
 import Step6 from './onboarding/Step6';
 
+// Sidebar steps (welcome is full-screen outside the stepper)
 const STEPS = [
   { label: 'Coordonnées',        icon: Building2    },  // etape 1
   { label: 'Catégorie ERP',      icon: Tag          },  // etape 2
   { label: 'Direction',          icon: User         },  // etape 3
   { label: 'Matériel',           icon: Cpu          },  // etape 4
-  { label: 'Récap & Activation', icon: CheckCircle2 },  // etape 5
+  { label: 'Logo',               icon: ImageIcon    },  // etape 5
+  { label: 'Récap & Activation', icon: CheckCircle2 },  // etape 6
 ];
-const STEP_ETAPES = [1, 2, 3, 4, 5] as const;
+const STEP_ETAPES = [1, 2, 3, 4, 5, 6] as const;
 const TOTAL_STEPS = STEPS.length;
+
+// Intermediate steps where "Je reviens plus tard" is shown
+const INTERMEDIATE_ETAPES = new Set([1, 2, 3, 4, 5]);
 
 function uiStepIndex(etape: number): number {
   return Math.max(0, Math.min(etape - 1, TOTAL_STEPS - 1));
@@ -26,12 +34,14 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resumeId = searchParams.get('etabId') ?? undefined;
+  const { signOut } = useAuth();
 
   const {
     state,
     updateData,
     initEtab,
     saveStep,
+    saveCurrentStep,
     createDirectionUser,
     activateClient,
     loadPostesTemplate,
@@ -69,7 +79,15 @@ export default function OnboardingPage() {
     await loadPostesTemplate(etabId, t);
   }
 
-  if (!initDone || (resumeId && saving && !data.nom)) {
+  async function handleLeave() {
+    if (etabId) await saveCurrentStep(etabId);
+    await signOut();
+    navigate('/');
+  }
+
+  // ── Loading state ────────────────────────────────────────────────────────────
+
+  if (!initDone || (resumeId && saving && !data.nom && etape !== 0)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -95,6 +113,20 @@ export default function OnboardingPage() {
       </div>
     );
   }
+
+  // ── Welcome (full-screen, outside stepper) ───────────────────────────────────
+
+  if (etape === 0 && (initDone || resumeId)) {
+    return (
+      <StepWelcome
+        onStart={async () => { if (etabId) await saveStep(etabId, 0, {}, 1); }}
+        onLeave={handleLeave}
+        saving={saving}
+      />
+    );
+  }
+
+  // ── Main layout with sidebar stepper ────────────────────────────────────────
 
   const currentUiIdx = Math.min(uiStepIndex(etape), TOTAL_STEPS - 1);
   const progressPct = activated ? 100 : ((currentUiIdx + 1) / TOTAL_STEPS) * 100;
@@ -129,8 +161,8 @@ export default function OnboardingPage() {
                     `}
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold transition-all
-                      ${isCompleted ? 'bg-emerald-500 text-white' : ''}
-                      ${isActive    ? 'bg-blue-500 text-white'    : ''}
+                      ${isCompleted ? 'bg-emerald-500 text-white'   : ''}
+                      ${isActive    ? 'bg-blue-500 text-white'      : ''}
                       ${isFuture    ? 'bg-slate-700 text-slate-500' : ''}
                     `}>
                       {isCompleted ? <CheckCheck className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
@@ -165,36 +197,44 @@ export default function OnboardingPage() {
       <main className="flex-1 flex flex-col min-h-screen">
         {/* Header */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-10">
-          {/* Mobile step indicator */}
+          {/* Mobile step dots */}
           <div className="md:hidden flex items-center gap-2">
             {STEPS.map((_, idx) => {
               const dbEtape = STEP_ETAPES[idx];
               const past   = activated || etape > dbEtape;
               const active = !activated && (idx === STEPS.length - 1 ? etape >= dbEtape : etape === dbEtape);
               return (
-                <div
-                  key={idx}
-                  className={`h-1.5 rounded-full transition-all ${
-                    past   ? 'w-6 bg-emerald-500' :
-                    active ? 'w-8 bg-blue-500'    :
-                    'w-3 bg-slate-700'
-                  }`}
-                />
+                <div key={idx} className={`h-1.5 rounded-full transition-all ${
+                  past ? 'w-6 bg-emerald-500' : active ? 'w-8 bg-blue-500' : 'w-3 bg-slate-700'
+                }`} />
               );
             })}
           </div>
           <div className="hidden md:block">
-            <span className="text-xs text-slate-500">
-              {STEPS[currentUiIdx].label}
-            </span>
+            <span className="text-xs text-slate-500">{STEPS[currentUiIdx]?.label}</span>
           </div>
-          <button
-            onClick={() => navigate('/clients')}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-            title="Fermer et revenir aux clients"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* "Je reviens plus tard" on intermediate steps */}
+            {INTERMEDIATE_ETAPES.has(etape) && (
+              <button
+                onClick={handleLeave}
+                disabled={saving}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                title="Sauvegarder et quitter"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Je reviens plus tard
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/clients')}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+              title="Fermer et revenir aux clients"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
         {/* Step content */}
@@ -244,11 +284,19 @@ export default function OnboardingPage() {
                 saving={saving}
               />
             )}
-            {etape >= 5 && etabId && (
+            {etape === 5 && etabId && (
+              <StepLogo
+                etabId={etabId}
+                onNext={() => handleNext({})}
+                onBack={() => goToStep(4)}
+                saving={saving}
+              />
+            )}
+            {etape >= 6 && etabId && (
               <Step6
                 data={data}
                 etabId={etabId}
-                onBack={() => goToStep(4)}
+                onBack={() => goToStep(5)}
                 saving={saving}
                 activated={activated}
                 onActivate={handleActivate}

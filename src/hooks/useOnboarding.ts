@@ -2,13 +2,26 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { type OnboardingData, INITIAL_DATA, TEMPLATES_POSTES } from '../pages/onboarding/types';
 
-// Maps numeric etape (1-5) to the text step name persisted in onboarding_step column
+// Numeric etape → text step name written to onboarding_step column
 const ETAPE_STEP_MAP: Record<number, string> = {
+  0: 'welcome',
   1: 'coordonnees',
   2: 'categorie_erp',
   3: 'direction',
   4: 'materiel',
-  5: 'recap',
+  5: 'logo',
+  6: 'recap',
+};
+
+// Text step name → numeric etape (used when loading from DB)
+const STEP_ETAPE_MAP: Record<string, number> = {
+  welcome:      0,
+  coordonnees:  1,
+  categorie_erp: 2,
+  direction:    3,
+  materiel:     4,
+  logo:         5,
+  recap:        6,
 };
 
 export interface OnboardingState {
@@ -37,15 +50,19 @@ export function useOnboarding(existingEtabId?: string) {
       setState(s => ({ ...s, saving: true }));
       const { data: etab } = await supabase
         .from('etablissements')
-        .select('onboarding_data, onboarding_etape')
+        .select('onboarding_data, onboarding_etape, onboarding_step')
         .eq('id', existingEtabId)
         .maybeSingle();
       if (etab) {
+        // Prefer onboarding_step (text) over onboarding_etape (integer) for correct mapping
+        const resolvedEtape = etab.onboarding_step
+          ? (STEP_ETAPE_MAP[etab.onboarding_step] ?? etab.onboarding_etape ?? 1)
+          : (etab.onboarding_etape ?? 1);
         setState(s => ({
           ...s,
           saving: false,
           data: { ...INITIAL_DATA, ...(etab.onboarding_data as Partial<OnboardingData> ?? {}) },
-          etape: etab.onboarding_etape ?? 1,
+          etape: resolvedEtape,
         }));
       } else {
         setState(s => ({ ...s, saving: false }));
@@ -103,6 +120,18 @@ export function useOnboarding(existingEtabId?: string) {
     return true;
   }
 
+  // Saves current state without advancing — used by "Je reviens plus tard"
+  async function saveCurrentStep(etabId: string): Promise<void> {
+    const { etape, data } = state;
+    await supabase.from('etablissements').update({
+      onboarding_data: data,
+      onboarding_etape: etape,
+      onboarding_step: ETAPE_STEP_MAP[etape] ?? 'coordonnees',
+      ...(etape === 1 && { nom: data.nom }),
+      ...(etape === 2 && { plan: data.plan }),
+    }).eq('id', etabId);
+  }
+
   async function createDirectionUser(
     etabId: string,
     email: string,
@@ -155,7 +184,7 @@ export function useOnboarding(existingEtabId?: string) {
       return false;
     }
 
-    // 2. Create espaces in the database
+    // 2. Create espaces in the database (from structure step data, if any)
     if (state.data.espaces.length > 0) {
       const { error: espErr } = await supabase.from('espaces').insert(
         state.data.espaces.map(e => ({
@@ -167,7 +196,7 @@ export function useOnboarding(existingEtabId?: string) {
       if (espErr) console.warn('espaces insert error:', espErr);
     }
 
-    // 3. Create zones in the database
+    // 3. Create zones in the database (from structure step data, if any)
     if (state.data.zones.length > 0) {
       const { error: zoneErr } = await supabase.from('zones').insert(
         state.data.zones.map(z => ({
@@ -183,7 +212,7 @@ export function useOnboarding(existingEtabId?: string) {
     // 4. Mark onboarding as done
     await supabase.from('etablissements').update({
       onboarding_data: { ...state.data, activated_at: new Date().toISOString() },
-      onboarding_etape: 5,
+      onboarding_etape: 6,
       onboarding_step: 'done',
       onboarding_completed_at: new Date().toISOString(),
     }).eq('id', etabId);
@@ -213,5 +242,5 @@ export function useOnboarding(existingEtabId?: string) {
     setState(s => ({ ...s, etape: n, error: null }));
   }
 
-  return { state, updateData, initEtab, saveStep, createDirectionUser, activateClient, loadPostesTemplate, goToStep, setError };
+  return { state, updateData, initEtab, saveStep, saveCurrentStep, createDirectionUser, activateClient, loadPostesTemplate, goToStep, setError };
 }
