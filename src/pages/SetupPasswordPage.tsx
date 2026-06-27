@@ -38,6 +38,11 @@ export default function SetupPasswordPage() {
   useEffect(() => {
     let settled = false;
 
+    console.log('[SetupPasswordPage] mounted');
+    console.log('[SetupPasswordPage] pathname:', window.location.pathname);
+    console.log('[SetupPasswordPage] search:', window.location.search);
+    console.log('[SetupPasswordPage] hash:', window.location.hash);
+
     async function handleSession(s: Session) {
       if (settled) return;
       settled = true;
@@ -65,23 +70,27 @@ export default function SetupPasswordPage() {
       setLoading(false);
     }
 
-    // Listen for auth state changes (fires when Supabase processes the hash token)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    // Listen for auth state changes (fires when Supabase processes the token)
+    // With PKCE flow, event will be PASSWORD_RECOVERY for recovery or SIGNED_IN for invite
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      console.log('[SetupPasswordPage] onAuthStateChange event:', event, 'session:', !!s);
       if (s) {
         handleSession(s);
       } else if (!settled) {
-        // fired with null session - keep waiting until timeout
+        // fired with null session — keep waiting until timeout
       }
     });
 
     // Also check for an existing session immediately
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      console.log('[SetupPasswordPage] getSession result:', !!s);
       if (s) handleSession(s);
     });
 
     // Safety timeout: if no session after 10s, show invalid-link screen
     const timeout = setTimeout(() => {
       if (!settled) {
+        console.warn('[SetupPasswordPage] timeout — no session received');
         settled = true;
         setLoading(false);
       }
