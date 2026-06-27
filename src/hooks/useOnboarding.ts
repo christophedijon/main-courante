@@ -2,6 +2,15 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { type OnboardingData, INITIAL_DATA, TEMPLATES_POSTES } from '../pages/onboarding/types';
 
+// Maps numeric etape (1-5) to the text step name persisted in onboarding_step column
+const ETAPE_STEP_MAP: Record<number, string> = {
+  1: 'coordonnees',
+  2: 'categorie_erp',
+  3: 'direction',
+  4: 'materiel',
+  5: 'recap',
+};
+
 export interface OnboardingState {
   etabId: string | null;
   etape: number;
@@ -74,10 +83,9 @@ export function useOnboarding(existingEtabId?: string) {
       .update({
         onboarding_data: newData,
         onboarding_etape: actualNext,
-        ...(etape === 1 && {
-          nom: newData.nom,
-          plan: newData.plan,
-        }),
+        onboarding_step: ETAPE_STEP_MAP[actualNext] ?? 'coordonnees',
+        ...(etape === 1 && { nom: newData.nom }),
+        ...(etape === 2 && { plan: newData.plan }),
       })
       .eq('id', etabId);
 
@@ -172,10 +180,12 @@ export function useOnboarding(existingEtabId?: string) {
       if (zoneErr) console.warn('zones insert error:', zoneErr);
     }
 
-    // 4. Mark onboarding_data with activation info
+    // 4. Mark onboarding as done
     await supabase.from('etablissements').update({
       onboarding_data: { ...state.data, activated_at: new Date().toISOString() },
-      onboarding_etape: 6,
+      onboarding_etape: 5,
+      onboarding_step: 'done',
+      onboarding_completed_at: new Date().toISOString(),
     }).eq('id', etabId);
 
     setState(s => ({ ...s, saving: false, activated: true }));

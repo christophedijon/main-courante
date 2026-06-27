@@ -1,27 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, Building2, User, Cpu, CheckCircle2, CheckCheck, Loader2 } from 'lucide-react';
+import { X, Building2, Tag, User, Cpu, CheckCircle2, CheckCheck, Loader2 } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
-import Step1 from './onboarding/Step1';
+import StepCoordonnees from './onboarding/StepCoordonnees';
+import StepCategorieERP from './onboarding/StepCategorieERP';
 import Step2 from './onboarding/Step2';
 import Step5 from './onboarding/Step5';
 import Step6 from './onboarding/Step6';
 
-// 4 visible steps — maps to DB etape values 1, 2, 5, 6
 const STEPS = [
-  { label: 'Établissement', icon: Building2 },
-  { label: 'Direction',     icon: User },
-  { label: 'Matériel',      icon: Cpu },
-  { label: 'Récap & Activation', icon: CheckCircle2 },
+  { label: 'Coordonnées',        icon: Building2    },  // etape 1
+  { label: 'Catégorie ERP',      icon: Tag          },  // etape 2
+  { label: 'Direction',          icon: User         },  // etape 3
+  { label: 'Matériel',           icon: Cpu          },  // etape 4
+  { label: 'Récap & Activation', icon: CheckCircle2 },  // etape 5
 ];
-const STEP_ETAPES = [1, 2, 5, 6] as const;
+const STEP_ETAPES = [1, 2, 3, 4, 5] as const;
 const TOTAL_STEPS = STEPS.length;
 
 function uiStepIndex(etape: number): number {
-  if (etape <= 1) return 0;
-  if (etape <= 2) return 1;
-  if (etape <= 5) return 2;
-  return 3;
+  return Math.max(0, Math.min(etape - 1, TOTAL_STEPS - 1));
 }
 
 export default function OnboardingPage() {
@@ -58,9 +56,7 @@ export default function OnboardingPage() {
 
   async function handleNext(patch: Record<string, unknown>) {
     if (!etabId) return;
-    // After Direction (etape 2), skip Structure+Vérificateurs → jump to etape 5 (Matériel)
-    const nextEtape = etape === 2 ? 5 : undefined;
-    await saveStep(etabId, etape, patch as never, nextEtape);
+    await saveStep(etabId, etape, patch as never);
   }
 
   async function handleActivate() {
@@ -127,15 +123,15 @@ export default function OnboardingPage() {
                     onClick={() => !isFuture && !isActive && goToStep(dbEtape)}
                     disabled={isFuture || isActive}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all
-                      ${isActive ? 'bg-blue-600/20 border border-blue-500/30' : ''}
-                      ${isCompleted ? 'hover:bg-slate-800 cursor-pointer' : ''}
-                      ${isFuture ? 'opacity-40 cursor-not-allowed' : ''}
+                      ${isActive    ? 'bg-blue-600/20 border border-blue-500/30' : ''}
+                      ${isCompleted ? 'hover:bg-slate-800 cursor-pointer'        : ''}
+                      ${isFuture    ? 'opacity-40 cursor-not-allowed'            : ''}
                     `}
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold transition-all
                       ${isCompleted ? 'bg-emerald-500 text-white' : ''}
-                      ${isActive ? 'bg-blue-500 text-white' : ''}
-                      ${isFuture ? 'bg-slate-700 text-slate-500' : ''}
+                      ${isActive    ? 'bg-blue-500 text-white'    : ''}
+                      ${isFuture    ? 'bg-slate-700 text-slate-500' : ''}
                     `}>
                       {isCompleted ? <CheckCheck className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
                     </div>
@@ -173,14 +169,14 @@ export default function OnboardingPage() {
           <div className="md:hidden flex items-center gap-2">
             {STEPS.map((_, idx) => {
               const dbEtape = STEP_ETAPES[idx];
-              const past = activated || etape > dbEtape;
+              const past   = activated || etape > dbEtape;
               const active = !activated && (idx === STEPS.length - 1 ? etape >= dbEtape : etape === dbEtape);
               return (
                 <div
                   key={idx}
                   className={`h-1.5 rounded-full transition-all ${
-                    past ? 'w-6 bg-emerald-500' :
-                    active ? 'w-8 bg-blue-500' :
+                    past   ? 'w-6 bg-emerald-500' :
+                    active ? 'w-8 bg-blue-500'    :
                     'w-3 bg-slate-700'
                   }`}
                 />
@@ -212,38 +208,47 @@ export default function OnboardingPage() {
             )}
 
             {etape === 1 && (
-              <Step1
+              <StepCoordonnees
                 data={data}
                 onChange={updateData}
                 onNext={patch => handleNext(patch)}
                 saving={saving}
               />
             )}
-            {etape === 2 && etabId && (
-              <Step2
+            {etape === 2 && (
+              <StepCategorieERP
                 data={data}
                 onChange={updateData}
                 onNext={patch => handleNext(patch)}
                 onBack={() => goToStep(1)}
                 saving={saving}
-                etabId={etabId}
-                createDirectionUser={createDirectionUser}
               />
             )}
-            {etape === 5 && (
-              <Step5
+            {etape === 3 && etabId && (
+              <Step2
                 data={data}
                 onChange={updateData}
                 onNext={patch => handleNext(patch)}
                 onBack={() => goToStep(2)}
                 saving={saving}
+                etabId={etabId}
+                createDirectionUser={createDirectionUser}
               />
             )}
-            {etape >= 6 && etabId && (
+            {etape === 4 && (
+              <Step5
+                data={data}
+                onChange={updateData}
+                onNext={patch => handleNext(patch)}
+                onBack={() => goToStep(3)}
+                saving={saving}
+              />
+            )}
+            {etape >= 5 && etabId && (
               <Step6
                 data={data}
                 etabId={etabId}
-                onBack={() => goToStep(5)}
+                onBack={() => goToStep(4)}
                 saving={saving}
                 activated={activated}
                 onActivate={handleActivate}
