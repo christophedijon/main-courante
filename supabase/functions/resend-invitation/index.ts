@@ -38,6 +38,9 @@ async function sendViaResend(
 }
 
 Deno.serve(async (req: Request) => {
+  // Log every invocation immediately — confirms this version is running
+  console.log("[resend-invitation] INVOKED method:", req.method, "time:", new Date().toISOString());
+
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
