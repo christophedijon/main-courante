@@ -5,10 +5,12 @@ import {
   MoreHorizontal, Play, Zap, Pause, CheckCircle2,
   Trash2, RefreshCw, ChevronDown, ChevronUp,
   Users, Clock, XCircle, FlaskConical, Mail, UserCheck, UserX,
+  Pencil, KeyRound, Eye,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AppHeader from '../components/AppHeader';
 import Toast, { type ToastType } from '../components/Toast';
+import EditDirectionModal from '../components/EditDirectionModal';
 
 type Etablissement = {
   id: string;
@@ -73,6 +75,8 @@ export default function ClientsPage() {
   const [toast, setToast] = useState<{ type: ToastType; msg: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [editDirectionEtab, setEditDirectionEtab] = useState<{ id: string; nom: string } | null>(null);
+  const [detailsEtab, setDetailsEtab] = useState<Etablissement | null>(null);
 
   useEffect(() => {
     if (!actionMenu) return;
@@ -154,37 +158,31 @@ export default function ClientsPage() {
   }
 
   async function resendInvitation(etabId: string) {
-    const dir = directionMap[etabId];
-    if (!dir) return;
     setResendLoading(etabId);
-    const { data: managed } = await supabase
-      .from('managed_users')
-      .select('email')
-      .eq('etablissement_id', etabId)
-      .eq('fonction', 'Direction')
-      .maybeSingle();
-    if (!managed?.email) {
-      showToast('error', 'Email Direction introuvable');
-      setResendLoading(null);
-      return;
-    }
-    const { error } = await supabase.functions.invoke('create-managed-user', {
-      // reinvite: just update invited_at
+    const { data, error } = await supabase.functions.invoke('resend-invitation', {
+      body: { etablissement_id: etabId, action: 'resend_invite' },
     });
-    // Fallback: use admin API via edge function to resend
-    // For now, simply update invited_at so the status resets
-    const { error: upErr } = await supabase
-      .from('managed_users')
-      .update({ invited_at: new Date().toISOString() })
-      .eq('etablissement_id', etabId)
-      .eq('fonction', 'Direction');
-    if (upErr || error) {
-      showToast('error', "Erreur lors du renvoi");
+    if (error || data?.error) {
+      showToast('error', data?.error ?? "Erreur lors du renvoi de l'invitation");
     } else {
-      showToast('success', `Invitation renvoyée à ${managed.email}`);
+      showToast('success', `Invitation renvoyée à ${data?.email ?? ''}`);
       load();
     }
     setResendLoading(null);
+  }
+
+  async function resetPassword(etabId: string) {
+    setActionLoading(etabId);
+    const { data, error } = await supabase.functions.invoke('resend-invitation', {
+      body: { etablissement_id: etabId, action: 'reset_password' },
+    });
+    if (error || data?.error) {
+      showToast('error', data?.error ?? "Erreur lors de l'envoi");
+    } else {
+      showToast('success', `Email de réinitialisation envoyé à ${data?.email ?? ''}`);
+    }
+    setActionMenu(null); setMenuAnchor(null);
+    setActionLoading(null);
   }
 
   async function supprimerEtablissement(id: string) {
@@ -549,6 +547,24 @@ export default function ClientsPage() {
               )}
               <>
                 <div className="h-px bg-slate-700 my-1" />
+                {/* Direction actions */}
+                {!directionMap[etab.id]?.first_login_at && directionMap[etab.id] && (
+                  <MenuItem icon={Mail} onClick={() => { resendInvitation(etab.id); setActionMenu(null); setMenuAnchor(null); }}>
+                    Renvoyer l'invitation
+                  </MenuItem>
+                )}
+                <MenuItem icon={Pencil} onClick={() => { setEditDirectionEtab({ id: etab.id, nom: etab.nom }); setActionMenu(null); setMenuAnchor(null); }}>
+                  Modifier infos Direction
+                </MenuItem>
+                {directionMap[etab.id]?.first_login_at && (
+                  <MenuItem icon={KeyRound} onClick={() => resetPassword(etab.id)}>
+                    Réinitialiser mot de passe
+                  </MenuItem>
+                )}
+                <MenuItem icon={Eye} onClick={() => { setDetailsEtab(etab); setActionMenu(null); setMenuAnchor(null); }}>
+                  Voir les détails
+                </MenuItem>
+                <div className="h-px bg-slate-700 my-1" />
                 <MenuItem icon={Trash2} className="text-rose-400 hover:bg-rose-500/10" onClick={() => { setConfirmDelete(etab.id); setActionMenu(null); setMenuAnchor(null); }}>
                   Supprimer définitivement
                 </MenuItem>
@@ -608,6 +624,20 @@ export default function ClientsPage() {
         );
       })()}
 
+      {editDirectionEtab && (
+        <EditDirectionModal
+          etablissementId={editDirectionEtab.id}
+          etablissementNom={editDirectionEtab.nom}
+          onClose={() => setEditDirectionEtab(null)}
+          onSaved={(msg) => { showToast('success', msg); load(); setEditDirectionEtab(null); }}
+          onError={(msg) => showToast('error', msg)}
+        />
+      )}
+
+      {detailsEtab && (
+        <DetailsModal etab={detailsEtab} direction={directionMap[detailsEtab.id] ?? null} onClose={() => setDetailsEtab(null)} />
+      )}
+
       {toast && (
         <Toast
           type={toast.type}
@@ -638,6 +668,89 @@ function MenuItem({
       <Icon className="w-4 h-4 shrink-0" />
       {children}
     </button>
+  );
+}
+
+function DetailsModal({ etab, direction, onClose }: { etab: Etablissement; direction: DirectionActivation | null; onClose: () => void }) {
+  const plan = PLAN_BADGE[etab.plan] ?? PLAN_BADGE.light;
+  const statut = STATUT_BADGE[etab.statut] ?? STATUT_BADGE.brouillon;
+  const StatutIcon = statut.icon;
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-slate-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">{etab.nom}</h2>
+              <p className="text-xs text-slate-400">{etab.partenaires?.nom ?? 'Sans partenaire'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-800/50 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-1">Plan</p>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${plan.className}`}>{plan.label}</span>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-1">Statut</p>
+              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${statut.className}`}>
+                <StatutIcon className="w-3 h-3" />{statut.label}
+              </span>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-1">Créé le</p>
+              <p className="text-sm text-white">{formatDate(etab.created_at)}</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-1">Activation</p>
+              <p className="text-sm text-white">{formatDate(etab.date_activation)}</p>
+            </div>
+            {etab.date_fin_essai && (
+              <div className="bg-slate-800/50 rounded-xl p-3 col-span-2">
+                <p className="text-xs text-slate-500 mb-1">Fin d'essai</p>
+                <p className="text-sm text-white">{formatDate(etab.date_fin_essai)}</p>
+              </div>
+            )}
+          </div>
+          <div className="bg-slate-800/50 rounded-xl p-3">
+            <p className="text-xs text-slate-500 mb-2">Direction</p>
+            {!direction ? (
+              <p className="text-sm text-slate-400">Aucun utilisateur Direction</p>
+            ) : direction.first_login_at ? (
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-sm text-emerald-400 font-medium">Compte activé</p>
+                  <p className="text-xs text-slate-400">Le {formatDate(direction.first_login_at)}</p>
+                </div>
+              </div>
+            ) : direction.invited_at ? (
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <p className="text-sm text-amber-400 font-medium">Invitation envoyée</p>
+                  <p className="text-xs text-slate-400">Le {formatDate(direction.invited_at)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">Invité (date inconnue)</p>
+            )}
+          </div>
+        </div>
+        <div className="px-6 pb-5">
+          <button onClick={onClose} className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-all">
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
