@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useSaisie, SaisieType } from './SaisieContext';
+import { useEntreprise } from '../../hooks/useEntreprise';
 import StepHeader from '../components/StepHeader';
 import SelectableTile from '../components/SelectableTile';
 
@@ -9,15 +10,21 @@ export default function StepMotifs() {
   const { type } = useParams<{ type: SaisieType }>();
   const navigate = useNavigate();
   const { draft, setField } = useSaisie();
+  const { id: etabFromHook } = useEntreprise();
+  const etablissementId = draft.etablissement?.id ?? etabFromHook;
   const [items, setItems] = useState<{ id: string; nom: string; description: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('motifs').select('id, nom, description, ordre').order('ordre').then(({ data }) => {
-      setItems(data ?? []);
-      setLoading(false);
-    });
-  }, []);
+    if (!etablissementId) return;
+    supabase.from('motifs').select('id, nom, description, ordre')
+      .eq('etablissement_id', etablissementId)
+      .order('ordre')
+      .then(({ data }) => {
+        setItems(data ?? []);
+        setLoading(false);
+      });
+  }, [etablissementId]);
 
   if (!type) return <Navigate to="/mobile" replace />;
   if (!draft.niveau) return <Navigate to={`/mobile/saisie/${type}/niveau`} replace />;

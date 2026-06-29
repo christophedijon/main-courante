@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { Flame, Mic, MicOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSaisie } from './SaisieContext';
+import { useEntreprise } from '../../hooks/useEntreprise';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 type MotifRow = { id: string; nom: string; description: string | null };
@@ -10,21 +11,25 @@ type MotifRow = { id: string; nom: string; description: string | null };
 export default function StepSsiMotifs() {
   const navigate = useNavigate();
   const { draft, setField } = useSaisie();
+  const { id: etabFromHook } = useEntreprise();
+  const etablissementId = draft.etablissement?.id ?? etabFromHook;
   const [items, setItems] = useState<MotifRow[]>([]);
   const [loading, setLoading] = useState(true);
   const { transcript: transcription, setTranscript: setTranscription, recording, supported, toggle: toggleRec } =
     useSpeechRecognition(draft.commentaire ?? '');
 
   useEffect(() => {
+    if (!etablissementId) return;
     supabase
       .from('motifs_ssi')
       .select('id, nom, description, ordre')
+      .eq('etablissement_id', etablissementId)
       .order('ordre')
       .then(({ data }) => {
         setItems(data ?? []);
         setLoading(false);
       });
-  }, []);
+  }, [etablissementId]);
 
   if (!draft.zone) return <Navigate to="/mobile/saisie/ssi/ssi-zone" replace />;
 

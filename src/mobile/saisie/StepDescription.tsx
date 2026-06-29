@@ -3,6 +3,7 @@ import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { ArrowLeft, X, Mic, MicOff, Paperclip, Image, Music, Video, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSaisie, SaisieType } from './SaisieContext';
+import { useEntreprise } from '../../hooks/useEntreprise';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 type Niveau = { id: string; label: string; description: string | null; ordre: number };
@@ -105,6 +106,8 @@ export default function StepDescription() {
   const { type } = useParams<{ type: SaisieType }>();
   const navigate = useNavigate();
   const { draft, setField, pendingMedias, addPendingMedia, removePendingMedia } = useSaisie();
+  const { id: etabFromHook } = useEntreprise();
+  const etablissementId = draft.etablissement?.id ?? etabFromHook;
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
   const [niveaux, setNiveaux] = useState<Niveau[]>([]);
@@ -115,14 +118,17 @@ export default function StepDescription() {
     useSpeechRecognition(draft.commentaire);
 
   useEffect(() => {
+    if (!etablissementId) return;
     supabase.from('niveaux_intervention').select('id, label, description, ordre')
+      .eq('etablissement_id', etablissementId)
       .order('ordre', { ascending: true })
       .then(({ data }) => { setNiveaux(data ?? []); setLoadingNiveaux(false); });
 
     supabase.from('motifs').select('id, nom, ordre')
+      .eq('etablissement_id', etablissementId)
       .order('ordre')
       .then(({ data }) => { setMotifs(data ?? []); setLoadingMotifs(false); });
-  }, []);
+  }, [etablissementId]);
 
   if (!type) return <Navigate to="/mobile" replace />;
   if (!draft.espace || !draft.zone) return <Navigate to={`/mobile/saisie/${type}/localisation`} replace />;

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useEntreprise } from '../hooks/useEntreprise';
 import AppHeader from '../components/AppHeader';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -312,6 +313,7 @@ function NiveauItem({
 
 export default function MotifsPage() {
   const { session, signOut, isSuperAdmin, hasAdminAccess } = useAuth();
+  const { id: etablissementId, loading: etabLoading } = useEntreprise();
   const navigate = useNavigate();
 
   const [motifs, setMotifs]       = useState<Motif[]>([]);
@@ -328,10 +330,11 @@ export default function MotifsPage() {
   const [openNiveaux,   setOpenNiveaux]   = useState(true);
 
   useEffect(() => {
-    if (!session)      { navigate('/'); return; }
+    if (!session)        { navigate('/'); return; }
     if (!hasAdminAccess) { navigate('/mobile'); return; }
+    if (etabLoading)     return;
     fetchAll();
-  }, [session, isSuperAdmin]);
+  }, [session, isSuperAdmin, etabLoading]);
 
   useEffect(() => {
     if (!toast) return;
@@ -342,9 +345,18 @@ export default function MotifsPage() {
   async function fetchAll() {
     setLoading(true);
     const [{ data: motifsData }, { data: motifsSsiData }, { data: niveauxData }] = await Promise.all([
-      supabase.from('motifs').select('*').order('ordre', { ascending: true }),
-      supabase.from('motifs_ssi').select('*').order('ordre', { ascending: true }),
-      supabase.from('niveaux_intervention').select('*').order('ordre', { ascending: true }),
+      (etablissementId
+        ? supabase.from('motifs').select('*').eq('etablissement_id', etablissementId)
+        : supabase.from('motifs').select('*')
+      ).order('ordre', { ascending: true }),
+      (etablissementId
+        ? supabase.from('motifs_ssi').select('*').eq('etablissement_id', etablissementId)
+        : supabase.from('motifs_ssi').select('*')
+      ).order('ordre', { ascending: true }),
+      (etablissementId
+        ? supabase.from('niveaux_intervention').select('*').eq('etablissement_id', etablissementId)
+        : supabase.from('niveaux_intervention').select('*')
+      ).order('ordre', { ascending: true }),
     ]);
     setMotifs((motifsData ?? []).map((m) => ({
       id: m.id, nom: m.nom, description: m.description, ordre: m.ordre,
@@ -361,9 +373,10 @@ export default function MotifsPage() {
   // ── Motifs CRUD ────────────────────────────────────────────────────────────
 
   async function addMotif() {
+    if (!etablissementId) return;
     const ordre = motifs.length;
     const { data, error } = await supabase
-      .from('motifs').insert({ nom: '', description: '', ordre })
+      .from('motifs').insert({ nom: '', description: '', ordre, etablissement_id: etablissementId })
       .select('*').single();
     if (error || !data) { setToast({ type: 'error', text: 'Erreur lors de la création.' }); return; }
     setMotifs((prev) => [...prev, { id: data.id, nom: data.nom, description: data.description, ordre: data.ordre }]);
@@ -391,9 +404,10 @@ export default function MotifsPage() {
   // ── Motifs SSI CRUD ────────────────────────────────────────────────────────
 
   async function addMotifSsi() {
+    if (!etablissementId) return;
     const ordre = motifsSsi.length;
     const { data, error } = await supabase
-      .from('motifs_ssi').insert({ nom: '', description: '', ordre })
+      .from('motifs_ssi').insert({ nom: '', description: '', ordre, etablissement_id: etablissementId })
       .select('*').single();
     if (error || !data) { setToast({ type: 'error', text: 'Erreur lors de la création.' }); return; }
     setMotifsSsi((prev) => [...prev, { id: data.id, nom: data.nom, description: data.description, ordre: data.ordre }]);
@@ -421,9 +435,10 @@ export default function MotifsPage() {
   // ── Niveaux CRUD ───────────────────────────────────────────────────────────
 
   async function addNiveau() {
+    if (!etablissementId) return;
     const ordre = niveaux.length;
     const { data, error } = await supabase
-      .from('niveaux_intervention').insert({ label: '', description: '', ordre })
+      .from('niveaux_intervention').insert({ label: '', description: '', ordre, etablissement_id: etablissementId })
       .select('*').single();
     if (error || !data) { setToast({ type: 'error', text: 'Erreur lors de la création.' }); return; }
     setNiveaux((prev) => [...prev, { id: data.id, label: data.label, description: data.description, ordre: data.ordre }]);

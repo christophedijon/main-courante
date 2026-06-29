@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-type EntrepriseInfo = { nom: string; logo_url: string | null };
+type EntrepriseInfo = { id: string | null; nom: string; logo_url: string | null };
 
 let cache: EntrepriseInfo | null = null;
 let isMegaAdmin = false;
@@ -18,13 +18,13 @@ function doFetch() {
   fetchInFlight = true;
   supabase
     .from('etablissements')
-    .select('nom, logo_url')
+    .select('id, nom, logo_url')
     .limit(1)
     .maybeSingle()
     .then(({ data }) => {
       fetchInFlight = false;
       if (isMegaAdmin) return;
-      notify(data ? { nom: data.nom, logo_url: data.logo_url } : { nom: '', logo_url: null });
+      notify(data ? { id: data.id, nom: data.nom, logo_url: data.logo_url } : { id: null, nom: '', logo_url: null });
     })
     .catch(() => { fetchInFlight = false; });
 }
@@ -43,7 +43,7 @@ export function setEntrepriseMegaAdmin(v: boolean) {
   cache = null;
   fetchInFlight = false;
   if (v) {
-    notify({ nom: '', logo_url: null });
+    notify({ id: null, nom: '', logo_url: null });
   } else if (listeners.length > 0) {
     doFetch();
   }
@@ -78,6 +78,7 @@ export function useEntreprise() {
   }, []);
 
   return {
+    id: info?.id ?? null,
     nom: info?.nom ?? '',
     logo_url: info?.logo_url ?? null,
     loading,
