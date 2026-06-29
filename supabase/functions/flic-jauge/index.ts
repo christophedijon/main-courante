@@ -48,16 +48,17 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch entreprise_id — order by enseigne nulls last to always pick the configured one
+    // Fetch entreprise_id — filter actif/essai, order by enseigne nulls last
     const { data: entreprise, error: entErr } = await supabase
-      .from("entreprise")
+      .from("etablissements")
       .select("id")
+      .in("statut", ["essai", "actif"])
       .order("enseigne", { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle();
 
     if (entErr || !entreprise) {
-      console.error("[flic-jauge] entreprise lookup failed:", entErr);
+      console.error("[flic-jauge] etablissement lookup failed:", entErr);
       return json({ success: false, error: "Service unavailable" }, 500);
     }
 

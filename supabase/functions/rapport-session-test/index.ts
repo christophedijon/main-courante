@@ -25,8 +25,8 @@ Deno.serve(async (req: Request) => {
 
     // Resolve entreprise
     const entQuery = entreprise_id
-      ? supabase.from("entreprise").select("id, nom, logo_url, force_session_active, force_session_type, force_session_opened_at").eq("id", entreprise_id).single()
-      : supabase.from("entreprise").select("id, nom, logo_url, force_session_active, force_session_type, force_session_opened_at").order("enseigne", { ascending: true, nullsFirst: false }).limit(1).maybeSingle();
+      ? supabase.from("etablissements").select("id, nom, logo_url, force_session_active, force_session_type, force_session_opened_at").eq("id", entreprise_id).single()
+      : supabase.from("etablissements").select("id, nom, logo_url, force_session_active, force_session_type, force_session_opened_at").in("statut", ["essai", "actif"]).order("enseigne", { ascending: true, nullsFirst: false }).limit(1).maybeSingle();
 
     const { data: entreprise, error: entErr } = await entQuery;
     if (entErr || !entreprise) {

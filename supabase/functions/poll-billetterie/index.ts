@@ -31,15 +31,16 @@ Deno.serve(async (req: Request) => {
 
   // Récupérer tous les établissements en mode automatique avec une URL billetterie
   const { data: etablissements, error: fetchErr } = await supabase
-    .from("entreprise")
+    .from("etablissements")
     .select("id, nom, url_billetterie, frequence_billetterie")
     .eq("mode_jauge", "automatique")
+    .in("statut", ["essai", "actif"])
     .not("url_billetterie", "is", null)
     .neq("url_billetterie", "");
 
   if (fetchErr) {
-    console.error("[poll-billetterie] Erreur lecture entreprises:", fetchErr.message);
-    return json({ error: "Impossible de lire les entreprises", details: fetchErr.message }, 500);
+    console.error("[poll-billetterie] Erreur lecture établissements:", fetchErr.message);
+    return json({ error: "Impossible de lire les établissements", details: fetchErr.message }, 500);
   }
 
   if (!etablissements || etablissements.length === 0) {

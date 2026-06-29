@@ -108,8 +108,9 @@ Deno.serve(async (req: Request) => {
 
     // Récupérer les infos entreprise
     const { data: entreprise } = await supabase
-      .from("entreprise")
+      .from("etablissements")
       .select("nom, logo_url, effectif_public")
+      .in("statut", ["essai", "actif"])
       .limit(1)
       .maybeSingle();
 

@@ -52,8 +52,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: entreprise } = await supabase
-      .from("entreprise")
+      .from("etablissements")
       .select("nom")
+      .in("statut", ["essai", "actif"])
       .limit(1)
       .maybeSingle();
     const entrepriseNom = (entreprise as any)?.nom ?? "";

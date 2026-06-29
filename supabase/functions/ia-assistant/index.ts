@@ -89,8 +89,9 @@ Deno.serve(async (req: Request) => {
 
   // 6. Load establishment context and SSI documents
   const { data: entreprise } = await serviceClient
-    .from("entreprise")
+    .from("etablissements")
     .select("nom, adresse, activite_principale, activites_complementaires, activites_reelles, licence_boissons, categorie_erp, effectif_public, effectif_personnel, questionnaire_reponses, horaires_ouverture, siret, code_ape")
+    .in("statut", ["essai", "actif"])
     .limit(1)
     .maybeSingle();
 
