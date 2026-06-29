@@ -17,7 +17,7 @@ function doFetch() {
   if (fetchInFlight || isMegaAdmin) return;
   fetchInFlight = true;
   supabase
-    .from('entreprise')
+    .from('etablissements')
     .select('nom, logo_url')
     .limit(1)
     .maybeSingle()

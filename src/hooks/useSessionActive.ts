@@ -163,7 +163,7 @@ export function useSessionActive(): UseSessionActiveReturn {
 
   const load = useCallback(async () => {
     const { data } = await supabase
-      .from('entreprise')
+      .from('etablissements')
       .select('id, horaires_ouverture, force_session_active, force_session_type, force_session_opened_at, force_session_expires_at')
       .order('enseigne', { ascending: true, nullsFirst: false })
       .limit(1)
@@ -175,8 +175,8 @@ export function useSessionActive(): UseSessionActiveReturn {
 
   useEffect(() => {
     const channel = supabase
-      .channel('session_entreprise_watch')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entreprise' }, () => {
+      .channel('session_etablissement_watch')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'etablissements' }, () => {
         load();
       })
       .subscribe();
@@ -236,7 +236,7 @@ export function useSessionActive(): UseSessionActiveReturn {
     if (!entreprise) return;
     const expires = getTomorrow8h();
     await supabase
-      .from('entreprise')
+      .from('etablissements')
       .update({
         force_session_active: true,
         force_session_type: 'test',
@@ -266,7 +266,7 @@ export function useSessionActive(): UseSessionActiveReturn {
     }
     const expires = getTomorrow8h();
     await supabase
-      .from('entreprise')
+      .from('etablissements')
       .update({
         force_session_active: true,
         force_session_type: 'exceptionnelle',

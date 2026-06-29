@@ -68,7 +68,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
       }
 
       const { data: cfg } = await supabase
-        .from('entreprise')
+        .from('etablissements')
         .select('id, effectif_public, mode_jauge, url_billetterie, frequence_billetterie')
         .eq('id', myEntrepriseId)
         .maybeSingle();

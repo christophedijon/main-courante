@@ -459,7 +459,7 @@ export default function EntreprisePage() {
 
   async function fetchData() {
     setLoading(true);
-    const { data: rows } = await supabase.from('entreprise').select('*').limit(1).maybeSingle();
+    const { data: rows } = await supabase.from('etablissements').select('*').limit(1).maybeSingle();
     if (rows) {
       setData({
         nom: rows.nom ?? '',
@@ -580,10 +580,10 @@ export default function EntreprisePage() {
     const full = { ...payload, updated_at: new Date().toISOString() };
     let error;
     if (rowId) {
-      ({ error } = await supabase.from('entreprise').update(full).eq('id', rowId));
+      ({ error } = await supabase.from('etablissements').update(full).eq('id', rowId));
     } else {
       const { data: inserted, error: insertError } = await supabase
-        .from('entreprise').insert({ nom: data.nom, adresse: data.adresse, telephone: data.telephone, logo_url: null, ...full }).select('id').single();
+        .from('etablissements').insert({ nom: data.nom, adresse: data.adresse, telephone: data.telephone, logo_url: null, ...full }).select('id').single();
       error = insertError;
       if (inserted) setRowId(inserted.id);
     }
@@ -616,10 +616,10 @@ export default function EntreprisePage() {
     const finalUrl = logoUrl === undefined ? data.logo_url : logoUrl;
     let error;
     if (rowId) {
-      ({ error } = await supabase.from('entreprise').update({ logo_url: finalUrl, updated_at: new Date().toISOString() }).eq('id', rowId));
+      ({ error } = await supabase.from('etablissements').update({ logo_url: finalUrl, updated_at: new Date().toISOString() }).eq('id', rowId));
     } else {
       const { data: inserted, error: insertError } = await supabase
-        .from('entreprise').insert({ nom: data.nom, adresse: data.adresse, telephone: data.telephone, logo_url: finalUrl }).select('id').single();
+        .from('etablissements').insert({ nom: data.nom, adresse: data.adresse, telephone: data.telephone, logo_url: finalUrl }).select('id').single();
       error = insertError;
       if (inserted) setRowId(inserted.id);
     }
@@ -813,9 +813,9 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
         const nowIso = new Date().toISOString();
         const nowFR = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-        // Sauvegarde dans entreprise (HTML formaté)
+        // Sauvegarde dans etablissements (HTML formaté)
         if (rowId) {
-          await supabase.from('entreprise').update({
+          await supabase.from('etablissements').update({
             document_obligations_html: formattedHtml,
             document_obligations_updated_at: nowIso,
           }).eq('id', rowId);
