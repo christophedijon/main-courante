@@ -52,7 +52,7 @@ export default function JaugeConfigPage() {
   async function loadData() {
     const [entrepriseRes, etatRes] = await Promise.all([
       supabase
-        .from('entreprise')
+        .from('etablissements')
         .select('id, mode_jauge, effectif_public, url_billetterie, frequence_billetterie')
         .order('enseigne', { ascending: true, nullsFirst: false })
         .limit(1)
@@ -168,7 +168,7 @@ export default function JaugeConfigPage() {
     setEntreprise({ ...entreprise, mode_jauge: mode });
 
     const { error } = await supabase
-      .from('entreprise')
+      .from('etablissements')
       .update({ mode_jauge: mode })
       .eq('id', entreprise.id);
 
@@ -387,7 +387,7 @@ export default function JaugeConfigPage() {
                             ...entreprise, url_billetterie: e.target.value
                           })}
                           onBlur={async (e) => {
-                            await supabase.from('entreprise')
+                            await supabase.from('etablissements')
                               .update({ url_billetterie: e.target.value })
                               .eq('id', entreprise.id);
                           }}
@@ -410,7 +410,7 @@ export default function JaugeConfigPage() {
                               type="button"
                               onClick={async () => {
                                 setEntreprise({ ...entreprise, frequence_billetterie: val });
-                                await supabase.from('entreprise')
+                                await supabase.from('etablissements')
                                   .update({ frequence_billetterie: val })
                                   .eq('id', entreprise.id);
                               }}

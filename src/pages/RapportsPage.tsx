@@ -220,7 +220,7 @@ export default function RapportsPage() {
   useEffect(() => {
     load();
     if (isSuperAdmin) loadEmailSettings();
-    supabase.from('entreprise').select('id').limit(1).maybeSingle().then(({ data }) => {
+    supabase.from('etablissements').select('id').limit(1).maybeSingle().then(({ data }) => {
       if (data) setEntrepriseId(data.id);
     });
   }, [isSuperAdmin]);

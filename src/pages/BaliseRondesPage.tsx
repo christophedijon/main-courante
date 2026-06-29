@@ -494,6 +494,7 @@ function BeaconModal({ beacon, zones, onClose, onSaved, notify }: {
 
 function RondeTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => void }) {
   const [rondeMode, setRondeMode] = useState<'aleatoire' | 'defini'>('aleatoire');
+  const [etabRowId, setEtabRowId] = useState<string | null>(null);
   const [rondes, setRondes] = useState<RondeConfig[]>([]);
   const [beacons, setBeacons] = useState<Pick<Beacon, 'id' | 'nom'>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -505,11 +506,12 @@ function RondeTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => vo
   async function load() {
     setLoading(true);
     const [{ data: ent }, { data: rondesRaw }, { data: beaconsRaw }] = await Promise.all([
-      supabase.from('entreprise').select('ronde_mode').maybeSingle(),
+      supabase.from('etablissements').select('id, ronde_mode').maybeSingle(),
       supabase.from('rondes_config').select('*').order('created_at'),
       supabase.from('beacons').select('id, nom').eq('actif', true).order('nom'),
     ]);
     setRondeMode((ent?.ronde_mode as 'aleatoire' | 'defini') ?? 'aleatoire');
+    setEtabRowId(ent?.id ?? null);
     setBeacons(beaconsRaw ?? []);
 
     // load balises per ronde
@@ -533,8 +535,9 @@ function RondeTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => vo
   useEffect(() => { load(); }, []);
 
   async function switchMode(mode: 'aleatoire' | 'defini') {
+    if (!etabRowId) return;
     setSavingMode(true);
-    const { error } = await supabase.from('entreprise').update({ ronde_mode: mode }).not('id', 'is', null);
+    const { error } = await supabase.from('etablissements').update({ ronde_mode: mode }).eq('id', etabRowId);
     setSavingMode(false);
     if (error) { notify('error', 'Erreur lors de la mise à jour'); return; }
     setRondeMode(mode);

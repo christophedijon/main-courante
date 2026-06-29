@@ -82,9 +82,9 @@ function PublicJaugePage() {
 
     async function load() {
       const { data: ent, error: entErr } = await supabase
-        .from('entreprise')
+        .from('etablissements')
         .select('id, effectif_public, enseigne')
-        .eq('etablissement_id', etablissementId)
+        .eq('id', etablissementId)
         .maybeSingle();
 
       if (cancelled) return;
