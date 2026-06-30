@@ -1,27 +1,30 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { type OnboardingData, INITIAL_DATA, TEMPLATES_POSTES } from '../pages/onboarding/types';
+import { type OnboardingData, INITIAL_DATA } from '../pages/onboarding/types';
 
 // Numeric etape → text step name written to onboarding_step column
 const ETAPE_STEP_MAP: Record<number, string> = {
   0: 'welcome',
-  1: 'coordonnees',
-  2: 'categorie_erp',
-  3: 'direction',
-  4: 'materiel',
-  5: 'logo',
-  6: 'recap',
+  1: 'entreprise',
+  2: 'espaces',
+  3: 'motifs',
+  4: 'activation',
 };
 
 // Text step name → numeric etape (used when loading from DB)
 const STEP_ETAPE_MAP: Record<string, number> = {
-  welcome:      0,
-  coordonnees:  1,
-  categorie_erp: 2,
-  direction:    3,
-  materiel:     4,
-  logo:         5,
-  recap:        6,
+  welcome:    0,
+  entreprise: 1,
+  espaces:    2,
+  motifs:     3,
+  activation: 4,
+  // legacy step names — map to closest new equivalent
+  coordonnees:   1,
+  categorie_erp: 1,
+  direction:     1,
+  materiel:      3,
+  logo:          3,
+  recap:         4,
 };
 
 export interface OnboardingState {
@@ -36,7 +39,7 @@ export interface OnboardingState {
 export function useOnboarding(existingEtabId?: string) {
   const [state, setState] = useState<OnboardingState>({
     etabId: existingEtabId ?? null,
-    etape: 1,
+    etape: 0,
     data: { ...INITIAL_DATA },
     saving: false,
     error: null,
@@ -54,12 +57,10 @@ export function useOnboarding(existingEtabId?: string) {
         .eq('id', existingEtabId)
         .maybeSingle();
       if (etab) {
-        // Prefer onboarding_step (text) over onboarding_etape (integer) for correct mapping
         const resolvedEtape = etab.onboarding_step
-          ? (STEP_ETAPE_MAP[etab.onboarding_step] ?? etab.onboarding_etape ?? 1)
-          : (etab.onboarding_etape ?? 1);
+          ? (STEP_ETAPE_MAP[etab.onboarding_step] ?? etab.onboarding_etape ?? 0)
+          : (etab.onboarding_etape ?? 0);
         const loadedData = { ...INITIAL_DATA, ...(etab.onboarding_data as Partial<OnboardingData> ?? {}) };
-        // Pre-fill nom from the etablissements row if onboarding_data.nom is empty
         if (!loadedData.nom && etab.nom) loadedData.nom = etab.nom;
         setState(s => ({
           ...s,
@@ -93,19 +94,18 @@ export function useOnboarding(existingEtabId?: string) {
     return data as string;
   }
 
-  async function saveStep(etabId: string, etape: number, patch: Partial<OnboardingData>, nextEtape?: number): Promise<boolean> {
+  // Advance to the given next etape and persist
+  async function saveStep(etabId: string, _currentEtape: number, patch: Partial<OnboardingData>, nextEtape?: number): Promise<boolean> {
     setState(s => ({ ...s, saving: true, error: null }));
     const newData = { ...state.data, ...patch };
-    const actualNext = nextEtape ?? etape + 1;
+    const actualNext = nextEtape ?? (_currentEtape + 1);
 
     const { error } = await supabase
       .from('etablissements')
       .update({
         onboarding_data: newData,
         onboarding_etape: actualNext,
-        onboarding_step: ETAPE_STEP_MAP[actualNext] ?? 'coordonnees',
-        ...(etape === 1 && { nom: newData.nom }),
-        ...(etape === 2 && { plan: newData.plan }),
+        onboarding_step: ETAPE_STEP_MAP[actualNext] ?? 'entreprise',
       })
       .eq('id', etabId);
 
@@ -123,61 +123,31 @@ export function useOnboarding(existingEtabId?: string) {
     return true;
   }
 
+  // Advance onboarding step from an external page (EntreprisePage, EspacesZonesPage, MotifsPage)
+  async function advanceFromExternalPage(etabId: string, nextEtape: number): Promise<boolean> {
+    const { error } = await supabase
+      .from('etablissements')
+      .update({
+        onboarding_etape: nextEtape,
+        onboarding_step: ETAPE_STEP_MAP[nextEtape] ?? 'entreprise',
+      })
+      .eq('id', etabId);
+    return !error;
+  }
+
   // Saves current state without advancing — used by "Je reviens plus tard"
   async function saveCurrentStep(etabId: string): Promise<void> {
     const { etape, data } = state;
     await supabase.from('etablissements').update({
       onboarding_data: data,
       onboarding_etape: etape,
-      onboarding_step: ETAPE_STEP_MAP[etape] ?? 'coordonnees',
-      ...(etape === 1 && { nom: data.nom }),
-      ...(etape === 2 && { plan: data.plan }),
+      onboarding_step: ETAPE_STEP_MAP[etape] ?? 'welcome',
     }).eq('id', etabId);
-  }
-
-  async function createDirectionUser(
-    etabId: string,
-    email: string,
-    prenom: string,
-    nom: string,
-    telephone: string,
-  ): Promise<{ managed_id: string; auth_user_id: string } | null> {
-    setState(s => ({ ...s, saving: true, error: null }));
-
-    const { data, error } = await supabase.functions.invoke('create-managed-user', {
-      body: {
-        email,
-        fonction: 'Direction',
-        status: 'active',
-        etablissement_id: etabId,
-        invite: true,
-        first_name: prenom,
-        last_name: nom,
-        telephone,
-      },
-    });
-
-    if (error || data?.error) {
-      let errMsg = data?.error ?? "Impossible de créer le compte Direction.";
-      if (!data?.error && error) {
-        try {
-          const body = await (error as any).context?.json?.();
-          if (body?.error) errMsg = body.error;
-          else if (body?.message) errMsg = body.message;
-        } catch {}
-      }
-      setState(s => ({ ...s, saving: false, error: errMsg }));
-      return null;
-    }
-
-    setState(s => ({ ...s, saving: false }));
-    return { managed_id: data.user.id, auth_user_id: data.user.auth_user_id };
   }
 
   async function activateClient(etabId: string): Promise<boolean> {
     setState(s => ({ ...s, saving: true, error: null }));
 
-    // 1. Call the activer_client RPC
     const { error: rpcErr } = await supabase.rpc('activer_client', {
       p_etab_id: etabId,
       p_plan: state.data.plan,
@@ -187,35 +157,9 @@ export function useOnboarding(existingEtabId?: string) {
       return false;
     }
 
-    // 2. Create espaces in the database (from structure step data, if any)
-    if (state.data.espaces.length > 0) {
-      const { error: espErr } = await supabase.from('espaces').insert(
-        state.data.espaces.map(e => ({
-          nom: e.nom,
-          couleur: e.couleur || '#3b82f6',
-          etablissement_id: etabId,
-        }))
-      );
-      if (espErr) console.warn('espaces insert error:', espErr);
-    }
-
-    // 3. Create zones in the database (from structure step data, if any)
-    if (state.data.zones.length > 0) {
-      const { error: zoneErr } = await supabase.from('zones').insert(
-        state.data.zones.map(z => ({
-          nom: z.nom,
-          categorie: z.categorie || 'securite_personnes',
-          capacite: z.capacite || null,
-          etablissement_id: etabId,
-        }))
-      );
-      if (zoneErr) console.warn('zones insert error:', zoneErr);
-    }
-
-    // 4. Mark onboarding as done
     await supabase.from('etablissements').update({
       onboarding_data: { ...state.data, activated_at: new Date().toISOString() },
-      onboarding_etape: 6,
+      onboarding_etape: 4,
       onboarding_step: 'done',
       onboarding_complete: true,
       onboarding_completed_at: new Date().toISOString(),
@@ -225,26 +169,9 @@ export function useOnboarding(existingEtabId?: string) {
     return true;
   }
 
-  async function loadPostesTemplate(
-    etabId: string,
-    template: keyof typeof TEMPLATES_POSTES,
-  ): Promise<boolean> {
-    setState(s => ({ ...s, saving: true, error: null }));
-    const postes = TEMPLATES_POSTES[template];
-    const { error } = await supabase.from('postes').insert(
-      postes.map(p => ({ ...p, actif: true, etablissement_id: etabId }))
-    );
-    if (error) {
-      setState(s => ({ ...s, saving: false, error: "Erreur lors du chargement du template." }));
-      return false;
-    }
-    setState(s => ({ ...s, saving: false }));
-    return true;
-  }
-
   function goToStep(n: number) {
     setState(s => ({ ...s, etape: n, error: null }));
   }
 
-  return { state, updateData, initEtab, saveStep, saveCurrentStep, createDirectionUser, activateClient, loadPostesTemplate, goToStep, setError };
+  return { state, updateData, initEtab, saveStep, advanceFromExternalPage, saveCurrentStep, activateClient, goToStep, setError };
 }

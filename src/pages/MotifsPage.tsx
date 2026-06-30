@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ShieldAlert, Plus, Trash2, ChevronDown, Save,
-  CheckCircle, AlertTriangle, Layers, FileText, GripVertical, Flame,
+  CheckCircle, AlertTriangle, Layers, FileText, GripVertical, Flame, ArrowRight,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -315,6 +315,9 @@ export default function MotifsPage() {
   const { session, signOut, isSuperAdmin, hasAdminAccess } = useAuth();
   const { id: etablissementId, loading: etabLoading } = useEntreprise();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isOnboarding = searchParams.get('onboarding') === 'true';
+  const onboardingEtabId = searchParams.get('etabId') ?? null;
 
   const [motifs, setMotifs]       = useState<Motif[]>([]);
   const [motifsSsi, setMotifsSsi] = useState<Motif[]>([]);
@@ -468,9 +471,25 @@ export default function MotifsPage() {
     navigate('/');
   }
 
+  async function handleOnboardingContinue() {
+    if (!onboardingEtabId) return;
+    await supabase.from('etablissements').update({
+      onboarding_etape: 4,
+      onboarding_step: 'activation',
+    }).eq('id', onboardingEtabId);
+    navigate(`/onboarding?etabId=${onboardingEtabId}`);
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-      <AppHeader onSignOut={handleSignOut} />
+      {isOnboarding ? (
+        <div className="bg-blue-600/20 border-b border-blue-500/30 px-6 py-3 flex items-center gap-3">
+          <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shrink-0">4</div>
+          <p className="text-blue-200 text-sm font-medium">Étape 4/5 — Configurez vos motifs de saisie</p>
+        </div>
+      ) : (
+        <AppHeader onSignOut={handleSignOut} />
+      )}
 
       {/* Toast */}
       {toast && (
@@ -705,6 +724,23 @@ export default function MotifsPage() {
           </div>
         )}
       </main>
+
+      {/* Onboarding sticky footer */}
+      {isOnboarding && (
+        <div className="sticky bottom-0 z-20 bg-slate-950/95 backdrop-blur border-t border-blue-500/30 px-6 py-4">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+            <p className="text-xs text-slate-500">Les motifs sont sauvegardés au fur et à mesure.</p>
+            <button
+              type="button"
+              onClick={handleOnboardingContinue}
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-900/30 shrink-0"
+            >
+              Enregistrer et continuer
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
