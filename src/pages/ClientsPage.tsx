@@ -5,7 +5,7 @@ import {
   MoreHorizontal, Play, Zap, Pause, CheckCircle2,
   Trash2, RefreshCw, ChevronDown, ChevronUp,
   Users, Clock, XCircle, FlaskConical, Mail, UserCheck, UserX,
-  Pencil, KeyRound, Eye,
+  Pencil, KeyRound, Eye, X, User,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AppHeader from '../components/AppHeader';
@@ -77,6 +77,7 @@ export default function ClientsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editDirectionEtab, setEditDirectionEtab] = useState<{ id: string; nom: string } | null>(null);
   const [detailsEtab, setDetailsEtab] = useState<Etablissement | null>(null);
+  const [showNouveauModal, setShowNouveauModal] = useState(false);
 
   useEffect(() => {
     if (!actionMenu) return;
@@ -257,7 +258,7 @@ export default function ClientsPage() {
               <RefreshCw className="w-4 h-4" />
             </button>
             <button
-              onClick={() => navigate('/onboarding')}
+              onClick={() => setShowNouveauModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-all"
             >
               <Plus className="w-4 h-4" />
@@ -338,7 +339,7 @@ export default function ClientsPage() {
                   {search || filterPlan || filterStatut
                     ? 'Modifiez les filtres ou'
                     : 'Commencez par'}{' '}
-                  <button onClick={() => navigate('/onboarding')} className="text-blue-400 hover:underline">créer un nouveau client</button>
+                  <button onClick={() => setShowNouveauModal(true)} className="text-blue-400 hover:underline">créer un nouveau client</button>
                 </p>
               </div>
             </div>
@@ -638,6 +639,14 @@ export default function ClientsPage() {
         <DetailsModal etab={detailsEtab} direction={directionMap[detailsEtab.id] ?? null} onClose={() => setDetailsEtab(null)} />
       )}
 
+      {showNouveauModal && (
+        <NouveauClientModal
+          onClose={() => setShowNouveauModal(false)}
+          onCreated={() => { setShowNouveauModal(false); load(); showToast('success', 'Client créé — invitation envoyée'); }}
+          onError={(msg) => showToast('error', msg)}
+        />
+      )}
+
       {toast && (
         <Toast
           type={toast.type}
@@ -812,6 +821,282 @@ function ActivationBadge({
           : <Mail className="w-3.5 h-3.5" />
         }
       </button>
+    </div>
+  );
+}
+
+// ── NouveauClientModal ────────────────────────────────────────────────────────
+
+type NouveauClientForm = {
+  nom: string;
+  enseigne: string;
+  adresse: string;
+  telephone_etab: string;
+  plan: 'testeur' | 'light' | 'base' | 'premium';
+  prenom_dir: string;
+  nom_dir: string;
+  email_dir: string;
+  telephone_dir: string;
+};
+
+const INITIAL_FORM: NouveauClientForm = {
+  nom: '',
+  enseigne: '',
+  adresse: '',
+  telephone_etab: '',
+  plan: 'base',
+  prenom_dir: '',
+  nom_dir: '',
+  email_dir: '',
+  telephone_dir: '',
+};
+
+function NouveauClientModal({
+  onClose,
+  onCreated,
+  onError,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [form, setForm] = useState<NouveauClientForm>(INITIAL_FORM);
+  const [saving, setSaving] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  function set(patch: Partial<NouveauClientForm>) {
+    setForm(f => ({ ...f, ...patch }));
+    setFieldError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!form.nom.trim())        return setFieldError("Le nom de l'établissement est requis.");
+    if (!form.prenom_dir.trim()) return setFieldError('Le prénom de la Direction est requis.');
+    if (!form.nom_dir.trim())    return setFieldError('Le nom de la Direction est requis.');
+    if (!form.email_dir.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email_dir))
+      return setFieldError('Une adresse email valide est requise pour la Direction.');
+
+    setSaving(true);
+    setFieldError(null);
+
+    // Step A — create draft établissement
+    const { data: etabId, error: rpcErr } = await supabase.rpc('creer_client_brouillon');
+    if (rpcErr || !etabId) {
+      setSaving(false);
+      onError(`Impossible de créer le brouillon. (${rpcErr?.message ?? 'erreur inconnue'})`);
+      return;
+    }
+
+    // Step B — update établissement fields
+    const { error: updateErr } = await supabase.from('etablissements').update({
+      nom:       form.nom.trim(),
+      enseigne:  form.enseigne.trim() || null,
+      adresse:   form.adresse.trim()  || null,
+      telephone: form.telephone_etab.trim() || null,
+      plan:      form.plan,
+    }).eq('id', etabId as string);
+
+    if (updateErr) {
+      setSaving(false);
+      onError(`Erreur lors de la mise à jour de l'établissement. (${updateErr.message})`);
+      return;
+    }
+
+    // Step C — create Direction user with invite
+    const { data: inviteData, error: inviteErr } = await supabase.functions.invoke('create-managed-user', {
+      body: {
+        etablissement_id: etabId,
+        email:      form.email_dir.trim(),
+        first_name: form.prenom_dir.trim(),
+        last_name:  form.nom_dir.trim(),
+        telephone:  form.telephone_dir.trim() || null,
+        fonction:   'Direction',
+        status:     'actif',
+        invite:     true,
+      },
+    });
+
+    setSaving(false);
+
+    if (inviteErr || inviteData?.error) {
+      onError(inviteData?.error ?? `Erreur lors de l'envoi de l'invitation. (${inviteErr?.message ?? 'erreur inconnue'})`);
+      return;
+    }
+
+    onCreated();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">Nouveau client</h2>
+              <p className="text-xs text-slate-400">Établissement + compte Direction</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 flex flex-col">
+          <div className="px-6 py-5 space-y-5 flex-1">
+            {/* Card 1 — Établissement */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Établissement</p>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Nom <span className="text-rose-400">*</span></label>
+                <input
+                  value={form.nom}
+                  onChange={e => set({ nom: e.target.value })}
+                  placeholder="Ex : Le Moonlight"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Enseigne</label>
+                <input
+                  value={form.enseigne}
+                  onChange={e => set({ enseigne: e.target.value })}
+                  placeholder="Nom commercial (facultatif)"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Adresse</label>
+                  <input
+                    value={form.adresse}
+                    onChange={e => set({ adresse: e.target.value })}
+                    placeholder="Ex : 12 rue de la Paix, Paris"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Téléphone</label>
+                  <input
+                    value={form.telephone_etab}
+                    onChange={e => set({ telephone_etab: e.target.value })}
+                    placeholder="Ex : 01 23 45 67 89"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Plan</label>
+                <select
+                  value={form.plan}
+                  onChange={e => set({ plan: e.target.value as NouveauClientForm['plan'] })}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="testeur">Testeur</option>
+                  <option value="light">Light</option>
+                  <option value="base">Base</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="h-px bg-slate-800" />
+
+            {/* Card 2 — Direction */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <User className="w-3.5 h-3.5 text-emerald-400" />
+                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Direction</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Prénom <span className="text-rose-400">*</span></label>
+                  <input
+                    value={form.prenom_dir}
+                    onChange={e => set({ prenom_dir: e.target.value })}
+                    placeholder="Ex : Marie"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Nom <span className="text-rose-400">*</span></label>
+                  <input
+                    value={form.nom_dir}
+                    onChange={e => set({ nom_dir: e.target.value })}
+                    placeholder="Ex : Dupont"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Email <span className="text-rose-400">*</span></label>
+                <input
+                  type="email"
+                  value={form.email_dir}
+                  onChange={e => set({ email_dir: e.target.value })}
+                  placeholder="Ex : marie.dupont@etablissement.fr"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Téléphone</label>
+                <input
+                  value={form.telephone_dir}
+                  onChange={e => set({ telephone_dir: e.target.value })}
+                  placeholder="Ex : 06 12 34 56 78"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {fieldError && (
+              <div className="flex items-start gap-2 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3 text-sm text-rose-400">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                {fieldError}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-slate-800 flex gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-all disabled:opacity-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl text-sm transition-all"
+            >
+              {saving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Création en cours…</>
+              ) : (
+                <><Mail className="w-4 h-4" /> Créer et envoyer l'invitation</>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
