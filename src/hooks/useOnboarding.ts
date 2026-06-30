@@ -100,18 +100,24 @@ export function useOnboarding(existingEtabId?: string) {
     const newData = { ...state.data, ...patch };
     const actualNext = nextEtape ?? (_currentEtape + 1);
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('etablissements')
       .update({
         onboarding_data: newData,
         onboarding_etape: actualNext,
         onboarding_step: ETAPE_STEP_MAP[actualNext] ?? 'entreprise',
       })
-      .eq('id', etabId);
+      .eq('id', etabId)
+      .select('id');
 
     if (error) {
       console.error('[saveStep] Supabase error:', error);
       setState(s => ({ ...s, saving: false, error: `Erreur lors de la sauvegarde. (${error.code}: ${error.message})` }));
+      return false;
+    }
+    if (!updated || updated.length === 0) {
+      console.error('[saveStep] 0 rows affected — RLS or wrong etabId?', etabId);
+      setState(s => ({ ...s, saving: false, error: 'Impossible de sauvegarder la progression. Vérifiez votre connexion ou rechargez la page.' }));
       return false;
     }
     setState(s => ({
