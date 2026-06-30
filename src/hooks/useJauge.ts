@@ -41,7 +41,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
     const { data } = await supabase
       .from('jauge_etat')
       .select('count_actuel')
-      .eq('entreprise_id', entrepriseId)
+      .eq('etablissement_id', entrepriseId)
       .eq('date_soiree', TODAY())
       .eq('is_test', isTest)
       .maybeSingle();
@@ -111,8 +111,8 @@ export function useJauge(isTest = false): UseJaugeReturn {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'jauge_etat' },
         (payload) => {
-          const row = payload.new as { count_actuel?: number; entreprise_id?: string; is_test?: boolean };
-          if (row.entreprise_id !== entrepriseId) return;
+          const row = payload.new as { count_actuel?: number; etablissement_id?: string; is_test?: boolean };
+          if (row.etablissement_id !== entrepriseId) return;
           if (row.is_test !== isTest) return;
           if (typeof row.count_actuel === 'number') {
             setCount(row.count_actuel);
@@ -139,7 +139,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
     if (!config || !session?.user) return;
     setCount(prev => Math.max(0, prev + delta));
     await supabase.rpc('increment_jauge', {
-      p_entreprise_id: config.id,
+      p_etablissement_id: config.id,
       p_delta: delta,
       p_source: source,
       p_user_id: session.user.id,
@@ -151,7 +151,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
     if (!config || !session?.user) return;
     setCount(0);
     await supabase.rpc('reset_jauge', {
-      p_entreprise_id: config.id,
+      p_etablissement_id: config.id,
       p_user_id: session.user.id,
       p_is_test: isTest,
     });

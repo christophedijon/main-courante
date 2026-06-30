@@ -25,7 +25,7 @@ Deno.serve(async (req: Request) => {
   );
 
   const today = new Date().toISOString().slice(0, 10);
-  const details: Array<{ entreprise_id: string; nom: string; status: string; entrees?: number; diff?: number; error?: string }> = [];
+  const details: Array<{ etablissement_id: string; nom: string; status: string; entrees?: number; diff?: number; error?: string }> = [];
   let succes = 0;
   let erreurs = 0;
 
@@ -73,7 +73,7 @@ Deno.serve(async (req: Request) => {
       const { data: etat } = await supabase
         .from("jauge_etat")
         .select("entrees_max_zapsis")
-        .eq("entreprise_id", etab.id)
+        .eq("etablissement_id", etab.id)
         .eq("date_soiree", today)
         .eq("is_test", false)
         .maybeSingle();
@@ -83,20 +83,20 @@ Deno.serve(async (req: Request) => {
       if (lastZapsisCount === null || lastZapsisCount === 0 && entrees > 0 && etat === null) {
         // Premier appel de la journée : initialise avec le total Zapsis
         const { error: rpcErr } = await supabase.rpc("set_entrees_manuelles", {
-          p_entreprise_id: etab.id,
+          p_etablissement_id: etab.id,
           p_entrees: entrees,
           p_user_id: null,
           p_is_test: false,
         });
         if (rpcErr) throw new Error(`set_entrees_manuelles: ${rpcErr.message}`);
 
-        details.push({ entreprise_id: etab.id, nom: etab.nom, status: "init", entrees });
+        details.push({ etablissement_id: etab.id, nom: etab.nom, status: "init", entrees });
       } else {
         // Incrément delta depuis le dernier poll
         const diff = entrees - (lastZapsisCount ?? 0);
         if (diff > 0) {
           const { error: rpcErr } = await supabase.rpc("increment_jauge", {
-            p_entreprise_id: etab.id,
+            p_etablissement_id: etab.id,
             p_delta: diff,
             p_source: "app",
             p_user_id: null,
@@ -104,7 +104,7 @@ Deno.serve(async (req: Request) => {
           });
           if (rpcErr) throw new Error(`increment_jauge: ${rpcErr.message}`);
         }
-        details.push({ entreprise_id: etab.id, nom: etab.nom, status: "ok", entrees, diff: Math.max(0, diff) });
+        details.push({ etablissement_id: etab.id, nom: etab.nom, status: "ok", entrees, diff: Math.max(0, diff) });
       }
 
       // 3. Mettre à jour entrees_max_zapsis si valeur plus haute
@@ -112,7 +112,7 @@ Deno.serve(async (req: Request) => {
         await supabase
           .from("jauge_etat")
           .update({ entrees_max_zapsis: entrees })
-          .eq("entreprise_id", etab.id)
+          .eq("etablissement_id", etab.id)
           .eq("date_soiree", today)
           .eq("is_test", false);
       }
@@ -121,7 +121,7 @@ Deno.serve(async (req: Request) => {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[poll-billetterie] Erreur pour "${etab.nom}":`, msg);
-      details.push({ entreprise_id: etab.id, nom: etab.nom, status: "erreur", error: msg });
+      details.push({ etablissement_id: etab.id, nom: etab.nom, status: "erreur", error: msg });
       erreurs++;
     }
   }

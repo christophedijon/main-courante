@@ -98,7 +98,7 @@ function PublicJaugePage() {
       const { data: etat } = await supabase
         .from('jauge_etat')
         .select('count_actuel')
-        .eq('entreprise_id', ent.id)
+        .eq('etablissement_id', ent.id)
         .eq('date_soiree', today())
         .eq('is_test', false)
         .maybeSingle();
@@ -124,7 +124,7 @@ function PublicJaugePage() {
       const { data } = await supabase
         .from('jauge_etat')
         .select('count_actuel')
-        .eq('entreprise_id', entrepriseId)
+        .eq('etablissement_id', entrepriseId)
         .eq('date_soiree', today())
         .eq('is_test', false)
         .maybeSingle();
@@ -144,8 +144,8 @@ function PublicJaugePage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'jauge_etat' },
         (payload) => {
-          const row = payload.new as { count_actuel?: number; entreprise_id?: string; is_test?: boolean };
-          if (row.entreprise_id !== entrepriseId) return;
+          const row = payload.new as { count_actuel?: number; etablissement_id?: string; is_test?: boolean };
+          if (row.etablissement_id !== entrepriseId) return;
           if (row.is_test) return;
           if (typeof row.count_actuel === 'number') setCount(row.count_actuel);
         }

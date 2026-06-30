@@ -78,7 +78,7 @@ function JaugeVisiteursSection({ rapportId, dateDebut, dateFin, entrepriseId }: 
       const { data } = await supabase
         .from('jauge_actions')
         .select('action, delta, created_at')
-        .eq('entreprise_id', entrepriseId)
+        .eq('etablissement_id', entrepriseId)
         .gte('created_at', dateDebut)
         .lte('created_at', dateFin);
 

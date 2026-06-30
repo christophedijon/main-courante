@@ -99,7 +99,7 @@ export default function JaugeConfigPage() {
       const { data, error } = await supabase
         .from('jauge_actions')
         .select('delta')
-        .eq('entreprise_id', entreprise!.id)
+        .eq('etablissement_id', entreprise!.id)
         .eq('action', 'sortie')
         .eq('is_test', false)
         .gte('created_at', startOfDay.toISOString());
@@ -115,7 +115,7 @@ export default function JaugeConfigPage() {
       const { data } = await supabase
         .from('jauge_actions')
         .select('delta, created_at')
-        .eq('entreprise_id', entreprise!.id)
+        .eq('etablissement_id', entreprise!.id)
         .eq('action', 'entree')
         .in('source', ['app', 'manuel'])
         .eq('is_test', false)
@@ -187,7 +187,7 @@ export default function JaugeConfigPage() {
     setShowConfirm(false);
 
     const { error } = await supabase.rpc('reset_jauge', {
-      p_entreprise_id: entreprise.id,
+      p_etablissement_id: entreprise.id,
       p_user_id: session.user.id,
       p_is_test: false,
     });

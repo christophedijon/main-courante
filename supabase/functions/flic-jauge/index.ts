@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "reset") {
       const { data, error } = await supabase.rpc("reset_jauge", {
-        p_entreprise_id: entrepriseId,
+        p_etablissement_id: entrepriseId,
         p_user_id: null,
       });
       if (error) {
@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
     const delta = action === "entree" ? 1 : -1;
 
     const { data, error } = await supabase.rpc("increment_jauge", {
-      p_entreprise_id: entrepriseId,
+      p_etablissement_id: entrepriseId,
       p_delta: delta,
       p_source: source,
       p_user_id: null,

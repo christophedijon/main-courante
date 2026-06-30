@@ -30,7 +30,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, isTest = false, on
     supabase
       .from('jauge_actions')
       .select('delta')
-      .eq('entreprise_id', entrepriseId)
+      .eq('etablissement_id', entrepriseId)
       .eq('action', 'entree')
       .eq('source', 'manuel')
       .eq('is_test', isTest)
@@ -61,7 +61,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, isTest = false, on
     setSaving(true);
 
     const { data, error } = await supabase.rpc('set_entrees_manuelles', {
-      p_entreprise_id: entrepriseId,
+      p_etablissement_id: entrepriseId,
       p_entrees: entrees,
       p_user_id: session.user.id,
       p_is_test: isTest,
