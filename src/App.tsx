@@ -171,10 +171,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaReady, hasAdminAccess } = useAuth();
+  const { session, loading, userMetaReady, hasAdminAccess, mustCompleteOnboarding, onboardingEtabId } = useAuth();
   if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
+  if (mustCompleteOnboarding && onboardingEtabId) return <Navigate to={`/onboarding?etabId=${onboardingEtabId}`} replace />;
   return <>{children}</>;
 }
 
