@@ -80,13 +80,14 @@ export default function OnboardingPage() {
   // Navigate to an external page in onboarding mode
   function goToExternalStep(targetEtape: number) {
     const route = STEP_ROUTES[targetEtape];
-    if (!route || !etabId) return;
-    navigate(`${route}?onboarding=true&etabId=${etabId}`);
+    const resolvedEtabId = etabId ?? resumeId;
+    if (!route || !resolvedEtabId) return;
+    navigate(`${route}?onboarding=true&etabId=${resolvedEtabId}`);
   }
 
   // ── Loading state ────────────────────────────────────────────────────────────
 
-  if (!initDone || (resumeId && saving && !data.nom && etape === 0)) {
+  if (!initDone || (resumeId && saving && etape === 0)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
