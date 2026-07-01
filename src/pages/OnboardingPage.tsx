@@ -81,14 +81,6 @@ export default function OnboardingPage() {
   function goToExternalStep(targetEtape: number) {
     const route = STEP_ROUTES[targetEtape];
     const resolvedEtabId = etabId ?? resumeId;
-    console.log('[DEBUG] goToExternalStep called', {
-      targetEtape,
-      route,
-      etabId,
-      resumeId,
-      resolvedEtabId,
-      etape,
-    });
     if (!route || !resolvedEtabId) return;
     navigate(`${route}?onboarding=true&etabId=${resolvedEtabId}`);
   }
