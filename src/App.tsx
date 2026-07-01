@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
@@ -172,10 +172,12 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { session, loading, userMetaReady, hasAdminAccess, mustCompleteOnboarding, onboardingEtabId } = useAuth();
+  const [searchParams] = useSearchParams();
+  const isOnboardingStep = searchParams.get('onboarding') === 'true';
   if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
-  if (mustCompleteOnboarding && onboardingEtabId) return <Navigate to={`/onboarding?etabId=${onboardingEtabId}`} replace />;
+  if (mustCompleteOnboarding && onboardingEtabId && !isOnboardingStep) return <Navigate to={`/onboarding?etabId=${onboardingEtabId}`} replace />;
   return <>{children}</>;
 }
 
