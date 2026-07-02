@@ -4,7 +4,7 @@ import {
   Building2, Save, CheckCircle, AlertCircle, Upload, X,
   Image as ImageIcon, Phone, MapPin, ChevronDown, ArrowRight,
   Layers, Scale, Plus, Zap, Mail,
-  FileText, RefreshCw, Sparkles, Shield, KeyRound, Trash2,
+  FileText, RefreshCw, Sparkles, Shield, KeyRound, Trash2, Eye,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -216,7 +216,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function SaveRow({ loading, label = 'Enregistrer' }: { loading: boolean; label?: string }) {
+function SaveRow({ loading, label = 'Enregistrer', hidden }: { loading: boolean; label?: string; hidden?: boolean }) {
+  if (hidden) return null;
   return (
     <div className="flex justify-end pt-1">
       <button type="submit" disabled={loading}
@@ -380,6 +381,7 @@ export default function EntreprisePage() {
   const [searchParams] = useSearchParams();
   const isOnboarding = searchParams.get('onboarding') === 'true';
   const onboardingEtabId = searchParams.get('etabId') ?? null;
+  const consultEtabId = (!isOnboarding && isSuperAdmin && onboardingEtabId) ? onboardingEtabId : null;
 
   const [data, setData] = useState<EntrepriseData>(EMPTY);
   const [rowId, setRowId] = useState<string | null>(null);
@@ -462,7 +464,10 @@ export default function EntreprisePage() {
 
   async function fetchData() {
     setLoading(true);
-    const { data: rows } = await supabase.from('etablissements').select('*').limit(1).maybeSingle();
+    const query = supabase.from('etablissements').select('*');
+    const { data: rows } = consultEtabId
+      ? await query.eq('id', consultEtabId).maybeSingle()
+      : await query.limit(1).maybeSingle();
     if (rows) {
       setData({
         nom: rows.nom ?? '',
@@ -940,6 +945,23 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
             <p className="text-blue-200 text-sm font-medium">Étape 2/5 — Vérifiez et complétez les informations de votre établissement</p>
           </div>
         </div>
+      ) : consultEtabId ? (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+            <p className="text-amber-300 text-sm font-medium">
+              Consultation — <span className="font-semibold">{data.nom || '…'}</span>
+              <span className="text-amber-400/70 font-normal"> · Mode lecture seule</span>
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/clients')}
+            className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-all shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+            Retour à Mes Clients
+          </button>
+        </div>
       ) : (
         <AppHeader onSignOut={handleSignOut} />
       )}
@@ -1119,7 +1141,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                     })}
                   </div>
                 </div>
-                <SaveRow loading={saveLoading} />
+                <SaveRow loading={saveLoading} hidden={!!consultEtabId} />
               </form>
             </CollapseCard>
 
@@ -1176,7 +1198,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                   if (cat === 4 && total > 300) return <EffectifAlert text="La catégorie 4 est limitée à 300 personnes maximum." />;
                   return null;
                 })()}
-                <SaveRow loading={saveLoading} />
+                <SaveRow loading={saveLoading} hidden={!!consultEtabId} />
               </form>
             </CollapseCard>
 
@@ -1372,7 +1394,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                 </div>
 
                 {/* ── Bouton Enregistrer ── */}
-                <SaveRow loading={saveLoading} label="Enregistrer le profil réglementaire" />
+                <SaveRow loading={saveLoading} label="Enregistrer le profil réglementaire" hidden={!!consultEtabId} />
 
                 {/* ── Questions IA ── */}
                 <div className="border-t border-slate-800 pt-5 space-y-4">
@@ -1540,11 +1562,13 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
                 <input ref={fileInputRef} type="file" accept=".png,image/png,.pdf,application/pdf" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
                 <div className="flex justify-end pt-1">
+                  {!consultEtabId && (
                   <button type="submit" disabled={saveLoading || uploadLoading}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium px-5 py-2.5 rounded-xl text-sm transition-colors shadow-lg shadow-blue-900/30">
                     <Save className="w-4 h-4" />
                     {saveLoading || uploadLoading ? 'Enregistrement…' : 'Enregistrer'}
                   </button>
+                  )}
                 </div>
               </form>
             </CollapseCard>

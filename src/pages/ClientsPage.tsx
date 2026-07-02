@@ -5,7 +5,7 @@ import {
   MoreHorizontal, Play, Zap, Pause, CheckCircle2,
   Trash2, RefreshCw, ChevronDown, ChevronUp,
   Users, Clock, XCircle, FlaskConical, Mail, UserCheck, UserX,
-  Pencil, KeyRound, Eye, X, User,
+  Pencil, KeyRound, Eye, X, User, Calendar,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AppHeader from '../components/AppHeader';
@@ -76,6 +76,7 @@ export default function ClientsPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editDirectionEtab, setEditDirectionEtab] = useState<{ id: string; nom: string } | null>(null);
+  const [editFinEssaiEtab, setEditFinEssaiEtab] = useState<{ id: string; nom: string; date: string } | null>(null);
   const [detailsEtab, setDetailsEtab] = useState<Etablissement | null>(null);
   const [showNouveauModal, setShowNouveauModal] = useState(false);
 
@@ -139,7 +140,17 @@ export default function ClientsPage() {
 
   async function changePlan(id: string, plan: string) {
     setActionLoading(id);
-    const { error } = await supabase.from('etablissements').update({ plan }).eq('id', id);
+    const etab = etablissements.find(e => e.id === id);
+    const baseDate = etab?.date_activation ? new Date(etab.date_activation) : new Date();
+    let date_fin_essai: string | null = null;
+    if (plan === 'testeur') {
+      const d = new Date(baseDate); d.setDate(d.getDate() + 180);
+      date_fin_essai = d.toISOString().slice(0, 10);
+    } else if (plan === 'light') {
+      const d = new Date(baseDate); d.setDate(d.getDate() + 30);
+      date_fin_essai = d.toISOString().slice(0, 10);
+    }
+    const { error } = await supabase.from('etablissements').update({ plan, date_fin_essai }).eq('id', id);
     if (error) showToast('error', 'Erreur lors de la mise à jour');
     else { showToast('success', 'Plan mis à jour'); load(); }
     setActionMenu(null); setMenuAnchor(null);
@@ -387,7 +398,9 @@ export default function ClientsPage() {
                             <Building2 className="w-4 h-4 text-slate-400" />
                           </div>
                           <div>
-                            <div className="font-medium text-white">{etab.nom}</div>
+                            <div className="font-medium text-white hover:text-blue-400 cursor-pointer transition-colors"
+                            onClick={() => navigate(`/entreprise?etabId=${etab.id}`)}
+                          >{etab.nom}</div>
                             {etab.partenaires && (
                               <div className="text-xs text-slate-500 flex items-center gap-1">
                                 <Users className="w-2.5 h-2.5" />
@@ -575,6 +588,9 @@ export default function ClientsPage() {
                 <MenuItem icon={Eye} onClick={() => { setDetailsEtab(etab); setActionMenu(null); setMenuAnchor(null); }}>
                   Voir les détails
                 </MenuItem>
+                <MenuItem icon={Calendar} onClick={() => { setEditFinEssaiEtab({ id: etab.id, nom: etab.nom, date: etab.date_fin_essai ?? '' }); setActionMenu(null); setMenuAnchor(null); }}>
+                  Modifier fin d'essai
+                </MenuItem>
                 <div className="h-px bg-slate-700 my-1" />
                 <MenuItem icon={Trash2} className="text-rose-400 hover:bg-rose-500/10" onClick={() => { setConfirmDelete(etab.id); setActionMenu(null); setMenuAnchor(null); }}>
                   Supprimer définitivement
@@ -634,6 +650,17 @@ export default function ClientsPage() {
           </div>
         );
       })()}
+
+      {editFinEssaiEtab && (
+        <EditFinEssaiModal
+          etabId={editFinEssaiEtab.id}
+          etabNom={editFinEssaiEtab.nom}
+          currentDate={editFinEssaiEtab.date}
+          onClose={() => setEditFinEssaiEtab(null)}
+          onSaved={() => { setEditFinEssaiEtab(null); load(); showToast('success', 'Date de fin d\'essai mise à jour'); }}
+          onError={(msg) => showToast('error', msg)}
+        />
+      )}
 
       {editDirectionEtab && (
         <EditDirectionModal
@@ -831,6 +858,106 @@ function ActivationBadge({
           : <Mail className="w-3.5 h-3.5" />
         }
       </button>
+    </div>
+  );
+}
+
+// ── EditFinEssaiModal ─────────────────────────────────────────────────────────
+
+function EditFinEssaiModal({
+  etabId,
+  etabNom,
+  currentDate,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  etabId: string;
+  etabNom: string;
+  currentDate: string;
+  onClose: () => void;
+  onSaved: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [date, setDate] = useState(currentDate);
+  const [saving, setSaving] = useState(false);
+
+  const joursRestants = date
+    ? Math.ceil((new Date(date).getTime() - Date.now()) / 86400000)
+    : null;
+
+  async function handleSave() {
+    setSaving(true);
+    const { error } = await supabase
+      .from('etablissements')
+      .update({ date_fin_essai: date || null })
+      .eq('id', etabId);
+    setSaving(false);
+    if (error) onError('Erreur lors de la mise à jour');
+    else onSaved();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Modifier fin d'essai</h3>
+              <p className="text-xs text-slate-400 truncate max-w-[160px]">{etabNom}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">Date de fin d'essai</label>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {date && joursRestants !== null && (
+            <div className={`flex items-center gap-2 text-sm font-medium ${
+              joursRestants < 0 ? 'text-rose-400' : joursRestants <= 7 ? 'text-amber-400' : 'text-emerald-400'
+            }`}>
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              {joursRestants < 0
+                ? `Expiré depuis ${Math.abs(joursRestants)} jour${Math.abs(joursRestants) > 1 ? 's' : ''}`
+                : `J-${joursRestants} (${joursRestants} jour${joursRestants > 1 ? 's' : ''} restant${joursRestants > 1 ? 's' : ''})`
+              }
+            </div>
+          )}
+          {!date && (
+            <p className="text-xs text-slate-500">Laisser vide = pas de fin d'essai (plan payant)</p>
+          )}
+        </div>
+        <div className="px-5 pb-5 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-all"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded-xl text-sm transition-all"
+          >
+            {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enregistrement…</> : 'Enregistrer'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
