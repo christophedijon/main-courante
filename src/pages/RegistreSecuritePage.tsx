@@ -1774,15 +1774,11 @@ export default function RegistreSecuritePage() {
     }
   }, [registre_onboarding_done, etablissementId, onboardingDone]);
 
-  async function handleCompleteOnboarding(openAdd: boolean) {
-    setOnboardingDone(true);
+  async function markOnboardingDoneInDB() {
     if (etablissementId) {
       await supabase.from('etablissements')
         .update({ registre_onboarding_done: true })
         .eq('id', etablissementId);
-    }
-    if (openAdd) {
-      setShowChecklist(true);
     }
   }
 
@@ -1988,14 +1984,14 @@ export default function RegistreSecuritePage() {
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => handleCompleteOnboarding(true)}
+                onClick={() => setShowChecklist(true)}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-sm shadow-lg shadow-blue-500/10"
               >
                 <Flame className="w-4 h-4" />
                 Configurer mon registre
               </button>
               <button
-                onClick={() => handleCompleteOnboarding(false)}
+                onClick={() => setOnboardingDone(true)}
                 className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-sm"
               >
                 Plus tard
@@ -2164,6 +2160,8 @@ export default function RegistreSecuritePage() {
           etablissementId={etablissementId}
           onDone={(newItems) => {
             setShowChecklist(false);
+            setOnboardingDone(true);
+            markOnboardingDoneInDB();
             if (newItems.length > 0) {
               setItems((prev) => [...prev, ...newItems]);
             }
