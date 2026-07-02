@@ -891,7 +891,7 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'noreply@resend.dev',
+            from: 'noreply@send.maincourante.eu',
             to: u.email,
             subject: `Mes obligations réglementaires — ${data.nom}`,
             html: data.document_obligations_html,

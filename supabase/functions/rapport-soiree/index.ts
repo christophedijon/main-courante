@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { Resend } from "npm:resend";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -334,7 +335,7 @@ Deno.serve(async (req: Request) => {
 
     if (insertErr) throw insertErr;
 
-    // Envoyer le rapport par e-mail via Make.com si la règle est active
+    // Envoyer le rapport par e-mail via Resend si la règle est active
     const { data: emailRule } = await supabase
       .from("email_rules")
       .select("*")
@@ -362,15 +363,16 @@ Deno.serve(async (req: Request) => {
       const recipients = Array.from(emailSet);
       if (recipients.length > 0) {
         try {
-          await fetch("https://hook.eu2.make.com/7g0h9yj07m25am6l5gtpvzbd12mkspbt", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: recipients,
-              sujet: `Rapport de soirée — ${dateSoireeLabel}`,
+          const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+          const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@send.maincourante.eu";
+          for (const to of recipients) {
+            await resend.emails.send({
+              from: FROM_EMAIL,
+              to,
+              subject: `[Main Courante] Rapport de soirée — ${nomEntreprise} — ${dateSoireeLabel}`,
               html: contenuHtml,
-            }),
-          });
+            });
+          }
           emailSent = true;
         } catch (_emailErr) {
           // Email failure is non-blocking — report is already saved

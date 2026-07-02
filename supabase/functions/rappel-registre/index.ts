@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { Resend } from "npm:resend";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const MAKE_WEBHOOK = "https://hook.eu2.make.com/7g0h9yj07m25am6l5gtpvzbd12mkspbt";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@send.maincourante.eu";
 
 type RegistreItem = {
   installation: string;
@@ -203,6 +204,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
     const { data: emailRule } = await supabase
       .from("email_rules")
@@ -362,11 +364,14 @@ Deno.serve(async (req: Request) => {
         </html>
       `;
 
-      await fetch(MAKE_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: Array.from(emailSet), sujet, html }),
-      });
+      for (const to of Array.from(emailSet)) {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to,
+          subject: `[Main Courante] Registre de sécurité — ${nbAlertesTotal} vérification(s) à traiter — ${entrepriseNom}`,
+          html,
+        });
+      }
       internalSent = emailSet.size;
     }
 
@@ -413,10 +418,11 @@ Deno.serve(async (req: Request) => {
 
         const html = buildOrganismeHtml(entries, entrepriseNom, entrepriseEnseigne, entrepriseAdresse, entrepriseTel, entrepriseEmail);
 
-        await fetch(MAKE_WEBHOOK, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: [email], sujet, html }),
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: email,
+          subject: `[Main Courante] ${sujet}`,
+          html,
         });
         organismeSentCount++;
         organismeEmailsSent.push(email);

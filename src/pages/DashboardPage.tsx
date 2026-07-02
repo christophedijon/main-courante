@@ -247,35 +247,20 @@ export default function DashboardPage() {
 
   async function sendInviteMail() {
     if (!inviteSuccess) return;
-    const appUrl = window.location.origin;
-    const html = `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#0f172a;color:#f1f5f9;border-radius:12px;">
-        <h2 style="color:#38bdf8;margin-bottom:8px;">Vos identifiants de connexion</h2>
-        <p style="color:#94a3b8;margin-bottom:24px;">Un compte provisoire a été créé pour vous. Connectez-vous avec les identifiants ci-dessous.</p>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-          <tr>
-            <td style="padding:10px 12px;background:#1e293b;border-radius:8px 8px 0 0;color:#94a3b8;font-size:13px;">Email</td>
-            <td style="padding:10px 12px;background:#1e293b;border-radius:8px 8px 0 0;color:#f1f5f9;font-family:monospace;">${inviteSuccess.email}</td>
-          </tr>
-          <tr>
-            <td style="padding:10px 12px;background:#0f172a;border:1px solid #1e293b;color:#94a3b8;font-size:13px;">Mot de passe</td>
-            <td style="padding:10px 12px;background:#0f172a;border:1px solid #1e293b;color:#f1f5f9;font-family:monospace;">${inviteSuccess.password}</td>
-          </tr>
-        </table>
-        <div style="margin-bottom:16px;padding:12px 16px;background:#1e293b;border-radius:8px;text-align:center;">
-          <a href="${appUrl}" style="color:#38bdf8;font-size:14px;font-weight:600;text-decoration:none;">${appUrl}</a>
-        </div>
-        <p style="color:#64748b;font-size:12px;">Ce compte est provisoire (valable 48h). Pensez à compléter votre profil dès votre première connexion.</p>
-      </div>
-    `;
     try {
-      await fetch('https://hook.eu2.make.com/7g0h9yj07m25am6l5gtpvzbd12mkspbt', {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const s = (await supabase.auth.getSession()).data.session;
+      await fetch(`${supabaseUrl}/functions/v1/send-credentials`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${s?.access_token}`,
+          'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
         body: JSON.stringify({
-          to: inviteSuccess.email,
-          sujet: 'Vos identifiants de connexion',
-          html,
+          email: inviteSuccess.email,
+          password: inviteSuccess.password,
+          appUrl: window.location.origin,
         }),
       });
       setSentInviteMail(true);

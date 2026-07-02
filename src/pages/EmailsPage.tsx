@@ -47,8 +47,6 @@ const TYPE_DESC: Record<string, string> = {
   registre_securite: 'Envoyé selon la fréquence configurée pour les vérifications en retard, et lorsqu\'une échéance approche.',
 };
 
-const MAKE_WEBHOOK = 'https://hook.eu2.make.com/7g0h9yj07m25am6l5gtpvzbd12mkspbt';
-
 export default function EmailsPage() {
   const { signOut, isSuperAdmin } = useAuth();
   const [rules, setRules] = useState<EmailRule[]>([]);
