@@ -82,7 +82,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
         const { data: etat } = await supabase
           .from('jauge_etat')
           .select('count_actuel')
-          .eq('entreprise_id', cfg.id)
+          .eq('etablissement_id', cfg.id)
           .eq('date_soiree', TODAY())
           .eq('is_test', isTest)
           .maybeSingle();
