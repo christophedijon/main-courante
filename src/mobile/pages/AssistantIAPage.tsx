@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Mic, MicOff, Send, Sparkles, RotateCcw,
   AlertCircle, Pencil,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 type Section = { title: string; content: string };
 
@@ -29,137 +30,24 @@ function parseResponse(text: string): Section[] {
   return [{ title: 'Réponse', content: text.trim() }];
 }
 
-declare global {
-  interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-}
-
-function removeDuplicates(text: string): string {
-  const words = text.split(' ');
-  const cleaned: string[] = [];
-  let i = 0;
-  while (i < words.length) {
-    cleaned.push(words[i]);
-    let j = i + 1;
-    while (j < words.length && words[j].toLowerCase() === words[i].toLowerCase()) {
-      j++;
-    }
-    i = j;
-  }
-  const result = cleaned.join(' ');
-  const halfLen = Math.floor(result.length / 2);
-  const firstHalf = result.slice(0, halfLen);
-  const secondHalf = result.slice(halfLen);
-  if (secondHalf.trim().startsWith(firstHalf.trim().split(' ')[0])) {
-    return firstHalf.trim() + secondHalf.replace(firstHalf, '').trim();
-  }
-  return result;
-}
-
 export default function AssistantIAPage() {
   const navigate = useNavigate();
 
-  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [sections, setSections] = useState<Section[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [expertsUsed, setExpertsUsed] = useState<string[]>([]);
 
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const stoppedRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const {
+    transcript: message,
+    recording,
+    supported: speechAvailable,
+    toggle: toggleRecording,
+    setTranscript: setMessage,
+  } = useSpeechRecognition('');
 
-  const speechAvailable = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-
-  function handleRecord() {
-    if (recording) {
-      stoppedRef.current = true;
-      recognitionRef.current?.stop();
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-      setRecording(false);
-      setElapsed(0);
-      return;
-    }
-
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) return;
-
-    stoppedRef.current = false;
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = 'fr-FR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let finalTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        }
-      }
-      if (finalTranscript.trim()) {
-        setMessage(removeDuplicates(finalTranscript.trim()));
-      }
-      stoppedRef.current = true;
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-      setRecording(false);
-      setElapsed(0);
-    };
-
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      if (event.error !== 'no-speech') {
-        console.error('Speech error:', event.error);
-      }
-      stoppedRef.current = true;
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-      setRecording(false);
-      setElapsed(0);
-    };
-
-    recognition.onend = () => {
-      stoppedRef.current = true;
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-      setRecording(false);
-      setElapsed(0);
-    };
-
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-      setRecording(true);
-      setElapsed(0);
-
-      timerRef.current = setTimeout(() => {
-        stoppedRef.current = true;
-        recognition.stop();
-        setRecording(false);
-      }, 90000);
-
-      intervalRef.current = setInterval(() => {
-        setElapsed((e) => {
-          if (e >= 90) {
-            if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-            return 90;
-          }
-          return e + 1;
-        });
-      }, 1000);
-    } catch {
-      setRecording(false);
-    }
-  }
+  const showInput = !sections || editMode;
 
   async function handleSend() {
     const trimmed = message.trim();
@@ -201,7 +89,6 @@ export default function AssistantIAPage() {
       setExpertsUsed(data.experts || ['terrain']);
       setEditMode(false);
 
-      // Sauvegarder dans l'historique
       if (session) {
         const { data: profile } = await supabase
           .from('user_profiles')
@@ -235,8 +122,6 @@ export default function AssistantIAPage() {
     setExpertsUsed([]);
   }
 
-  const showInput = !sections || editMode;
-
   return (
     <div className="pb-12">
       {/* Sticky header */}
@@ -263,7 +148,7 @@ export default function AssistantIAPage() {
           <div className="flex flex-col items-center gap-3 py-2">
             <button
               type="button"
-              onClick={handleRecord}
+              onClick={toggleRecording}
               disabled={loading}
               className={`relative w-24 h-24 rounded-full flex flex-col items-center justify-center gap-1.5 border-2 transition-all active:scale-95
                 ${recording
@@ -280,7 +165,7 @@ export default function AssistantIAPage() {
               </span>
             </button>
             {recording ? (
-              <p className="text-red-400 text-xs font-mono font-semibold">{elapsed}s / 90s</p>
+              <p className="text-red-400 text-xs font-mono font-semibold animate-pulse">Enregistrement…</p>
             ) : (
               <p className="text-slate-500 text-xs text-center">Appuyez pour dicter votre question</p>
             )}
@@ -346,7 +231,6 @@ export default function AssistantIAPage() {
         {/* Response cards */}
         {sections && !editMode && !loading && (
           <>
-            {/* Expert badges */}
             {expertsUsed.length > 0 && (
               <div className="flex gap-2 flex-wrap">
                 {expertsUsed.includes('terrain') && (
