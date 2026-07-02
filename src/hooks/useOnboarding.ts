@@ -171,6 +171,11 @@ export function useOnboarding(existingEtabId?: string) {
       onboarding_completed_at: new Date().toISOString(),
     }).eq('id', etabId);
 
+    // Email bienvenue — fire-and-forget, non bloquant
+    supabase.functions.invoke('send-welcome-email', {
+      body: { etablissement_id: etabId },
+    }).catch((err) => console.warn('[activateClient] send-welcome-email failed (non-fatal):', err));
+
     setState(s => ({ ...s, saving: false, activated: true }));
     return true;
   }
