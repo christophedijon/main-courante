@@ -554,9 +554,9 @@ function VerifModal({ item, onClose, onSaved }: VerifModalProps) {
 
 // ─── Add Modal ───────────────────────────────────────────────────────────────
 
-type AddModalProps = { onClose: () => void; onAdded: (item: RegistreItem) => void };
+type AddModalProps = { onClose: () => void; onAdded: (item: RegistreItem) => void; etablissementId: string | null };
 
-function AddModal({ onClose, onAdded }: AddModalProps) {
+function AddModal({ onClose, onAdded, etablissementId }: AddModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [choix, setChoix] = useState<'migration' | 'nouvelle' | null>(null);
   const [form, setForm] = useState({
@@ -595,7 +595,7 @@ function AddModal({ onClose, onAdded }: AddModalProps) {
       date_verification: choix === 'migration' ? form.date_migration : null,
       reprise_papier: choix === 'migration',
     };
-    const { data, error } = await supabase.from('registre_securite').insert(payload).select().single();
+    const { data, error } = await supabase.from('registre_securite').insert({ ...payload, etablissement_id: etablissementId }).select().single();
     if (!error && data) onAdded(data as RegistreItem);
     setSaving(false);
   }
@@ -1552,7 +1552,7 @@ function MobileCardView({ items, historiqueCounts }: { items: RegistreItem[]; hi
 
 export default function RegistreSecuritePage() {
   const { signOut, session } = useAuth();
-  const { nom, logo_url } = useEntreprise();
+  const { nom, logo_url, id: etablissementId } = useEntreprise();
   const [items, setItems] = useState<RegistreItem[]>([]);
   const [historiqueCounts, setHistoriqueCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -1820,6 +1820,7 @@ export default function RegistreSecuritePage() {
         <AddModal
           onClose={() => setShowAddModal(false)}
           onAdded={(item) => { setItems((prev) => [...prev, item]); setShowAddModal(false); }}
+          etablissementId={etablissementId}
         />
       )}
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, Flame, FileText, Radio, CheckCircle, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useEntreprise } from '../../hooks/useEntreprise';
 
 type Categorie = 'fiches_metier' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -47,6 +48,7 @@ export default function DocumentDetailPage() {
   const { categorie, id } = useParams<{ categorie: string; id: string }>();
   const navigate = useNavigate();
   const { session, userFonction } = useAuth();
+  const { id: etablissementId } = useEntreprise();
 
   const [doc, setDoc] = useState<Doc | null>(null);
   const [loading, setLoading] = useState(true);
@@ -194,6 +196,7 @@ export default function DocumentDetailPage() {
         agent_nom: agentNom,
         agent_role: agentRole,
         content_version: doc.content_version,
+        etablissement_id: etablissementId,
       })
       .select('id, signed_at, content_version')
       .maybeSingle();

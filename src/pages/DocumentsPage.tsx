@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shield, Flame, FileText, Radio, Plus, Pencil, Trash2, Eye, EyeOff, Save, X, AlertCircle, CheckCircle, ChevronDown, ChevronUp, GripVertical, ArrowUp, ArrowDown, Users, PenLine } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useEntreprise } from '../hooks/useEntreprise';
 import AppHeader from '../components/AppHeader';
 import RichEditor from '../components/RichEditor';
 
@@ -106,6 +107,7 @@ function ContentEditor({ value, onChange }: { value: string; onChange: (html: st
 
 export default function DocumentsPage() {
   const { signOut } = useAuth();
+  const { id: etablissementId } = useEntreprise();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Categorie>('fiches_metier');
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -218,7 +220,7 @@ export default function DocumentsPage() {
       }
       ({ error } = await supabase.from('toolbox_documents').update(payload).eq('id', editTarget.id));
     } else {
-      ({ error } = await supabase.from('toolbox_documents').insert({ ...payload, content_version: 1 }));
+      ({ error } = await supabase.from('toolbox_documents').insert({ ...payload, content_version: 1, etablissement_id: etablissementId }));
     }
 
     setSaving(false);

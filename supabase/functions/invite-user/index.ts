@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Permission refusée' }, 403);
     }
 
-    const { email, password, fonction, invited_by } = await req.json();
+    const { email, password, fonction, invited_by, etablissement_id } = await req.json();
 
     if (!email || !password || !fonction) {
       return json({ error: 'Champs manquants' }, 400);
@@ -104,6 +104,7 @@ Deno.serve(async (req: Request) => {
         profile_completed: false,
         invited_by: invited_by ?? caller.id,
         invited_at: new Date().toISOString(),
+        ...(etablissement_id ? { etablissement_id } : {}),
       })
       .select()
       .single();

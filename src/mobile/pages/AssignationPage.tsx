@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, UserCheck, Plus, X, Users, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useEntreprise } from '../../hooks/useEntreprise';
 
 type Poste = {
   id: string;
@@ -40,6 +41,7 @@ const FONCTION_COLOR: Record<string, string> = {
 export default function AssignationPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { id: etablissementId } = useEntreprise();
 
   const [postes, setPostes] = useState<Poste[]>([]);
   const [assignations, setAssignations] = useState<Assignation[]>([]);
@@ -143,6 +145,7 @@ export default function AssignationPage() {
       agent_nom: agentLabel(agent),
       agent_fonction: agent.fonction,
       assigned_by: session.user.id,
+      etablissement_id: etablissementId,
     });
 
     if (error) {

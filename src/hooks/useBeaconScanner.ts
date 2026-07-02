@@ -82,6 +82,7 @@ export function useBeaconScanner() {
   const beaconsByNameRef = useRef<Map<string, Beacon>>(new Map());
   const lastDetectedRef = useRef<Map<string, Date>>(new Map());
   const agentIdRef = useRef<string | null>(null);
+  const etablissementIdRef = useRef<string | null>(null);
 
   // Load beacons + agent id on mount
   useEffect(() => {
@@ -124,7 +125,7 @@ export function useBeaconScanner() {
 
         const { data: mu, error: muErr } = await supabase
           .from('managed_users')
-          .select('id')
+          .select('id, etablissement_id')
           .eq('auth_user_id', session!.user.id)
           .maybeSingle();
 
@@ -132,6 +133,7 @@ export function useBeaconScanner() {
           console.error('[useBeaconScanner] Failed to load managed_users row:', muErr);
         } else if (mu) {
           agentIdRef.current = mu.id;
+          etablissementIdRef.current = mu.etablissement_id ?? null;
         }
       } catch (err) {
         console.error('[useBeaconScanner] bootstrap error:', err);
@@ -158,6 +160,7 @@ export function useBeaconScanner() {
         beacon_id: beacon.id,
         rssi: rssi ?? null,
         timestamp,
+        etablissement_id: etablissementIdRef.current,
       });
 
       if (passageErr) {

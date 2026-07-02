@@ -140,6 +140,7 @@ export default function PostesMobilePage() {
       agent_id: myAuthId,
       agent_nom: nom,
       agent_fonction: mu?.fonction ?? '',
+      etablissement_id: etablissementId,
     });
 
     if (!error) {
@@ -192,6 +193,7 @@ export default function PostesMobilePage() {
       agent_id: agent.auth_user_id,
       agent_nom: agent.nom,
       agent_fonction: agent.fonction,
+      etablissement_id: etablissementId,
     });
     const { data } = await supabase.from('assignations').select('*').eq('actif', true);
     setAssignations((data ?? []) as Assignation[]);

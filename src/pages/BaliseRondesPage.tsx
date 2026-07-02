@@ -24,6 +24,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useEntreprise } from '../hooks/useEntreprise';
 import AppHeader from '../components/AppHeader';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -161,6 +162,7 @@ function BaliseRondesPage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function BaliseTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => void }) {
+  const { id: etablissementId } = useEntreprise();
   const [beacons, setBeacons] = useState<Beacon[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,6 +222,7 @@ function BaliseTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => v
         <BeaconModal
           zones={zones}
           beacon={editing}
+          etablissementId={etablissementId}
           onClose={() => { setModalOpen(false); setEditing(null); }}
           onSaved={() => { setModalOpen(false); setEditing(null); load(); notify('success', editing ? 'Balise modifiée' : 'Balise ajoutée'); }}
           notify={notify}
@@ -330,8 +333,9 @@ function BeaconCard({ beacon: b, onToggle, onEdit, onDelete }: {
 
 const DEFAULT_UUID = '426C7565-4368-6172-6D42-6561636F6E73';
 
-function BeaconModal({ beacon, zones, onClose, onSaved, notify }: {
+function BeaconModal({ beacon, zones, etablissementId, onClose, onSaved, notify }: {
   beacon: Beacon | null; zones: Zone[];
+  etablissementId: string | null;
   onClose: () => void; onSaved: () => void;
   notify: (t: ToastMsg['type'], msg: string) => void;
 }) {
@@ -365,7 +369,7 @@ function BeaconModal({ beacon, zones, onClose, onSaved, notify }: {
       setSaving(false);
       if (error) { notify('error', 'Erreur lors de la sauvegarde'); return; }
     } else {
-      const { data: inserted, error } = await supabase.from('beacons').insert(payload).select('id').single();
+      const { data: inserted, error } = await supabase.from('beacons').insert({ ...payload, etablissement_id: etablissementId }).select('id').single();
       if (error || !inserted) { setSaving(false); notify('error', 'Erreur lors de la sauvegarde'); return; }
       if (isEntree) {
         await supabase.from('beacons').update({ is_entree: false }).eq('is_entree', true).neq('id', inserted.id);
@@ -493,6 +497,7 @@ function BeaconModal({ beacon, zones, onClose, onSaved, notify }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function RondeTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => void }) {
+  const { id: etablissementId } = useEntreprise();
   const [rondeMode, setRondeMode] = useState<'aleatoire' | 'defini'>('aleatoire');
   const [etabRowId, setEtabRowId] = useState<string | null>(null);
   const [rondes, setRondes] = useState<RondeConfig[]>([]);
@@ -570,6 +575,7 @@ function RondeTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => vo
         <RondeModal
           ronde={editing}
           beacons={beacons}
+          etablissementId={etablissementId}
           onClose={() => { setModalOpen(false); setEditing(null); }}
           onSaved={() => { setModalOpen(false); setEditing(null); load(); notify('success', editing ? 'Ronde modifiée' : 'Ronde créée'); }}
           notify={notify}
@@ -701,9 +707,10 @@ function RondeCard({ ronde: r, onToggle, onEdit, onDelete }: {
 
 // ─── Ronde Modal ──────────────────────────────────────────────────────────────
 
-function RondeModal({ ronde, beacons, onClose, onSaved, notify }: {
+function RondeModal({ ronde, beacons, etablissementId, onClose, onSaved, notify }: {
   ronde: RondeConfig | null;
   beacons: Pick<Beacon, 'id' | 'nom'>[];
+  etablissementId: string | null;
   onClose: () => void; onSaved: () => void;
   notify: (t: ToastMsg['type'], msg: string) => void;
 }) {
@@ -751,7 +758,7 @@ function RondeModal({ ronde, beacons, onClose, onSaved, notify }: {
       const { error } = await supabase.from('rondes_config').update(payload).eq('id', ronde.id);
       if (error) { notify('error', 'Erreur lors de la mise à jour'); setSaving(false); return; }
     } else {
-      const { data, error } = await supabase.from('rondes_config').insert(payload).select().single();
+      const { data, error } = await supabase.from('rondes_config').insert({ ...payload, etablissement_id: etablissementId }).select().single();
       if (error || !data) { notify('error', 'Erreur lors de la création'); setSaving(false); return; }
       rondeId = data.id;
     }
