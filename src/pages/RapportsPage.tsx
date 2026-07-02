@@ -378,7 +378,7 @@ export default function RapportsPage() {
                 </div>
 
                 <p className="text-xs text-slate-500">
-                  Le rapport sera envoyé à tous les utilisateurs dont la fonction est <span className="text-slate-300 font-medium">Direction</span>. L'envoi s'effectue via Make.com.
+                  Le rapport sera envoyé à tous les utilisateurs dont la fonction est <span className="text-slate-300 font-medium">Direction</span>. L'envoi s'effectue automatiquement via Main Courante.
                 </p>
 
                 {/* Actions */}

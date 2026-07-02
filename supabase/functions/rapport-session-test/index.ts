@@ -254,7 +254,7 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-    // Send via Make.com webhook (same as rapport-soiree)
+    // Send via Resend
     const { data: emailRule } = await supabase
       .from("email_rules")
       .select("*")
