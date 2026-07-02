@@ -870,36 +870,15 @@ Génère le document "Mes obligations" organisé par thématiques pour cet étab
         return;
       }
 
-      // Fetch resend key from ia_settings
-      const { data: iaSettings } = await supabase
-        .from('ia_settings')
-        .select('resend_api_key')
-        .limit(1)
-        .maybeSingle();
+      const { error } = await supabase.functions.invoke('send-test-email', {
+        body: {
+          to: dirUsers.map((u: { email: string }) => u.email),
+          subject: `[Main Courante] Mes obligations réglementaires — ${data.nom}`,
+          html: data.document_obligations_html,
+        },
+      });
 
-      if (!iaSettings?.resend_api_key) {
-        setGenMsg({ type: 'error', text: 'Clé Resend non configurée dans les paramètres IA.' });
-        setSendingEmail(false);
-        return;
-      }
-
-      const emailPromises = dirUsers.map((u: { email: string }) =>
-        fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${iaSettings.resend_api_key}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'noreply@send.maincourante.eu',
-            to: u.email,
-            subject: `Mes obligations réglementaires — ${data.nom}`,
-            html: data.document_obligations_html,
-          }),
-        })
-      );
-
-      await Promise.all(emailPromises);
+      if (error) throw error;
       setGenMsg({ type: 'success', text: `Document envoyé à ${dirUsers.length} destinataire${dirUsers.length > 1 ? 's' : ''}.` });
     } catch {
       setGenMsg({ type: 'error', text: 'Erreur lors de l\'envoi de l\'email.' });
