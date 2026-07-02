@@ -104,134 +104,138 @@ Deno.serve(async (req: Request) => {
     const html = `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
-<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<div style="max-width:620px;margin:0 auto;padding:32px 16px 48px">
 
-  <!-- HEADER -->
-  <div style="background:#0f172a;padding:28px 24px;text-align:center">
-    <div style="display:inline-flex;align-items:center;gap:10px">
-      <div style="width:36px;height:36px;background:#1e3a5f;border:1px solid rgba(37,99,235,0.3);border-radius:8px;text-align:center;line-height:36px;font-size:18px">🛡️</div>
-      <span style="color:#ffffff;font-weight:700;font-size:20px;vertical-align:middle">Main Courante</span>
-    </div>
-  </div>
-
-  <!-- BONJOUR -->
-  <div style="padding:36px 24px 20px">
-    <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">${greeting}</h2>
-    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0">
-      Félicitations ! Votre établissement <strong style="color:#1e293b">${nomEtab}</strong>
-      est désormais configuré sur Main Courante.
+  <!-- HEADER CARD -->
+  <div style="background:#0f172a;border-radius:16px 16px 0 0;padding:32px 40px 28px;text-align:center">
+    <p style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;margin:0 0 10px">Main Courante</p>
+    <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 10px;line-height:1.3">Bienvenue, ${greeting.replace('Bonjour ', '').replace(',', '')} !</h1>
+    <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6">
+      Félicitations — <strong style="color:#e2e8f0">${nomEtab}</strong> est désormais configuré sur Main Courante.
     </p>
   </div>
 
-  <!-- COORDONNÉES -->
-  <div style="margin:0 24px 24px;padding:20px 24px;background:#f1f5f9;border-radius:10px">
-    <h3 style="color:#0f172a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 16px">
-      Vos coordonnées
-    </h3>
-    <table style="width:100%;font-size:14px;color:#334155;border-collapse:collapse">
-      <tr>
-        <td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b;white-space:nowrap;width:130px">Établissement</td>
-        <td style="padding:5px 0;color:#1e293b">${nomEtab}</td>
+  <!-- BODY CARD -->
+  <div style="background:#ffffff;padding:0 40px 36px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.06)">
+
+    <!-- SEPARATOR -->
+    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
+
+    <!-- COORDONNÉES -->
+    <p style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">Vos coordonnées</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 28px">
+      <tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:9px 0;color:#94a3b8;font-weight:600;width:160px;vertical-align:top">Établissement</td>
+        <td style="padding:9px 0;color:#1e293b;font-weight:600">${nomEtab}</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Enseigne</td>
+        <td style="padding:9px 0;color:#334155">${enseigne}</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Type ERP</td>
+        <td style="padding:9px 0;color:#334155">${typeErp} — Catégorie ${categorieErp}</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Effectif max autorisé</td>
+        <td style="padding:9px 0;color:#334155">${effectif}</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Adresse</td>
+        <td style="padding:9px 0;color:#334155">${adresse}</td>
       </tr>
       <tr>
-        <td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b;white-space:nowrap">Enseigne</td>
-        <td style="padding:5px 0;color:#1e293b">${enseigne}</td>
-      </tr>
-      <tr>
-        <td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b;white-space:nowrap">Type ERP</td>
-        <td style="padding:5px 0;color:#1e293b">${typeErp} — ${categorieErp}</td>
-      </tr>
-      <tr>
-        <td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b;white-space:nowrap">Effectif max</td>
-        <td style="padding:5px 0;color:#1e293b">${effectif}</td>
-      </tr>
-      <tr>
-        <td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b;white-space:nowrap">Adresse</td>
-        <td style="padding:5px 0;color:#1e293b">${adresse}</td>
-      </tr>
-      <tr>
-        <td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b;white-space:nowrap">Contact</td>
-        <td style="padding:5px 0;color:#1e293b">${emailContact} — ${telephone}</td>
+        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Contact</td>
+        <td style="padding:9px 0;color:#334155">${emailContact} — ${telephone}</td>
       </tr>
     </table>
-  </div>
 
-  <!-- POURQUOI MAIN COURANTE -->
-  <div style="padding:0 24px 8px">
-    <h3 style="color:#1e293b;font-size:17px;font-weight:700;margin:0 0 16px">
-      Pourquoi Main Courante est essentiel pour votre établissement
-    </h3>
-    <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 20px">
-      En tant qu'exploitant d'un ERP, vous êtes personnellement
-      responsable de la sécurité de votre public. En cas d'incident,
-      les autorités examinent systématiquement votre capacité à
-      démontrer que vous avez pris toutes les mesures nécessaires.
+    <!-- SEPARATOR -->
+    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
+
+    <!-- POURQUOI -->
+    <p style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">Pourquoi Main Courante est essentiel pour votre établissement</p>
+    <p style="color:#475569;font-size:14px;line-height:1.8;margin:0 0 24px">
+      En tant qu'exploitant d'un ERP, vous êtes personnellement responsable de la sécurité de votre public.
+      En cas d'incident, les autorités (commission de sécurité, préfecture, procureur) examinent
+      systématiquement votre capacité à démontrer que vous avez pris toutes les mesures nécessaires.
     </p>
 
-    <!-- Bloc 1 — Protection juridique -->
-    <div style="margin:0 0 14px;padding:16px 18px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:6px">
-      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1e40af">🛡️ Protection juridique</p>
-      <p style="margin:0;color:#475569;font-size:13px;line-height:1.7">
-        Chaque événement horodaté, chaque ronde tracée, chaque
-        vérification documentée constitue une preuve de votre
-        diligence. L'article R123-51 du CCH impose la tenue d'un
-        registre de sécurité — Main Courante le dématérialise
-        et le rend infalsifiable.
+    <!-- Bloc 1 -->
+    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #1e40af;border-radius:0 8px 8px 0">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Protection juridique</p>
+      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
+        Main Courante constitue votre preuve de diligence. Chaque événement horodaté, chaque ronde tracée,
+        chaque vérification documentée est un élément qui vous protège en cas de mise en cause.
+        L'article R123-51 du CCH impose la tenue d'un registre de sécurité — Main Courante
+        le dématérialise et le rend infalsifiable.
       </p>
     </div>
 
-    <!-- Bloc 2 — Conformité réglementaire -->
-    <div style="margin:0 0 14px;padding:16px 18px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:6px">
-      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#166534">📋 Conformité réglementaire</p>
-      <p style="margin:0;color:#475569;font-size:13px;line-height:1.7">
-        Registre de sécurité, vérifications périodiques, suivi de
-        l'effectif (art. GN 11) — tout est accessible en un clic
-        lors d'un contrôle de la commission de sécurité.
+    <!-- Bloc 2 -->
+    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #0e7a4a;border-radius:0 8px 8px 0">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Conformité réglementaire</p>
+      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
+        Votre registre de sécurité numérique, vos vérifications périodiques et le suivi de votre effectif
+        (art. GN 11) sont accessibles en un clic lors d'un contrôle. Plus besoin de chercher des
+        classeurs papier ou des attestations égarées.
       </p>
     </div>
 
-    <!-- Bloc 3 — Prévention des fermetures -->
-    <div style="margin:0 0 14px;padding:16px 18px;background:#fefce8;border-left:4px solid #eab308;border-radius:6px">
-      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#854d0e">⚠️ Prévention des fermetures administratives</p>
-      <p style="margin:0;color:#475569;font-size:13px;line-height:1.7">
-        Un avis défavorable de la commission peut entraîner une
-        fermeture administrative immédiate (art. L123-4 du CCH).
-        Main Courante vous aide à anticiper et à démontrer
-        votre professionnalisme.
+    <!-- Bloc 3 -->
+    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #b45309;border-radius:0 8px 8px 0">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Prévention des fermetures administratives</p>
+      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
+        Un avis défavorable de la commission de sécurité peut entraîner une fermeture administrative
+        immédiate de votre établissement (art. L123-4 du CCH). Main Courante vous aide à anticiper
+        les échéances, à tracer vos actions correctives et à démontrer votre professionnalisme.
       </p>
     </div>
 
-    <!-- Bloc 4 — Tout en un seul endroit -->
-    <div style="margin:0 0 28px;padding:16px 18px;background:#f5f3ff;border-left:4px solid #8b5cf6;border-radius:6px">
-      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#5b21b6">🔒 Tout en un seul endroit</p>
-      <p style="margin:0;color:#475569;font-size:13px;line-height:1.7">
-        Main courante, registre incendie, jauge de capacité, rondes,
-        rapports automatiques — centralisé, horodaté et exportable.
+    <!-- Bloc 4 -->
+    <div style="margin:0 0 28px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #1d4ed8;border-radius:0 8px 8px 0">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Toute votre sécurité en un seul endroit</p>
+      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
+        Main courante de sécurité, registre de sécurité incendie, jauge de capacité, rondes de
+        vérification, rapports automatiques — tout est centralisé, horodaté et exportable.
       </p>
     </div>
-  </div>
 
-  <!-- CTA -->
-  <div style="padding:0 24px 36px;text-align:center">
-    <p style="color:#475569;font-size:14px;margin:0 0 20px">
-      Notre équipe reste disponible si vous avez la moindre question.
+    <!-- SIGNATURE LINE -->
+    <p style="color:#475569;font-size:14px;line-height:1.8;margin:0 0 28px;font-style:italic;border-top:1px solid #f1f5f9;padding-top:20px">
+      Vous êtes un professionnel de l'ERP. Main Courante est l'outil conçu par des professionnels
+      de l'ERP, pour vous.
     </p>
-    <a href="https://maincourante.eu"
-       style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;
-              padding:14px 32px;border-radius:10px;text-decoration:none;letter-spacing:0.01em">
-      Accéder à mon espace
-    </a>
+
+    <!-- SEPARATOR -->
+    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:0 0 24px">
+      <a href="https://maincourante.eu"
+         style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;
+                padding:16px 40px;border-radius:10px;text-decoration:none;letter-spacing:0.02em">
+        Accéder à Main Courante →
+      </a>
+    </div>
+
+    <p style="text-align:center;color:#94a3b8;font-size:13px;margin:0">
+      Des questions ? Répondez directement à cet email.
+    </p>
+
   </div>
 
   <!-- FOOTER -->
-  <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
-    <p style="color:#94a3b8;font-size:12px;margin:0 0 4px;font-weight:600">Main Courante</p>
-    <p style="color:#cbd5e1;font-size:11px;margin:0">
-      Cet email a été envoyé à ${direction.email} suite à la création de votre compte.
+  <div style="padding:24px 0 0;text-align:center">
+    <p style="color:#94a3b8;font-size:12px;margin:0 0 4px;font-weight:600">L'équipe Main Courante</p>
+    <p style="color:#cbd5e1;font-size:11px;margin:0 0 4px">
+      <a href="https://maincourante.eu" style="color:#94a3b8;text-decoration:none">maincourante.eu</a>
+      &nbsp;·&nbsp;
+      <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a>
     </p>
-    <p style="color:#cbd5e1;font-size:11px;margin:6px 0 0">
-      Contactez-nous : <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a>
+    <p style="color:#cbd5e1;font-size:11px;margin:0">
+      Cet email a été envoyé à ${direction.email} suite à la configuration de votre établissement.
     </p>
   </div>
 
