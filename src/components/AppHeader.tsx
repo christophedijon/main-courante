@@ -48,7 +48,7 @@ const GROUPES = [
     icon: ClipboardList,
     items: [
       { path: '/registre-securite',     label: 'Registre',         icon: ClipboardList,   superOnly: false, adminOnly: true },
-      { path: '/ia',                    label: 'IA',               icon: Bot,             superOnly: false, adminOnly: true },
+      { path: '/ia',                    label: 'IA',               icon: Bot,             superOnly: true,  adminOnly: false },
       { path: '/dashboard-signatures',  label: 'Signatures',       icon: PenLine,         superOnly: false, adminOnly: true },
     ],
   },
