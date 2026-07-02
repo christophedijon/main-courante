@@ -3,7 +3,7 @@ import {
   Radio, Plus, Pencil, Trash2, Star, ToggleLeft, ToggleRight,
   Shuffle, List, Clock, ChevronDown, GripVertical, X, Save,
   Loader2, CheckCircle, AlertTriangle, Info, Download, User,
-  ChevronRight, MapPin, Navigation, Smartphone, Bluetooth,
+  ChevronRight, MapPin, Navigation, Smartphone, Bluetooth, Lightbulb,
 } from 'lucide-react';
 import {
   DndContext,
@@ -194,6 +194,20 @@ function BaliseRondesPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Tip card */}
+          <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Lightbulb className="w-4 h-4 text-emerald-400 shrink-0" />
+              <p className="text-emerald-300 font-semibold text-sm">Commencez avec une seule balise</p>
+            </div>
+            <p className="text-emerald-200/80 text-sm leading-relaxed">
+              Vous pouvez vous munir d'une seule balise placée à l'entrée de votre établissement.
+              Elle enregistrera automatiquement l'heure de début de service de chaque agent de sécurité
+              dès qu'il scanne la balise en arrivant sur site. C'est le moyen le plus simple pour
+              démarrer avec les rondes.
+            </p>
           </div>
 
           {/* Time estimate */}
