@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type AnyWindow = Window & {
   SpeechRecognition?: any;
@@ -10,39 +10,42 @@ export function useSpeechRecognition(initialText = '') {
   const [recording, setRecording] = useState(false);
   const [supported, setSupported] = useState(true);
 
+  // refs so callbacks always see current values without stale closures
   const isListeningRef = useRef(false);
   const accumulatedRef = useRef(initialText);
-  const SRRef = useRef<any>(null);
+  const SRClassRef = useRef<any>(null);
   const activeRecognitionRef = useRef<any>(null);
+  const transcriptRef = useRef(initialText);
+
+  // keep transcriptRef in sync so start() can snapshot it correctly
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
 
   useEffect(() => {
     const w = window as unknown as AnyWindow;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) { setSupported(false); return; }
-    SRRef.current = SR;
+    SRClassRef.current = SR;
 
     return () => {
       isListeningRef.current = false;
-      try { activeRecognitionRef.current?.stop(); } catch {}
+      try { activeRecognitionRef.current?.abort(); } catch {}
       activeRecognitionRef.current = null;
     };
   }, []);
 
-  function createAndStart() {
-    const SR = SRRef.current;
-    if (!SR) return;
+  const createAndStart = useCallback(() => {
+    const SR = SRClassRef.current;
+    if (!SR || !isListeningRef.current) return;
+
+    let sessionFinal = '';
 
     const recognition = new SR();
     recognition.lang = 'fr-FR';
-    recognition.continuous = false; // prevents Android echo bug
+    recognition.continuous = false;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
     activeRecognitionRef.current = recognition;
-
-    // Accumulates final results within a single recognition session.
-    // Reset to '' each time createAndStart() is called so Android can't
-    // replay stale results from a previous session.
-    let sessionFinal = '';
 
     recognition.onresult = (event: any) => {
       let interim = '';
@@ -62,10 +65,12 @@ export function useSpeechRecognition(initialText = '') {
       }
       accumulatedRef.current += sessionFinal;
       sessionFinal = '';
+
       if (isListeningRef.current) {
-        // 300ms delay aligns restart with natural speech pauses, masking the
-        // Android system beep that fires on every stop/start cycle.
-        setTimeout(createAndStart, 300);
+        // 300ms delay masks the Android beep on stop/start cycle
+        setTimeout(() => {
+          if (isListeningRef.current) createAndStart();
+        }, 300);
       } else {
         setRecording(false);
       }
@@ -76,7 +81,7 @@ export function useSpeechRecognition(initialText = '') {
         isListeningRef.current = false;
         setRecording(false);
       }
-      // Other errors (no-speech, network, aborted) let onend handle restart
+      // no-speech / network / aborted → onend handles restart
     };
 
     try {
@@ -85,31 +90,32 @@ export function useSpeechRecognition(initialText = '') {
       isListeningRef.current = false;
       setRecording(false);
     }
-  }
+  }, []);
 
-  function start() {
+  const start = useCallback(() => {
     if (isListeningRef.current) return;
-    // Sync accumulatedRef with any manual edits to transcript before recording
-    accumulatedRef.current = transcript;
+    accumulatedRef.current = transcriptRef.current;
     isListeningRef.current = true;
     setRecording(true);
     createAndStart();
-  }
+  }, [createAndStart]);
 
-  function stop() {
+  const stop = useCallback(() => {
     isListeningRef.current = false;
     try { activeRecognitionRef.current?.stop(); } catch {}
-    // setRecording(false) will be called by onend
-  }
+    // setRecording(false) is called by onend
+  }, []);
 
-  function toggle() {
-    if (recording) { stop(); } else { start(); }
-  }
+  // stable toggle: reads ref not state, so it's never stale
+  const toggle = useCallback(() => {
+    if (isListeningRef.current) { stop(); } else { start(); }
+  }, [start, stop]);
 
-  function setTranscriptExternal(value: string) {
+  const setTranscriptExternal = useCallback((value: string) => {
     accumulatedRef.current = value;
+    transcriptRef.current = value;
     setTranscript(value);
-  }
+  }, []);
 
   return { transcript, recording, supported, toggle, setTranscript: setTranscriptExternal };
 }
