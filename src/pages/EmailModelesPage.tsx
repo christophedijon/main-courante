@@ -7,6 +7,7 @@ import AppHeader from '../components/AppHeader';
 type Modele = {
   id: string;
   nom: string;
+  badge?: 'commercial';
   trigger: string;
   from: string;
   destinataires: string;
@@ -358,6 +359,247 @@ function buildIdentifiantsHtml(): string {
 </body></html>`;
 }
 
+function buildBienvenueHtml(): string {
+  const nomEtab = 'Le Melkior';
+  const prenom = 'Camille';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+  <div style="background:#0f172a;padding:28px 24px;text-align:center">
+    <span style="color:#ffffff;font-weight:700;font-size:20px">Main Courante</span>
+  </div>
+  <div style="padding:36px 24px 20px">
+    <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">Bonjour ${prenom},</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0">
+      Félicitations ! Votre établissement <strong style="color:#1e293b">${nomEtab}</strong> est désormais configuré sur Main Courante.
+    </p>
+  </div>
+  <div style="margin:0 24px 24px;padding:20px 24px;background:#f1f5f9;border-radius:10px">
+    <h3 style="color:#0f172a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 16px">Vos coordonnées</h3>
+    <table style="width:100%;font-size:14px;color:#334155;border-collapse:collapse">
+      <tr><td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b;width:130px">Établissement</td><td style="padding:5px 0;color:#1e293b">${nomEtab}</td></tr>
+      <tr><td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b">Enseigne</td><td style="padding:5px 0;color:#1e293b">Le Melkior</td></tr>
+      <tr><td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b">Type ERP</td><td style="padding:5px 0;color:#1e293b">Type L — 3ème catégorie</td></tr>
+      <tr><td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b">Effectif max</td><td style="padding:5px 0;color:#1e293b">450 personnes</td></tr>
+      <tr><td style="padding:5px 16px 5px 0;font-weight:600;color:#64748b">Adresse</td><td style="padding:5px 0;color:#1e293b">12 rue de la Paix, 75001 Paris</td></tr>
+    </table>
+  </div>
+  <div style="padding:0 24px 8px">
+    <div style="margin:0 0 14px;padding:16px 18px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:6px">
+      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1e40af">Protection juridique</p>
+      <p style="margin:0;color:#475569;font-size:13px;line-height:1.7">Chaque événement horodaté constitue une preuve de votre diligence (art. R123-51 CCH).</p>
+    </div>
+    <div style="margin:0 0 28px;padding:16px 18px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:6px">
+      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#166534">Conformité réglementaire</p>
+      <p style="margin:0;color:#475569;font-size:13px;line-height:1.7">Registre de sécurité, vérifications périodiques, suivi de l'effectif — tout en un clic.</p>
+    </div>
+  </div>
+  <div style="padding:0 24px 36px;text-align:center">
+    <a href="https://maincourante.eu" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Accéder à mon espace</a>
+  </div>
+  <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
+    <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
+  </div>
+</div></body></html>`;
+}
+
+function buildEngagementPrecocePreviewHtml(planLabel: string, joursDepuis: number, joursRestants: number): string {
+  const nomEtab = 'Le Melkior';
+  const prenom = 'Camille';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+  <div style="background:#0f172a;padding:28px 24px;text-align:center">
+    <span style="color:#ffffff;font-weight:700;font-size:20px">Main Courante</span>
+    <p style="color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0">Votre essai ${planLabel} — ${joursDepuis} jours déjà !</p>
+  </div>
+  <div style="padding:36px 24px 20px">
+    <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">Bonjour ${prenom},</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">
+      Cela fait maintenant <strong>${joursDepuis} jours</strong> que <strong style="color:#1e293b">${nomEtab}</strong> utilise Main Courante.
+    </p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 24px">
+      Il vous reste <strong style="color:#1e293b">${joursRestants} jours</strong> pour profiter pleinement de votre essai.
+    </p>
+  </div>
+  <div style="margin:0 24px;padding:20px 24px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:6px">
+    <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1e40af">Rappel : ce que vous avez déjà à disposition</p>
+    <ul style="margin:0;padding-left:20px;color:#475569;font-size:13px;line-height:1.8">
+      <li>Main courante horodatée et infalsifiable</li>
+      <li>Registre de sécurité dématérialisé</li>
+      <li>Suivi des effectifs en temps réel</li>
+      <li>Rondes et vérifications tracées</li>
+    </ul>
+  </div>
+  <div style="padding:28px 24px;text-align:center">
+    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Voir les offres d'abonnement</a>
+  </div>
+  <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
+    <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
+  </div>
+</div></body></html>`;
+}
+
+function buildEngagementTardifPreviewHtml(): string {
+  const nomEtab = 'Le Melkior';
+  const prenom = 'Camille';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+  <div style="background:#0f172a;padding:28px 24px;text-align:center">
+    <span style="color:#ffffff;font-weight:700;font-size:20px">Main Courante</span>
+    <p style="color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0">Votre essai Testeur — Bilan à 60 jours</p>
+  </div>
+  <div style="padding:36px 24px 20px">
+    <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">Bonjour ${prenom},</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">Cela fait <strong>60 jours</strong> que <strong>${nomEtab}</strong> utilise Main Courante. Voici votre bilan.</p>
+  </div>
+  <div style="margin:0 24px 24px;display:flex;gap:16px">
+    <div style="flex:1;padding:20px;background:#f1f5f9;border-radius:10px;text-align:center">
+      <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">47</p>
+      <p style="font-size:13px;color:#64748b;margin:6px 0 0">événements</p>
+    </div>
+    <div style="flex:1;padding:20px;background:#f1f5f9;border-radius:10px;text-align:center">
+      <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">12</p>
+      <p style="font-size:13px;color:#64748b;margin:6px 0 0">rondes</p>
+    </div>
+    <div style="flex:1;padding:20px;background:#f1f5f9;border-radius:10px;text-align:center">
+      <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">30</p>
+      <p style="font-size:13px;color:#64748b;margin:6px 0 0">jours restants</p>
+    </div>
+  </div>
+  <div style="padding:0 24px 8px">
+    <div style="padding:16px 18px;background:#fefce8;border-left:4px solid #eab308;border-radius:6px">
+      <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#854d0e">Votre essai se termine bientôt</p>
+      <p style="margin:0;color:#475569;font-size:13px;line-height:1.7">Pour ne pas perdre vos données, passez à l'abonnement avant la fin de votre période d'essai.</p>
+    </div>
+  </div>
+  <div style="padding:28px 24px;text-align:center">
+    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Choisir mon abonnement</a>
+  </div>
+  <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
+    <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
+  </div>
+</div></body></html>`;
+}
+
+function buildUrgenceJ20PreviewHtml(): string {
+  const nomEtab = 'Le Melkior';
+  const prenom = 'Camille';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+  <div style="background:#0f172a;padding:28px 24px;text-align:center">
+    <span style="color:#ffffff;font-weight:700;font-size:20px">Main Courante</span>
+    <p style="color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0">Votre essai se termine dans 20 jours</p>
+  </div>
+  <div style="padding:36px 24px 20px">
+    <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">Bonjour ${prenom},</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">La période d'essai de <strong>${nomEtab}</strong> se termine le <strong>22 juillet 2026</strong>.</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 24px">Après cette date, sans abonnement actif, votre accès sera suspendu.</p>
+  </div>
+  <div style="margin:0 24px 24px;padding:20px 24px;background:#fff7ed;border-left:4px solid #f97316;border-radius:6px">
+    <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#9a3412">Ce qui vous attend sans abonnement</p>
+    <ul style="margin:0;padding-left:20px;color:#475569;font-size:13px;line-height:1.8">
+      <li>Accès à l'interface suspendu</li>
+      <li>Impossibilité d'enregistrer de nouveaux événements</li>
+      <li>Vos données conservées 30 jours supplémentaires</li>
+    </ul>
+  </div>
+  <div style="padding:0 24px 28px;text-align:center">
+    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Voir les offres d'abonnement</a>
+  </div>
+  <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
+    <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
+  </div>
+</div></body></html>`;
+}
+
+function buildUrgenceJ5PreviewHtml(): string {
+  const nomEtab = 'Le Melkior';
+  const prenom = 'Camille';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+  <div style="background:#dc2626;padding:28px 24px;text-align:center">
+    <span style="color:#ffffff;font-weight:700;font-size:20px">Main Courante</span>
+    <p style="color:rgba(255,255,255,0.9);font-size:13px;margin:6px 0 0">Plus que 5 jours — Action requise</p>
+  </div>
+  <div style="padding:36px 24px 20px">
+    <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">Bonjour ${prenom},</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px"><strong style="color:#dc2626">Votre essai se termine dans 5 jours</strong>, le 7 juillet 2026.</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 24px">Ne laissez pas votre protection de sécurité de <strong>${nomEtab}</strong> s'interrompre.</p>
+  </div>
+  <div style="margin:0 24px 28px;padding:20px 24px;background:#fef2f2;border:2px solid #dc2626;border-radius:10px;text-align:center">
+    <p style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 12px">5 jours pour sécuriser la continuité de votre établissement</p>
+    <p style="color:#475569;font-size:13px;margin:0">Abonnez-vous maintenant pour maintenir votre conformité réglementaire sans interruption.</p>
+  </div>
+  <div style="padding:0 24px 36px;text-align:center">
+    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#dc2626;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">S'abonner maintenant</a>
+  </div>
+  <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
+    <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
+  </div>
+</div></body></html>`;
+}
+
+function buildExpireClientPreviewHtml(): string {
+  const nomEtab = 'Le Melkior';
+  const prenom = 'Camille';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+  <div style="background:#64748b;padding:28px 24px;text-align:center">
+    <span style="color:#ffffff;font-weight:700;font-size:20px">Main Courante</span>
+    <p style="color:rgba(255,255,255,0.85);font-size:13px;margin:6px 0 0">Votre période d'essai est terminée</p>
+  </div>
+  <div style="padding:36px 24px 20px">
+    <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">Bonjour ${prenom},</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">La période d'essai de <strong>${nomEtab}</strong> est maintenant expirée. Votre accès à Main Courante a été suspendu.</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 24px">Vos données sont conservées et accessibles dès que vous souscrivez un abonnement. Vous pouvez reprendre exactement là où vous en étiez.</p>
+  </div>
+  <div style="margin:0 24px 24px;padding:20px 24px;background:#f1f5f9;border-radius:10px">
+    <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0 0 8px">Vos données sont en sécurité</p>
+    <p style="color:#475569;font-size:13px;line-height:1.7;margin:0">Toutes vos entrées main courante, vos rondes, vos registres et vos rapports sont conservés. Un abonnement vous redonne accès instantanément.</p>
+  </div>
+  <div style="padding:0 24px 28px;text-align:center">
+    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Réactiver mon compte</a>
+  </div>
+  <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
+    <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
+  </div>
+</div></body></html>`;
+}
+
+function buildExpireEquipePreviewHtml(): string {
+  const nomEtab = 'Le Melkior';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
+  <div style="background:#1e293b;padding:24px;text-align:center">
+    <span style="color:#ffffff;font-weight:700;font-size:18px">Main Courante — Notification interne</span>
+    <p style="color:#94a3b8;font-size:12px;margin:4px 0 0">Essai expiré</p>
+  </div>
+  <div style="padding:28px 24px">
+    <h2 style="color:#1e293b;font-size:18px;font-weight:700;margin:0 0 20px">Essai expiré : ${nomEtab}</h2>
+    <table style="width:100%;font-size:14px;color:#334155;border-collapse:collapse">
+      <tr><td style="padding:6px 16px 6px 0;font-weight:600;color:#64748b;width:160px">Établissement</td><td>${nomEtab}</td></tr>
+      <tr><td style="padding:6px 16px 6px 0;font-weight:600;color:#64748b">ID</td><td style="font-size:12px;font-family:monospace;color:#1e293b">a1b2c3d4-e5f6-7890-abcd-ef1234567890</td></tr>
+      <tr><td style="padding:6px 16px 6px 0;font-weight:600;color:#64748b">Plan</td><td>testeur</td></tr>
+      <tr><td style="padding:6px 16px 6px 0;font-weight:600;color:#64748b">Activation</td><td>2 janvier 2026</td></tr>
+      <tr><td style="padding:6px 16px 6px 0;font-weight:600;color:#64748b">Fin d'essai</td><td>2 juillet 2026</td></tr>
+      <tr><td style="padding:6px 16px 6px 0;font-weight:600;color:#64748b">Direction</td><td>camille.dupont@lemelkior.fr</td></tr>
+      <tr><td style="padding:6px 16px 6px 0;font-weight:600;color:#64748b">Événements</td><td>47 enregistrés</td></tr>
+    </table>
+  </div>
+  <div style="padding:0 24px 24px">
+    <div style="background:#fef2f2;border-left:4px solid #dc2626;border-radius:6px;padding:14px 18px">
+      <p style="margin:0;font-size:13px;color:#7f1d1d">Le statut de cet établissement a été automatiquement mis à jour en <strong>expiré</strong>. Un suivi commercial est recommandé.</p>
+    </div>
+  </div>
+</div></body></html>`;
+}
+
 const MODELES: Modele[] = [
   {
     id: 'activation',
@@ -467,6 +709,76 @@ const MODELES: Modele[] = [
   </div>
 </div>`,
   },
+  {
+    id: 'bienvenue',
+    badge: 'commercial',
+    nom: 'Bienvenue post-onboarding',
+    trigger: 'Activation du compte client (fin d\'onboarding)',
+    from: 'noreply@send.maincourante.eu',
+    destinataires: 'Direction de l\'établissement',
+    subject: 'Bienvenue dans Main Courante — Votre sécurité, notre priorité',
+    html: buildBienvenueHtml(),
+  },
+  {
+    id: 'engagement-j30',
+    badge: 'commercial',
+    nom: 'Engagement J+30 (Testeur) / J+15 (Light)',
+    trigger: 'Cron quotidien 10h — si jours_depuis ≥ 30 (Testeur) ou ≥ 15 (Light)',
+    from: 'noreply@send.maincourante.eu',
+    destinataires: 'Direction de l\'établissement',
+    subject: 'Le Melkior — 30 jours sur Main Courante',
+    html: buildEngagementPrecocePreviewHtml('Testeur', 30, 60),
+  },
+  {
+    id: 'engagement-j60',
+    badge: 'commercial',
+    nom: 'Engagement J+60 (Testeur) avec bilan',
+    trigger: 'Cron quotidien 10h — si jours_depuis ≥ 60 (Testeur uniquement)',
+    from: 'noreply@send.maincourante.eu',
+    destinataires: 'Direction de l\'établissement',
+    subject: 'Le Melkior — Bilan à 60 jours sur Main Courante',
+    html: buildEngagementTardifPreviewHtml(),
+  },
+  {
+    id: 'urgence-j20',
+    badge: 'commercial',
+    nom: 'Urgence J-20',
+    trigger: 'Cron quotidien 10h — si jours_restants ≤ 20 et > 5',
+    from: 'noreply@send.maincourante.eu',
+    destinataires: 'Direction de l\'établissement',
+    subject: 'Votre essai Main Courante se termine bientôt',
+    html: buildUrgenceJ20PreviewHtml(),
+  },
+  {
+    id: 'urgence-j5',
+    badge: 'commercial',
+    nom: 'Urgence J-5',
+    trigger: 'Cron quotidien 10h — si jours_restants ≤ 5',
+    from: 'noreply@send.maincourante.eu',
+    destinataires: 'Direction de l\'établissement',
+    subject: '⚠️ Plus que 5 jours — Votre essai se termine bientôt',
+    html: buildUrgenceJ5PreviewHtml(),
+  },
+  {
+    id: 'expire-client',
+    badge: 'commercial',
+    nom: 'Essai expiré (client)',
+    trigger: 'Cron quotidien 10h — si jours_restants ≤ 0 (envoi unique)',
+    from: 'noreply@send.maincourante.eu',
+    destinataires: 'Direction de l\'établissement',
+    subject: 'Votre essai Main Courante est terminé',
+    html: buildExpireClientPreviewHtml(),
+  },
+  {
+    id: 'expire-equipe',
+    badge: 'commercial',
+    nom: 'Essai expiré (équipe interne)',
+    trigger: 'Cron quotidien 10h — si jours_restants ≤ 0 (envoi unique)',
+    from: 'noreply@send.maincourante.eu',
+    destinataires: 'contact@maincourante.eu (équipe)',
+    subject: '[Interne] Essai expiré — Le Melkior',
+    html: buildExpireEquipePreviewHtml(),
+  },
 ];
 
 export default function EmailModelesPage() {
@@ -526,7 +838,14 @@ export default function EmailModelesPage() {
                         <Mail className="w-4 h-4 text-slate-400" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-white font-semibold text-sm">{m.nom}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-white font-semibold text-sm">{m.nom}</p>
+                          {m.badge === 'commercial' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 border border-amber-500/25 text-amber-400 shrink-0">
+                              Commercial
+                            </span>
+                          )}
+                        </div>
                         <p className="text-slate-500 text-xs mt-0.5 truncate">
                           <span className="text-slate-600">Trigger :</span> {m.trigger}
                         </p>

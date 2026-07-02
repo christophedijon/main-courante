@@ -19,6 +19,9 @@ type AuthContextType = {
   mustCompleteProfile: boolean;
   mustCompleteOnboarding: boolean;
   onboardingEtabId: string | null;
+  etabStatut: string | null;
+  etabNom: string | null;
+  etabDateFinEssai: string | null;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   setProfileCompleted: () => Promise<void>;
@@ -37,6 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mustCompleteProfile, setMustCompleteProfile] = useState(false);
   const [mustCompleteOnboarding, setMustCompleteOnboarding] = useState(false);
   const [onboardingEtabId, setOnboardingEtabId] = useState<string | null>(null);
+  const [etabStatut, setEtabStatut] = useState<string | null>(null);
+  const [etabNom, setEtabNom] = useState<string | null>(null);
+  const [etabDateFinEssai, setEtabDateFinEssai] = useState<string | null>(null);
 
   async function loadUserMeta(userEmail: string, userId: string) {
     try {
@@ -65,13 +71,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMega && mu?.fonction === 'Direction' && mu?.etablissement_id) {
         const { data: etabRow } = await supabase
           .from('etablissements')
-          .select('id, onboarding_step')
+          .select('id, onboarding_step, statut, nom, date_fin_essai')
           .eq('id', mu.etablissement_id)
           .maybeSingle();
         if (etabRow && etabRow.onboarding_step !== 'done') {
           pendingOnboarding = true;
           pendingEtabId = etabRow.id as string;
         }
+        setEtabStatut(etabRow?.statut ?? null);
+        setEtabNom(etabRow?.nom ?? null);
+        setEtabDateFinEssai(etabRow?.date_fin_essai ?? null);
+      } else {
+        setEtabStatut(null);
+        setEtabNom(null);
+        setEtabDateFinEssai(null);
       }
       setMustCompleteOnboarding(pendingOnboarding);
       setOnboardingEtabId(pendingEtabId);
@@ -82,6 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMustCompleteProfile(false);
       setMustCompleteOnboarding(false);
       setOnboardingEtabId(null);
+      setEtabStatut(null);
+      setEtabNom(null);
+      setEtabDateFinEssai(null);
     } finally {
       setUserMetaReady(true);
     }
@@ -107,6 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMustCompleteProfile(false);
         setMustCompleteOnboarding(false);
         setOnboardingEtabId(null);
+        setEtabStatut(null);
+        setEtabNom(null);
+        setEtabDateFinEssai(null);
         setUserMetaReady(true);
         setLoading(false);
       }
@@ -136,6 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMustCompleteProfile(false);
     setMustCompleteOnboarding(false);
     setOnboardingEtabId(null);
+    setEtabStatut(null);
+    setEtabNom(null);
+    setEtabDateFinEssai(null);
   }
 
   async function setProfileCompleted() {
@@ -163,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isDirection, isSecurite, isServeur, isChefDePoste,
         hasAdminAccess, hasChefDePosteAccess, hasMobileAccess,
         mustCompleteProfile, mustCompleteOnboarding, onboardingEtabId,
+        etabStatut, etabNom, etabDateFinEssai,
         signIn, signOut, setProfileCompleted,
       }}
     >

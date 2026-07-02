@@ -27,6 +27,7 @@ import ConfirmRegistrePage from './pages/ConfirmRegistrePage';
 import BackupPage from './pages/BackupPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ClientsPage from './pages/ClientsPage';
+import ExpirePage from './pages/ExpirePage';
 import EditorAccessPage from './pages/EditorAccessPage';
 import EditorBackofficePage from './pages/EditorBackofficePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -172,12 +173,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaReady, hasAdminAccess, mustCompleteOnboarding, onboardingEtabId } = useAuth();
+  const { session, loading, userMetaReady, hasAdminAccess, mustCompleteOnboarding, onboardingEtabId, etabStatut } = useAuth();
   const [searchParams] = useSearchParams();
   const isOnboardingStep = searchParams.get('onboarding') === 'true';
   if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
+  if (etabStatut === 'expire') return <Navigate to="/expire" replace />;
   if (mustCompleteOnboarding && onboardingEtabId && !isOnboardingStep) return <Navigate to={`/onboarding?etabId=${onboardingEtabId}`} replace />;
   return <>{children}</>;
 }
@@ -191,11 +193,12 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function MobileRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaReady, mustCompleteProfile, isSuperAdmin, mustCompleteOnboarding, onboardingEtabId } = useAuth();
+  const { session, loading, userMetaReady, mustCompleteProfile, isSuperAdmin, mustCompleteOnboarding, onboardingEtabId, etabStatut } = useAuth();
   if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
   if (mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
   if (mustCompleteOnboarding && onboardingEtabId) return <Navigate to={`/onboarding?etabId=${onboardingEtabId}`} replace />;
+  if (etabStatut === 'expire') return <Navigate to="/expire" replace />;
   if (isSuperAdmin) return <Navigate to="/clients" replace />;
   return <>{children}</>;
 }
@@ -356,6 +359,7 @@ export default function App() {
               <Route path="jauge" element={<JaugeConfigPage />} />
             </Route>
             <Route path="/backup" element={<SuperAdminRoute><BackupPage /></SuperAdminRoute>} />
+            <Route path="/expire" element={<PrivateRoute><ExpirePage /></PrivateRoute>} />
             <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
             <Route path="/clients" element={<SuperAdminRoute><ClientsPage /></SuperAdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
