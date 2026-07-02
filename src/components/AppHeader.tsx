@@ -87,7 +87,7 @@ export default function AppHeader({ onSignOut }: Props) {
     ...g,
     items: g.items.filter(item => {
       if (item.superOnly && !isSuperAdmin) return false;
-      if (item.adminOnly && !hasAdminAccess) return false;
+      if (item.adminOnly && (!hasAdminAccess || isSuperAdmin)) return false;
       return true;
     }),
   })).filter(g => g.items.length > 0);
