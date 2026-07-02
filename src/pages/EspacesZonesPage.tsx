@@ -534,6 +534,48 @@ function EspacesZonesPage() {
   const [editingSsiId, setEditingSsiId] = useState<string | null>(null);
   const [ssiFormLoading, setSsiFormLoading] = useState(false);
 
+  const ESPACES_TEMPLATES = [
+    { nom: 'Entrée / File d\'attente', description: 'Zone d\'accueil et contrôle', couleur: PRESET_COLORS[0] },
+    { nom: 'Salle principale',         description: 'Espace principal de l\'établissement', couleur: PRESET_COLORS[2] },
+    { nom: 'Bar',                      description: 'Comptoir et service boissons', couleur: PRESET_COLORS[3] },
+    { nom: 'Terrasse / Extérieur',     description: 'Espace fumeur, terrasse', couleur: PRESET_COLORS[1] },
+    { nom: 'VIP / Carré',              description: 'Espace privatif', couleur: PRESET_COLORS[4] },
+  ];
+  const [selectedEspacesTemplates, setSelectedEspacesTemplates] = useState<Set<number>>(
+    () => new Set(ESPACES_TEMPLATES.map((_, i) => i))
+  );
+  const [applyingEspacesTemplates, setApplyingEspacesTemplates] = useState(false);
+
+  function toggleEspaceTemplate(i: number) {
+    setSelectedEspacesTemplates((prev) => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  }
+
+  async function applyEspacesTemplates() {
+    if (!currentEtabId) return;
+    setApplyingEspacesTemplates(true);
+    const rows = [...selectedEspacesTemplates]
+      .sort((a, b) => a - b)
+      .map((i) => ({
+        nom: ESPACES_TEMPLATES[i].nom,
+        description: ESPACES_TEMPLATES[i].description,
+        couleur: ESPACES_TEMPLATES[i].couleur,
+        etablissement_id: currentEtabId,
+      }));
+    const { data, error } = await supabase.from('espaces').insert(rows).select();
+    if (!error && data) {
+      const inserted = (data as any[]).map((e) => ({ ...e, zones: [] }));
+      setEspaces((prev) => [...prev, ...inserted]);
+      setToast({ type: 'success', text: `${inserted.length} espace(s) créé(s)` });
+    } else {
+      setToast({ type: 'error', text: 'Erreur lors de la création des espaces' });
+    }
+    setApplyingEspacesTemplates(false);
+  }
+
   useEffect(() => {
     if (!session) { navigate('/'); return; }
     if (!hasAdminAccess) { navigate('/mobile'); return; }
@@ -963,7 +1005,42 @@ function EspacesZonesPage() {
                   </div>
                 )}
 
-                {espaces.length === 0 && !showAddEspace && (
+                {isOnboarding && espaces.length === 0 && !showAddEspace && (
+                  <div className="bg-slate-900 border border-blue-500/20 rounded-xl p-5 mb-4">
+                    <h3 className="text-white font-semibold text-sm mb-1">Espaces types pour votre établissement</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed mb-4">
+                      Voici une structure courante. Adaptez-la à votre établissement.
+                    </p>
+                    <div className="space-y-2 mb-4">
+                      {ESPACES_TEMPLATES.map((t, i) => (
+                        <label key={i} className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedEspacesTemplates.has(i)}
+                            onChange={() => toggleEspaceTemplate(i)}
+                            className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-800 cursor-pointer accent-blue-500"
+                          />
+                          <span className="flex items-center gap-2 text-sm">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: t.couleur }} />
+                            <span className="text-white font-medium">{t.nom}</span>
+                            <span className="text-slate-500"> — {t.description}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={selectedEspacesTemplates.size === 0 || applyingEspacesTemplates}
+                      onClick={applyEspacesTemplates}
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Créer les espaces sélectionnés ({selectedEspacesTemplates.size})
+                    </button>
+                  </div>
+                )}
+
+                {!isOnboarding && espaces.length === 0 && !showAddEspace && (
                   <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
                       <Building2 className="w-6 h-6 text-slate-600" />

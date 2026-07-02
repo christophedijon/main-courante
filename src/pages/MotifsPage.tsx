@@ -332,6 +332,50 @@ export default function MotifsPage() {
   const [openMotifsSsi, setOpenMotifsSsi] = useState(true);
   const [openNiveaux,   setOpenNiveaux]   = useState(true);
 
+  const MOTIFS_TEMPLATES = [
+    { nom: 'Altercation',                  description: 'Bagarre, rixe, échange de coups' },
+    { nom: 'Refus d\'entrée',              description: 'Ivresse / Tenue / Incident antérieur / Jauge' },
+    { nom: 'Comportement agressif',        description: 'Différend sentimental, agressivité ciblée' },
+    { nom: 'Vol',                          description: 'Vol à la tire, vol d\'effets personnels' },
+    { nom: 'Fume',                         description: 'Consommation de tabac/substances en zone interdite' },
+    { nom: 'Faux justificatif de majorité', description: 'Document falsifié ou emprunté' },
+    { nom: 'Pause extérieure',             description: 'Malaise, rappel des consignes' },
+  ];
+  const [selectedTemplates, setSelectedTemplates] = useState<Set<number>>(
+    () => new Set(MOTIFS_TEMPLATES.map((_, i) => i))
+  );
+  const [applyingTemplates, setApplyingTemplates] = useState(false);
+
+  function toggleTemplate(i: number) {
+    setSelectedTemplates((prev) => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  }
+
+  async function applyMotifTemplates() {
+    const currentEtabId = onboardingEtabId ?? etablissementId;
+    if (!currentEtabId) return;
+    setApplyingTemplates(true);
+    const rows = [...selectedTemplates]
+      .sort((a, b) => a - b)
+      .map((i, idx) => ({
+        nom: MOTIFS_TEMPLATES[i].nom,
+        description: MOTIFS_TEMPLATES[i].description,
+        ordre: idx + 1,
+        etablissement_id: currentEtabId,
+      }));
+    const { data, error } = await supabase.from('motifs').insert(rows).select();
+    if (!error && data) {
+      setMotifs((prev) => [...prev, ...(data as any[])]);
+      setToast({ type: 'success', msg: `${data.length} motif(s) ajouté(s)` });
+    } else {
+      setToast({ type: 'error', msg: 'Erreur lors de l\'ajout des motifs' });
+    }
+    setApplyingTemplates(false);
+  }
+
   useEffect(() => {
     if (!session)        { navigate('/'); return; }
     if (!hasAdminAccess) { navigate('/mobile'); return; }
@@ -558,7 +602,40 @@ export default function MotifsPage() {
               </p>
 
               <div className="space-y-2">
-                {motifs.length === 0 && (
+                {isOnboarding && motifs.length === 0 && (
+                  <div className="bg-slate-900 border border-blue-500/20 rounded-xl p-5 mb-4">
+                    <h3 className="text-white font-semibold text-sm mb-1">Motifs de saisie recommandés</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed mb-4">
+                      Voici les motifs les plus fréquents pour un établissement de nuit. Vous pourrez les modifier à tout moment.
+                    </p>
+                    <div className="space-y-2 mb-4">
+                      {MOTIFS_TEMPLATES.map((t, i) => (
+                        <label key={i} className="flex items-start gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={selectedTemplates.has(i)}
+                            onChange={() => toggleTemplate(i)}
+                            className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 cursor-pointer accent-blue-500"
+                          />
+                          <span className="text-sm">
+                            <span className="text-white font-medium">{t.nom}</span>
+                            <span className="text-slate-500"> — {t.description}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={selectedTemplates.size === 0 || applyingTemplates}
+                      onClick={applyMotifTemplates}
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Ajouter les motifs sélectionnés ({selectedTemplates.size})
+                    </button>
+                  </div>
+                )}
+                {!isOnboarding && motifs.length === 0 && (
                   <div className="text-center py-8 text-slate-600">
                     <FileText className="w-9 h-9 mx-auto mb-3 opacity-25" />
                     <p className="text-sm">Aucun motif configuré</p>
