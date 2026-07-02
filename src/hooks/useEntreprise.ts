@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-type EntrepriseInfo = { id: string | null; nom: string; logo_url: string | null };
+type EntrepriseInfo = { id: string | null; nom: string; logo_url: string | null; registre_onboarding_done: boolean };
 
 let cache: EntrepriseInfo | null = null;
 let isMegaAdmin = false;
@@ -18,13 +18,15 @@ function doFetch() {
   fetchInFlight = true;
   supabase
     .from('etablissements')
-    .select('id, nom, logo_url')
+    .select('id, nom, logo_url, registre_onboarding_done')
     .limit(1)
     .maybeSingle()
     .then(({ data }) => {
       fetchInFlight = false;
       if (isMegaAdmin) return;
-      notify(data ? { id: data.id, nom: data.nom, logo_url: data.logo_url } : { id: null, nom: '', logo_url: null });
+      notify(data
+        ? { id: data.id, nom: data.nom, logo_url: data.logo_url, registre_onboarding_done: data.registre_onboarding_done ?? false }
+        : { id: null, nom: '', logo_url: null, registre_onboarding_done: false });
     })
     .catch(() => { fetchInFlight = false; });
 }
@@ -43,7 +45,7 @@ export function setEntrepriseMegaAdmin(v: boolean) {
   cache = null;
   fetchInFlight = false;
   if (v) {
-    notify({ id: null, nom: '', logo_url: null });
+    notify({ id: null, nom: '', logo_url: null, registre_onboarding_done: false });
   } else if (listeners.length > 0) {
     doFetch();
   }
@@ -81,6 +83,7 @@ export function useEntreprise() {
     id: info?.id ?? null,
     nom: info?.nom ?? '',
     logo_url: info?.logo_url ?? null,
+    registre_onboarding_done: info?.registre_onboarding_done ?? false,
     loading,
   };
 }

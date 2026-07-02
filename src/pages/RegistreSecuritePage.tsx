@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardList, Upload, Eye, History, X, ChevronDown, ChevronUp,
   Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2, Pencil, Trash2,
-  Archive, PlayCircle,
+  Archive, PlayCircle, Flame, BookOpen, Bell, PenSquare, Timer,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -1552,7 +1552,8 @@ function MobileCardView({ items, historiqueCounts }: { items: RegistreItem[]; hi
 
 export default function RegistreSecuritePage() {
   const { signOut, session } = useAuth();
-  const { nom, logo_url, id: etablissementId } = useEntreprise();
+  const { nom, logo_url, id: etablissementId, registre_onboarding_done } = useEntreprise();
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [items, setItems] = useState<RegistreItem[]>([]);
   const [historiqueCounts, setHistoriqueCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -1563,6 +1564,25 @@ export default function RegistreSecuritePage() {
   const [userFonction, setUserFonction] = useState<string | null>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const mirrorScrollRef = useRef<HTMLDivElement>(null);
+
+  // Sync onboardingDone from hook once etablissement data has loaded
+  useEffect(() => {
+    if (onboardingDone === null && etablissementId !== null) {
+      setOnboardingDone(registre_onboarding_done);
+    }
+  }, [registre_onboarding_done, etablissementId, onboardingDone]);
+
+  async function handleCompleteOnboarding(openAdd: boolean) {
+    setOnboardingDone(true);
+    if (etablissementId) {
+      await supabase.from('etablissements')
+        .update({ registre_onboarding_done: true })
+        .eq('id', etablissementId);
+    }
+    if (openAdd) {
+      setTimeout(() => setShowAddModal(true), 150);
+    }
+  }
 
   useEffect(() => {
     if (!session?.user?.email) return;
@@ -1674,7 +1694,118 @@ export default function RegistreSecuritePage() {
     <div className="min-h-screen bg-slate-950 text-white">
       <AppHeader onSignOut={signOut} />
 
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8">
+      {/* ── Onboarding welcome screen ── */}
+      {onboardingDone === false && (
+        <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-2xl">
+            {/* Hero */}
+            <div className="flex flex-col items-center text-center mb-10">
+              <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-5">
+                <Flame className="w-8 h-8 text-red-400" />
+              </div>
+              <h1 className="text-3xl font-black text-white mb-3">Registre de sécurité numérique</h1>
+              <p className="text-slate-400 text-base leading-relaxed max-w-lg">
+                Votre registre remplace le classeur papier obligatoire
+                <span className="text-slate-300 font-medium"> (art. R123-51 du CCH)</span>.
+                Planifiez vos vérifications et recevez des rappels automatiques.
+              </p>
+            </div>
+
+            {/* Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              {/* Ce qu'il vous faut */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:col-span-2">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <p className="text-white font-semibold text-sm">Ce qu'il vous faut pour commencer</p>
+                </div>
+                <ul className="space-y-2.5">
+                  {[
+                    'Coordonnées de vos organismes vérificateurs (électricité, gaz, extincteurs, SSI, désenfumage…)',
+                    'Dates des dernières visites de chaque organisme',
+                    'Rapports de vérification en PDF (facultatif mais recommandé)',
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-300">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Temps estimé */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                    <Timer className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <p className="text-white font-semibold text-sm">Temps estimé</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-black text-amber-400">15–20</p>
+                  <p className="text-slate-400 text-sm mt-1">minutes selon le nombre d'organismes</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Comment ça marche */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-8">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <PlayCircle className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-white font-semibold text-sm">Comment ça marche</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { num: '1', icon: <Plus className="w-4 h-4" />, text: 'Vous ajoutez vos organismes vérificateurs', color: 'blue' },
+                  { num: '2', icon: <Clock className="w-4 h-4" />, text: 'Vous planifiez les dates de vérification', color: 'amber' },
+                  { num: '3', icon: <Bell className="w-4 h-4" />, text: 'Main Courante vous envoie des rappels automatiques', color: 'emerald' },
+                  { num: '4', icon: <PenSquare className="w-4 h-4" />, text: 'Vos agents peuvent faire signer les rapports sur mobile', color: 'violet' },
+                ].map(({ num, icon, text, color }) => {
+                  const colorMap: Record<string, string> = {
+                    blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+                    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+                    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+                    violet: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
+                  };
+                  return (
+                    <div key={num} className="flex items-start gap-3">
+                      <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${colorMap[color]}`}>
+                        {icon}
+                      </div>
+                      <p className="text-slate-300 text-sm leading-relaxed pt-1">{text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => handleCompleteOnboarding(true)}
+                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-sm shadow-lg shadow-blue-500/10"
+              >
+                <Flame className="w-4 h-4" />
+                Configurer mon registre
+              </button>
+              <button
+                onClick={() => handleCompleteOnboarding(false)}
+                className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-sm"
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Normal registre view ── */}
+      {onboardingDone !== false && (
+      <><div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8">
         {/* Page header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
@@ -1833,6 +1964,8 @@ export default function RegistreSecuritePage() {
           <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
           {toast}
         </div>
+      )}
+      </>
       )}
     </div>
   );
