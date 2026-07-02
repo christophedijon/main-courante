@@ -161,12 +161,34 @@ export default function EmailsPage() {
     `;
 
     try {
-      const res = await fetch(MAKE_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: recipients, sujet: sujetTest, html: htmlTest }),
-      });
-      if (!res.ok) throw new Error('Webhook error');
+      const { data: iaSettings } = await supabase
+        .from('ia_settings')
+        .select('resend_api_key')
+        .limit(1)
+        .maybeSingle();
+
+      if (!iaSettings?.resend_api_key) {
+        setToast({ msg: 'Clé Resend non configurée dans les paramètres IA.', type: 'error' });
+        setTesting((prev) => ({ ...prev, [id]: false }));
+        return;
+      }
+
+      const sends = recipients.map((to) =>
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${iaSettings.resend_api_key}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'noreply@send.maincourante.eu',
+            to,
+            subject: sujetTest,
+            html: htmlTest,
+          }),
+        })
+      );
+      await Promise.all(sends);
       setToast({ msg: `Email de test envoyé à ${recipients.length} destinataire(s).`, type: 'success' });
     } catch {
       setToast({ msg: 'Erreur lors de l\'envoi du test.', type: 'error' });
