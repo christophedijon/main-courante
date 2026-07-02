@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Plus, Trash2, ChevronDown, ChevronRight, Save, X, CreditCard as Edit2, Users, Layers, AlertCircle, CheckCircle, ShieldCheck, Flame, Building2, DoorOpen, GlassWater, Music, Crown, Shirt, PersonStanding, Utensils, Wine, Music2, Mic2, Ticket, Coffee, Camera, Star, Lock, Key, Radio, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useEntreprise } from '../hooks/useEntreprise';
 import AppHeader from '../components/AppHeader';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -503,11 +504,15 @@ function SsiZoneForm({ initial, onSave, onCancel, loading }: SsiZoneFormProps) {
 
 function EspacesZonesPage() {
   const { session, signOut, isSuperAdmin, hasAdminAccess } = useAuth();
+  const { id: entrepriseEtabId } = useEntreprise();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const zoneParam = searchParams.get('zone'); // 'ssi' | null
   const isOnboarding = searchParams.get('onboarding') === 'true';
   const onboardingEtabId = searchParams.get('etabId') ?? null;
+
+  // In onboarding mode, use the etabId from the URL; otherwise use the current user's etablissement
+  const currentEtabId = onboardingEtabId ?? entrepriseEtabId;
 
   const [espaces, setEspaces] = useState<Espace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -538,8 +543,8 @@ function EspacesZonesPage() {
         document.getElementById('ssi-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 400);
     }
-    fetchAll();
-  }, [session, isSuperAdmin]);
+    if (currentEtabId) fetchAll();
+  }, [session, isSuperAdmin, currentEtabId]);
 
   useEffect(() => {
     if (!toast) return;
@@ -550,9 +555,9 @@ function EspacesZonesPage() {
   async function fetchAll() {
     setLoading(true);
     const [espacesRes, zonesRes, ssiRes] = await Promise.all([
-      supabase.from('espaces').select('*').order('created_at'),
+      supabase.from('espaces').select('*').eq('etablissement_id', currentEtabId ?? '').order('created_at'),
       supabase.from('zones').select('*').order('created_at'),
-      supabase.from('zones_ssi').select('*').order('ordre', { ascending: true }),
+      supabase.from('zones_ssi').select('*').eq('etablissement_id', currentEtabId ?? '').order('ordre', { ascending: true }),
     ]);
     const zonesData: Zone[] = zonesRes.data ?? [];
     const espacesData: Espace[] = (espacesRes.data ?? []).map((e) => ({
@@ -575,7 +580,8 @@ function EspacesZonesPage() {
 
   async function handleAddEspace(data: { nom: string; description: string; couleur: string }) {
     setEspaceFormLoading(true);
-    const { data: inserted, error } = await supabase.from('espaces').insert(data).select().maybeSingle();
+    const { data: inserted, error } = await supabase.from('espaces')
+      .insert({ ...data, etablissement_id: currentEtabId }).select().maybeSingle();
     setEspaceFormLoading(false);
     if (error || !inserted) {
       console.error('Espace insert error:', error);
@@ -608,7 +614,7 @@ function EspacesZonesPage() {
   async function handleAddZone(espaceId: string, categorie: ZoneCategorie, data: { nom: string; description: string; capacite: number | null }) {
     setZoneFormLoading(true);
     const { data: inserted, error } = await supabase.from('zones')
-      .insert({ espace_id: espaceId, categorie, ...data }).select().maybeSingle();
+      .insert({ espace_id: espaceId, categorie, etablissement_id: currentEtabId, ...data }).select().maybeSingle();
     if (error) console.error('Zone insert error:', error);
     setZoneFormLoading(false);
     if (error || !inserted) { setToast({ type: 'error', text: 'Erreur lors de la création.' }); return; }
@@ -647,7 +653,7 @@ function EspacesZonesPage() {
     setSsiFormLoading(true);
     const ordre = zonesSsi.length;
     const { data: inserted, error } = await supabase
-      .from('zones_ssi').insert({ ...data, ordre }).select().maybeSingle();
+      .from('zones_ssi').insert({ ...data, ordre, etablissement_id: currentEtabId }).select().maybeSingle();
     setSsiFormLoading(false);
     if (error || !inserted) { setToast({ type: 'error', text: 'Erreur lors de la création.' }); return; }
     setZonesSsi((prev) => [...prev, inserted as ZoneSsi]);
@@ -696,7 +702,6 @@ function EspacesZonesPage() {
       ) : (
         <AppHeader onSignOut={handleSignOut} />
       )}
-      <AppHeader onSignOut={handleSignOut} />
 
       {/* Toast */}
       {toast && (
