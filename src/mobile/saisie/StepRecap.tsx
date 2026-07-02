@@ -118,7 +118,7 @@ export default function StepRecap() {
   const { draft, reset, pendingMedias, clearPendingMedias } = useSaisie();
   const { session, userFonction } = useAuth();
   const { profile } = useCurrentProfile();
-  const { nom: entrepriseNom } = useEntreprise();
+  const { nom: entrepriseNom, id: entrepriseId } = useEntreprise();
 
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -159,6 +159,7 @@ export default function StepRecap() {
       .from('evenements')
       .insert({
         type,
+        etablissement_id: draft.etablissement?.id || entrepriseId || null,
         espace_id: draft.espace?.id || null,
         zone_id: isSsiFlow ? null : (draft.zone?.id || null),
         zone_ssi_id: isSsiFlow ? (draft.zone?.id || null) : null,
