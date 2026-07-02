@@ -232,7 +232,7 @@ export default function App() {
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/entreprise" element={<AdminRoute><EntreprisePage /></AdminRoute>} />
             <Route path="/espaces-zones" element={<AdminRoute><EspacesZonesPage /></AdminRoute>} />
-            <Route path="/ia" element={<AdminRoute><IAPage /></AdminRoute>} />
+            <Route path="/ia" element={<SuperAdminRoute><IAPage /></SuperAdminRoute>} />
             <Route path="/motifs" element={<AdminRoute><MotifsPage /></AdminRoute>} />
             <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
             <Route path="/postes" element={<AdminRoute><PostesPage /></AdminRoute>} />
@@ -347,7 +347,6 @@ export default function App() {
               <Route path="profile" element={<ProfilePage />} />
               <Route path="entreprise" element={<EntreprisePage />} />
               <Route path="espaces-zones" element={<EspacesZonesPage />} />
-              <Route path="ia" element={<IAPage />} />
               <Route path="motifs" element={<MotifsPage />} />
               <Route path="documents" element={<DocumentsPage />} />
               <Route path="postes" element={<PostesPage />} />
