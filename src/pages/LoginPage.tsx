@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { ResetPasswordModal } from '../components/ResetPasswordModal';
@@ -84,9 +84,11 @@ export default function LoginPage() {
           <div className="p-8 sm:p-10">
             {/* Logo / Brand */}
             <div className="flex flex-col items-center mb-10">
-              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
-                <Shield className="w-7 h-7 text-blue-400" />
-              </div>
+              <img
+                src="/icons/icon-192.png"
+                alt="Main Courante"
+                className="w-16 h-16 rounded-2xl mb-4 shadow-lg"
+              />
               <h1 className="text-2xl font-semibold text-white tracking-tight">Main Courante</h1>
             </div>
 
