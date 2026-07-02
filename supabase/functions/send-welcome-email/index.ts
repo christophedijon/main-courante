@@ -100,146 +100,223 @@ Deno.serve(async (req: Request) => {
     const emailContact  = etab.email ?? "—";
     const telephone     = etab.telephone ?? "—";
     const greeting      = prenom ? `Bonjour ${prenom},` : "Bonjour,";
+    const displayPrenom = prenom || "vous";
+
+    // Conformité score (filled fields / total)
+    const fieldsForConformite = [etab.nom, etab.enseigne, etab.type_erp, etab.categorie_erp, etab.effectif_public, etab.adresse, etab.email, etab.telephone];
+    const filledCount = fieldsForConformite.filter(Boolean).length;
+    const conformite = Math.round((filledCount / fieldsForConformite.length) * 100);
+    // SVG gauge needle — center (70,72), radius 42
+    const needleX = Math.round(70 - 42 * Math.cos(conformite * Math.PI / 100));
+    const needleY = Math.round(72 - 42 * Math.sin(conformite * Math.PI / 100));
 
     const html = `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
-<div style="max-width:620px;margin:0 auto;padding:32px 16px 48px">
+<body style="margin:0;padding:0;background:#0d1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0d1117">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
 
-  <!-- HEADER CARD -->
-  <div style="background:#0f172a;border-radius:16px 16px 0 0;padding:32px 40px 28px;text-align:center">
-    <p style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;margin:0 0 10px">Main Courante</p>
-    <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 10px;line-height:1.3">Bienvenue, ${greeting.replace('Bonjour ', '').replace(',', '')} !</h1>
-    <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6">
-      Félicitations — <strong style="color:#e2e8f0">${nomEtab}</strong> est désormais configuré sur Main Courante.
+  <!-- HEADER -->
+  <tr><td align="center" style="padding:40px 24px 16px">
+    <svg width="48" height="54" viewBox="0 0 48 54" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 14px">
+      <path d="M24 2L46 11V31C46 42 36 50 24 52C12 50 2 42 2 31V11Z" fill="rgba(37,99,235,0.1)" stroke="#2563eb" stroke-width="1.5"/>
+      <path d="M24 18v16M16 26h16" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <p style="color:#e2e8f0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.25em;margin:0 0 4px">Main Courante</p>
+    <p style="color:#334155;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;margin:0">La sécurité des ERP. Simplement.</p>
+  </td></tr>
+
+  <!-- GREETING -->
+  <tr><td align="center" style="padding:8px 32px 28px">
+    <h1 style="color:#f1f5f9;font-size:30px;font-weight:800;margin:0 0 10px;line-height:1.25">
+      Bienvenue, <span style="color:#f59e0b">${displayPrenom}</span>&nbsp;!
+    </h1>
+    <p style="color:#475569;font-size:14px;margin:0;line-height:1.6">
+      Votre établissement est désormais configuré sur Main Courante.
     </p>
-  </div>
+  </td></tr>
 
-  <!-- BODY CARD -->
-  <div style="background:#ffffff;padding:0 40px 36px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.06)">
-
-    <!-- SEPARATOR -->
-    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
-
-    <!-- COORDONNÉES -->
-    <p style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">Vos coordonnées</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 28px">
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;width:160px;vertical-align:top">Établissement</td>
-        <td style="padding:9px 0;color:#1e293b;font-weight:600">${nomEtab}</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Enseigne</td>
-        <td style="padding:9px 0;color:#334155">${enseigne}</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Type ERP</td>
-        <td style="padding:9px 0;color:#334155">${typeErp} — Catégorie ${categorieErp}</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Effectif max autorisé</td>
-        <td style="padding:9px 0;color:#334155">${effectif}</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Adresse</td>
-        <td style="padding:9px 0;color:#334155">${adresse}</td>
-      </tr>
+  <!-- ÉTABLISSEMENT CARD -->
+  <tr><td style="padding:0 16px 10px">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:12px;overflow:hidden">
       <tr>
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Contact</td>
-        <td style="padding:9px 0;color:#334155">${emailContact} — ${telephone}</td>
+        <!-- Info -->
+        <td width="55%" style="padding:20px;vertical-align:top">
+          <table cellpadding="0" cellspacing="0" style="margin-bottom:16px">
+            <tr>
+              <td style="padding-right:10px;vertical-align:middle">
+                <div style="width:32px;height:32px;background:#1e293b;border-radius:7px;text-align:center;line-height:32px;font-size:15px">🏢</div>
+              </td>
+              <td style="vertical-align:middle">
+                <p style="color:#f1f5f9;font-size:13px;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:0.04em">${nomEtab}</p>
+                <p style="color:#334155;font-size:11px;margin:2px 0 0">${enseigne}</p>
+              </td>
+            </tr>
+          </table>
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding:4px 10px 4px 0;color:#334155;font-size:12px;white-space:nowrap;vertical-align:top">Type ERP</td>
+              <td style="padding:4px 0;color:#94a3b8;font-size:12px">${typeErp}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 10px 4px 0;color:#334155;font-size:12px;white-space:nowrap;vertical-align:top">Catégorie</td>
+              <td style="padding:4px 0;color:#94a3b8;font-size:12px">${categorieErp}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 10px 4px 0;color:#334155;font-size:12px;white-space:nowrap;vertical-align:top">Jauge max autorisée</td>
+              <td style="padding:4px 0;color:#f97316;font-size:12px;font-weight:600">${effectif}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 10px 4px 0;color:#334155;font-size:12px;white-space:nowrap;vertical-align:top">Adresse</td>
+              <td style="padding:4px 0;color:#94a3b8;font-size:12px">${adresse}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 10px 4px 0;color:#334155;font-size:12px;white-space:nowrap;vertical-align:top">Contact</td>
+              <td style="padding:4px 0;font-size:12px">
+                <a href="mailto:${emailContact}" style="color:#60a5fa;text-decoration:none;display:block">${emailContact}</a>
+                <span style="color:#94a3b8">${telephone}</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+        <!-- Gauge -->
+        <td width="45%" style="padding:20px;vertical-align:middle;text-align:center;border-left:1px solid #1e2d4a">
+          <svg width="140" height="82" viewBox="0 0 140 82" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
+            <path d="M10,75 A60,60 0 0,0 130,75" fill="none" stroke="#1e293b" stroke-width="10" stroke-linecap="round"/>
+            <path d="M10,75 A60,60 0 0,0 28,33" fill="none" stroke="#ef4444" stroke-width="10" stroke-linecap="butt"/>
+            <path d="M28,33 A60,60 0 0,0 70,15" fill="none" stroke="#f97316" stroke-width="10" stroke-linecap="butt"/>
+            <path d="M70,15 A60,60 0 0,0 112,33" fill="none" stroke="#eab308" stroke-width="10" stroke-linecap="butt"/>
+            <path d="M112,33 A60,60 0 0,0 130,75" fill="none" stroke="#22c55e" stroke-width="10" stroke-linecap="round"/>
+            <line x1="70" y1="75" x2="${needleX}" y2="${needleY}" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="70" cy="75" r="5" fill="#1e293b" stroke="#ffffff" stroke-width="2"/>
+          </svg>
+          <p style="color:#f59e0b;font-size:26px;font-weight:800;margin:6px 0 2px;line-height:1">${conformite}%</p>
+          <p style="color:#334155;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 10px">Conformité initiale</p>
+          <p style="color:#1e293b;font-size:11px;line-height:1.5;margin:0;padding:0 4px">
+            Complétez les informations manquantes pour atteindre une conformité optimale.
+          </p>
+        </td>
       </tr>
     </table>
+  </td></tr>
 
-    <!-- SEPARATOR -->
-    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
+  <!-- 4 FEATURE TILES -->
+  <tr><td style="padding:0 16px 10px">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="24%" style="padding-right:6px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:10px">
+            <tr><td style="padding:16px 8px;text-align:center">
+              <div style="font-size:24px;line-height:1;margin-bottom:8px">🔥</div>
+              <p style="color:#f1f5f9;font-size:11px;font-weight:700;margin:0 0 4px">SSI</p>
+              <p style="color:#ef4444;font-size:10px;margin:0;line-height:1.4">Sécurité Incendie</p>
+            </td></tr>
+          </table>
+        </td>
+        <td width="24%" style="padding:0 3px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:10px">
+            <tr><td style="padding:16px 8px;text-align:center">
+              <div style="font-size:24px;line-height:1;margin-bottom:8px">👥</div>
+              <p style="color:#f1f5f9;font-size:11px;font-weight:700;margin:0 0 4px">Gestion client</p>
+              <p style="color:#60a5fa;font-size:10px;margin:0;line-height:1.4">Sécurité des personnes</p>
+            </td></tr>
+          </table>
+        </td>
+        <td width="26%" style="padding:0 3px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#1e293b;border:1px solid #334155;border-radius:10px">
+            <tr><td style="padding:14px 8px;text-align:center">
+              <p style="color:#ef4444;font-size:10px;font-weight:900;text-transform:uppercase;line-height:1.25;margin:0 0 8px;letter-spacing:0.04em">REGISTRE<br>DE<br>SÉCURITÉ</p>
+              <p style="color:#f1f5f9;font-size:11px;font-weight:700;margin:0 0 4px">Registre</p>
+              <p style="color:#f59e0b;font-size:10px;margin:0;line-height:1.4">Main courante numérique</p>
+            </td></tr>
+          </table>
+        </td>
+        <td width="26%" style="padding-left:6px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:10px">
+            <tr><td style="padding:16px 8px;text-align:center">
+              <div style="font-size:24px;line-height:1;margin-bottom:8px">⏱️</div>
+              <p style="color:#f1f5f9;font-size:11px;font-weight:700;margin:0 0 4px">Jauge</p>
+              <p style="color:#64748b;font-size:10px;margin:0;line-height:1.4">Suivi de capacité en temps réel</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
 
-    <!-- POURQUOI -->
-    <p style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">Pourquoi Main Courante est essentiel pour votre établissement</p>
-    <p style="color:#475569;font-size:14px;line-height:1.8;margin:0 0 24px">
-      En tant qu'exploitant d'un ERP, vous êtes personnellement responsable de la sécurité de votre public.
-      En cas d'incident, les autorités (commission de sécurité, préfecture, procureur) examinent
-      systématiquement votre capacité à démontrer que vous avez pris toutes les mesures nécessaires.
-    </p>
+  <!-- POURQUOI SECTION -->
+  <tr><td style="padding:0 16px 10px">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:12px;overflow:hidden">
+      <tr>
+        <!-- Visual -->
+        <td width="38%" style="padding:20px;background:#110808;vertical-align:middle;text-align:center">
+          <div style="background:#dc2626;border-radius:8px;padding:14px 12px;margin-bottom:10px">
+            <p style="color:#ffffff;font-size:14px;font-weight:900;text-transform:uppercase;margin:0;line-height:1.4;letter-spacing:0.04em">REGISTRE<br>DE<br>SÉCURITÉ</p>
+          </div>
+          <table cellpadding="0" cellspacing="2" style="margin:0 auto">
+            <tr>
+              <td><div style="background:#ef4444;border-radius:4px;width:24px;height:24px;text-align:center;line-height:24px;font-size:13px">🔥</div></td>
+              <td><div style="background:#16a34a;border-radius:4px;width:24px;height:24px;text-align:center;line-height:24px;font-size:13px">↩</div></td>
+              <td><div style="background:#2563eb;border-radius:4px;width:24px;height:24px;text-align:center;line-height:24px;font-size:13px">🏃</div></td>
+              <td><div style="background:#dc2626;border-radius:4px;width:24px;height:24px;text-align:center;line-height:24px;font-size:13px">📋</div></td>
+              <td><div style="background:#16a34a;border-radius:4px;width:24px;height:24px;text-align:center;line-height:24px;font-size:13px">♿</div></td>
+            </tr>
+          </table>
+        </td>
+        <!-- Text -->
+        <td style="padding:20px;vertical-align:top;border-left:1px solid #1e2d4a">
+          <p style="color:#f59e0b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">Pourquoi c'est essentiel ?</p>
+          <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0 0 10px">
+            En tant qu'exploitant d'un ERP, vous êtes personnellement responsable de la sécurité de votre public.
+          </p>
+          <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0 0 10px">
+            Main Courante horodate, trace et archive chaque événement, chaque vérification et chaque action corrective.
+          </p>
+          <p style="color:#f97316;font-size:13px;line-height:1.7;margin:0;font-style:italic">
+            En cas de contrôle ou d'incident, votre capacité à démontrer vos actions est essentielle.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
 
-    <!-- Bloc 1 -->
-    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #1e40af;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Protection juridique</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Main Courante constitue votre preuve de diligence. Chaque événement horodaté, chaque ronde tracée,
-        chaque vérification documentée est un élément qui vous protège en cas de mise en cause.
-        L'article R123-51 du CCH impose la tenue d'un registre de sécurité — Main Courante
-        le dématérialise et le rend infalsifiable.
-      </p>
-    </div>
-
-    <!-- Bloc 2 -->
-    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #0e7a4a;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Conformité réglementaire</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Votre registre de sécurité numérique, vos vérifications périodiques et le suivi de votre effectif
-        (art. GN 11) sont accessibles en un clic lors d'un contrôle. Plus besoin de chercher des
-        classeurs papier ou des attestations égarées.
-      </p>
-    </div>
-
-    <!-- Bloc 3 -->
-    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #b45309;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Prévention des fermetures administratives</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Un avis défavorable de la commission de sécurité peut entraîner une fermeture administrative
-        immédiate de votre établissement (art. L123-4 du CCH). Main Courante vous aide à anticiper
-        les échéances, à tracer vos actions correctives et à démontrer votre professionnalisme.
-      </p>
-    </div>
-
-    <!-- Bloc 4 -->
-    <div style="margin:0 0 28px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #1d4ed8;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Toute votre sécurité en un seul endroit</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Main courante de sécurité, registre de sécurité incendie, jauge de capacité, rondes de
-        vérification, rapports automatiques — tout est centralisé, horodaté et exportable.
-      </p>
-    </div>
-
-    <!-- SIGNATURE LINE -->
-    <p style="color:#475569;font-size:14px;line-height:1.8;margin:0 0 28px;font-style:italic;border-top:1px solid #f1f5f9;padding-top:20px">
-      Vous êtes un professionnel de l'ERP. Main Courante est l'outil conçu par des professionnels
-      de l'ERP, pour vous.
-    </p>
-
-    <!-- SEPARATOR -->
-    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
-
-    <!-- CTA -->
-    <div style="text-align:center;margin:0 0 24px">
-      <a href="https://maincourante.eu"
-         style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;
-                padding:16px 40px;border-radius:10px;text-decoration:none;letter-spacing:0.02em">
-        Accéder à Main Courante →
-      </a>
-    </div>
-
-    <p style="text-align:center;color:#94a3b8;font-size:13px;margin:0">
-      Des questions ? Répondez directement à cet email.
-    </p>
-
-  </div>
+  <!-- CTA -->
+  <tr><td style="padding:0 16px 28px">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:12px">
+      <tr><td style="padding:32px 24px;text-align:center">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 20px">
+          <path d="M12 2L22 6V13C22 18 17 22 12 23C7 22 2 18 2 13V6Z" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+        </svg>
+        <a href="https://maincourante.eu"
+           style="display:inline-block;border:1.5px solid #f59e0b;color:#f59e0b;font-size:13px;font-weight:700;
+                  text-transform:uppercase;letter-spacing:0.1em;padding:14px 36px;border-radius:8px;text-decoration:none">
+          Accéder à mon tableau de bord &nbsp;→
+        </a>
+        <p style="color:#334155;font-size:12px;margin:18px 0 0;line-height:1.6">
+          Des questions ? Répondez directement à cet email,<br>notre équipe vous répond rapidement.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
 
   <!-- FOOTER -->
-  <div style="padding:24px 0 0;text-align:center">
-    <p style="color:#94a3b8;font-size:12px;margin:0 0 4px;font-weight:600">L'équipe Main Courante</p>
-    <p style="color:#cbd5e1;font-size:11px;margin:0 0 4px">
-      <a href="https://maincourante.eu" style="color:#94a3b8;text-decoration:none">maincourante.eu</a>
+  <tr><td style="padding:0 24px 40px;text-align:center">
+    <p style="color:#334155;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;margin:0 0 6px">L'équipe Main Courante</p>
+    <p style="color:#1e293b;font-size:11px;margin:0 0 6px">
+      <a href="https://maincourante.eu" style="color:#334155;text-decoration:none">maincourante.eu</a>
       &nbsp;·&nbsp;
-      <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a>
+      <a href="mailto:contact@maincourante.eu" style="color:#334155;text-decoration:none">contact@maincourante.eu</a>
     </p>
-    <p style="color:#cbd5e1;font-size:11px;margin:0">
+    <p style="color:#1e293b;font-size:11px;margin:0">
       Cet email a été envoyé à ${direction.email} suite à la configuration de votre établissement.
     </p>
-  </div>
+  </td></tr>
 
-</div>
+</table>
+</td></tr>
+</table>
 </body>
 </html>`;
 

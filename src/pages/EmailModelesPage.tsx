@@ -362,118 +362,159 @@ function buildIdentifiantsHtml(): string {
 function buildBienvenueHtml(): string {
   const nomEtab = 'Le Melkior';
   const prenom = 'Camille';
+  const enseigne = 'Le Melkior';
+  const typeErp = 'Type L';
+  const categorieErp = '3ème catégorie';
+  const effectif = '450 personnes';
+  const adresse = '12 rue de la Paix, 75001 Paris';
+  const emailContact = 'contact@lemelkior.fr';
+  const telephone = '01 23 45 67 89';
+  // conformité preview: all 8 fields filled = 100%
+  const conformite = 88;
+  const needleX = Math.round(70 - 42 * Math.cos(conformite * Math.PI / 100));
+  const needleY = Math.round(72 - 42 * Math.sin(conformite * Math.PI / 100));
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
-<div style="max-width:620px;margin:0 auto;padding:32px 16px 48px">
+<body style="margin:0;padding:0;background:#0d1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0d1117;padding:32px 0 48px">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
 
-  <div style="background:#0f172a;border-radius:16px 16px 0 0;padding:32px 40px 28px;text-align:center">
-    <p style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;margin:0 0 10px">Main Courante</p>
-    <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 10px;line-height:1.3">Bienvenue, ${prenom} !</h1>
-    <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6">
-      Félicitations — <strong style="color:#e2e8f0">${nomEtab}</strong> est désormais configuré sur Main Courante.
-    </p>
-  </div>
+  <!-- HEADER -->
+  <tr><td style="background:#0f172a;border:1px solid #1e2d4a;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 10px">
+        <polygon points="18,2 34,10 34,28 18,38 2,28 2,10" fill="#1e3a5f" stroke="#f59e0b" stroke-width="1.5"/>
+        <polygon points="18,8 28,14 28,26 18,32 8,26 8,14" fill="#0f172a" stroke="#f59e0b" stroke-width="1"/>
+        <text x="18" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="800" font-family="Arial,sans-serif">MC</text>
+      </svg>
+      <p style="color:#f59e0b;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.18em;margin:0 0 4px">MAIN COURANTE</p>
+      <p style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;margin:0">LA SÉCURITÉ DES ERP. SIMPLEMENT.</p>
+    </td></tr></table>
+  </td></tr>
 
-  <div style="background:#ffffff;padding:0 40px 36px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.06)">
+  <!-- HERO -->
+  <tr><td style="background:#0f172a;border-left:1px solid #1e2d4a;border-right:1px solid #1e2d4a;padding:24px 32px 20px;text-align:center">
+    <h1 style="color:#ffffff;font-size:28px;font-weight:800;margin:0 0 8px;line-height:1.2">Bienvenue, <span style="color:#f59e0b">${prenom}</span>&nbsp;!</h1>
+    <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6"><strong style="color:#e2e8f0">${nomEtab}</strong> est désormais opérationnel sur Main Courante.</p>
+  </td></tr>
 
-    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
+  <!-- INFO + GAUGE CARD -->
+  <tr><td style="background:#0f172a;border:1px solid #1e2d4a;border-top:none;padding:0">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr valign="top">
 
-    <p style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">Vos coordonnées</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 28px">
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;width:160px;vertical-align:top">Établissement</td>
-        <td style="padding:9px 0;color:#1e293b;font-weight:600">${nomEtab}</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Enseigne</td>
-        <td style="padding:9px 0;color:#334155">Le Melkior</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Type ERP</td>
-        <td style="padding:9px 0;color:#334155">Type L — Catégorie 3ème catégorie</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Effectif max autorisé</td>
-        <td style="padding:9px 0;color:#334155">450 personnes</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f1f5f9">
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Adresse</td>
-        <td style="padding:9px 0;color:#334155">12 rue de la Paix, 75001 Paris</td>
-      </tr>
-      <tr>
-        <td style="padding:9px 0;color:#94a3b8;font-weight:600;vertical-align:top">Contact</td>
-        <td style="padding:9px 0;color:#334155">contact@lemelkior.fr — 01 23 45 67 89</td>
-      </tr>
-    </table>
+      <!-- LEFT: etablissement info -->
+      <td style="padding:24px 20px 24px 32px;width:55%;border-right:1px solid #1e2d4a">
+        <p style="color:#f59e0b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;margin:0 0 14px">Votre établissement</p>
+        <table cellpadding="0" cellspacing="0" style="font-size:12px;width:100%">
+          <tr><td style="color:#64748b;padding:4px 0;vertical-align:top;white-space:nowrap;padding-right:10px">Nom</td><td style="color:#e2e8f0;padding:4px 0;font-weight:600">${nomEtab}</td></tr>
+          <tr><td style="color:#64748b;padding:4px 0;vertical-align:top;white-space:nowrap;padding-right:10px">Enseigne</td><td style="color:#cbd5e1;padding:4px 0">${enseigne}</td></tr>
+          <tr><td style="color:#64748b;padding:4px 0;vertical-align:top;white-space:nowrap;padding-right:10px">Type ERP</td><td style="color:#cbd5e1;padding:4px 0">${typeErp}</td></tr>
+          <tr><td style="color:#64748b;padding:4px 0;vertical-align:top;white-space:nowrap;padding-right:10px">Catégorie</td><td style="color:#cbd5e1;padding:4px 0">${categorieErp}</td></tr>
+          <tr><td style="color:#64748b;padding:4px 0;vertical-align:top;white-space:nowrap;padding-right:10px">Jauge max</td><td style="color:#f59e0b;padding:4px 0;font-weight:700">${effectif}</td></tr>
+          <tr><td style="color:#64748b;padding:4px 0;vertical-align:top;white-space:nowrap;padding-right:10px">Adresse</td><td style="color:#cbd5e1;padding:4px 0">${adresse}</td></tr>
+          <tr><td style="color:#64748b;padding:4px 0;vertical-align:top;white-space:nowrap;padding-right:10px">Contact</td><td style="color:#cbd5e1;padding:4px 0">${emailContact}<br/>${telephone}</td></tr>
+        </table>
+      </td>
 
-    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
+      <!-- RIGHT: gauge -->
+      <td style="padding:24px 32px 24px 20px;text-align:center;vertical-align:middle">
+        <p style="color:#f59e0b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;margin:0 0 12px">CONFORMITÉ INITIALE</p>
+        <svg width="140" height="90" viewBox="0 0 140 90" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 10,75 A 60,60 0 0,1 28,33" stroke="#ef4444" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <path d="M 28,33 A 60,60 0 0,1 70,15" stroke="#f97316" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <path d="M 70,15 A 60,60 0 0,1 112,33" stroke="#eab308" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <path d="M 112,33 A 60,60 0 0,1 130,75" stroke="#22c55e" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <line x1="70" y1="72" x2="${needleX}" y2="${needleY}" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="70" cy="72" r="5" fill="#f59e0b"/>
+          <text x="70" y="88" text-anchor="middle" fill="#f59e0b" font-size="16" font-weight="800" font-family="Arial,sans-serif">${conformite}%</text>
+        </svg>
+      </td>
 
-    <p style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">Pourquoi Main Courante est essentiel pour votre établissement</p>
-    <p style="color:#475569;font-size:14px;line-height:1.8;margin:0 0 24px">
-      En tant qu'exploitant d'un ERP, vous êtes personnellement responsable de la sécurité de votre public.
-      En cas d'incident, les autorités (commission de sécurité, préfecture, procureur) examinent
-      systématiquement votre capacité à démontrer que vous avez pris toutes les mesures nécessaires.
-    </p>
+    </tr></table>
+  </td></tr>
 
-    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #1e40af;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Protection juridique</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Main Courante constitue votre preuve de diligence. Chaque événement horodaté, chaque ronde tracée,
-        chaque vérification documentée est un élément qui vous protège en cas de mise en cause.
-        L'article R123-51 du CCH impose la tenue d'un registre de sécurité — Main Courante le dématérialise et le rend infalsifiable.
-      </p>
-    </div>
+  <!-- FEATURE TILES -->
+  <tr><td style="background:#0f172a;border:1px solid #1e2d4a;border-top:none;padding:0 32px 24px">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="padding:12px 8px 0 0;width:25%;vertical-align:top">
+        <div style="background:#0d1117;border:1px solid #1e2d4a;border-radius:10px;padding:14px 12px;text-align:center">
+          <div style="font-size:20px;margin-bottom:6px">🔥</div>
+          <p style="color:#f87171;font-size:11px;font-weight:700;margin:0 0 4px;text-transform:uppercase">SSI</p>
+          <p style="color:#64748b;font-size:10px;margin:0;line-height:1.4">Système Sécurité Incendie</p>
+        </div>
+      </td>
+      <td style="padding:12px 8px 0;width:25%;vertical-align:top">
+        <div style="background:#0d1117;border:1px solid #1e2d4a;border-radius:10px;padding:14px 12px;text-align:center">
+          <div style="font-size:20px;margin-bottom:6px">👥</div>
+          <p style="color:#60a5fa;font-size:11px;font-weight:700;margin:0 0 4px;text-transform:uppercase">Clients</p>
+          <p style="color:#64748b;font-size:10px;margin:0;line-height:1.4">Gestion de la clientèle</p>
+        </div>
+      </td>
+      <td style="padding:12px 8px 0;width:25%;vertical-align:top">
+        <div style="background:#0d1117;border:1px solid #1e2d4a;border-radius:10px;padding:14px 12px;text-align:center">
+          <div style="font-size:20px;margin-bottom:6px">📋</div>
+          <p style="color:#f59e0b;font-size:11px;font-weight:700;margin:0 0 4px;text-transform:uppercase">Registre</p>
+          <p style="color:#64748b;font-size:10px;margin:0;line-height:1.4">Registre de sécurité</p>
+        </div>
+      </td>
+      <td style="padding:12px 0 0 8px;width:25%;vertical-align:top">
+        <div style="background:#0d1117;border:1px solid #1e2d4a;border-radius:10px;padding:14px 12px;text-align:center">
+          <div style="font-size:20px;margin-bottom:6px">⏱️</div>
+          <p style="color:#94a3b8;font-size:11px;font-weight:700;margin:0 0 4px;text-transform:uppercase">Jauge</p>
+          <p style="color:#64748b;font-size:10px;margin:0;line-height:1.4">Contrôle de capacité</p>
+        </div>
+      </td>
+    </tr></table>
+  </td></tr>
 
-    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #0e7a4a;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Conformité réglementaire</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Votre registre de sécurité numérique, vos vérifications périodiques et le suivi de votre effectif
-        (art. GN 11) sont accessibles en un clic lors d'un contrôle. Plus besoin de chercher des classeurs
-        papier ou des attestations égarées.
-      </p>
-    </div>
+  <!-- POURQUOI CARD -->
+  <tr><td style="background:#0f172a;border:1px solid #1e2d4a;border-top:none;padding:0">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr valign="top">
+      <td style="width:38%;background:#1a0a0a;border-right:1px solid #1e2d4a;padding:24px 20px;text-align:center">
+        <p style="color:#ef4444;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;margin:0 0 12px">REGISTRE</p>
+        <p style="color:#fca5a5;font-size:11px;margin:0 0 16px;line-height:1.5">Article R123-51 du Code de la Construction et de l'Habitation</p>
+        <div style="display:inline-block;background:#ef4444;border-radius:6px;padding:4px 10px;font-size:10px;color:#fff;font-weight:700;margin:0 0 6px;text-transform:uppercase">Obligatoire</div><br/>
+        <div style="display:inline-block;background:#1e2d4a;border-radius:6px;padding:4px 10px;font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase">Infalsifiable</div>
+      </td>
+      <td style="padding:24px 28px 24px 24px">
+        <p style="color:#f59e0b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;margin:0 0 10px">Pourquoi c'est essentiel ?</p>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.7;margin:0 0 10px">En cas de contrôle ou d'incident, les autorités examinent votre capacité à prouver vos actions. Chaque événement tracé dans Main Courante est un élément de preuve horodaté et certifié.</p>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.7;margin:0 0 12px">La dématérialisation de votre registre de sécurité rend votre conformité visible, accessible et incontestable — en un seul clic lors d'un audit.</p>
+        <p style="color:#f97316;font-size:12px;font-style:italic;margin:0;line-height:1.6">"Un exploitant d'ERP qui ne trace pas ses actions prend un risque personnel considérable."</p>
+      </td>
+    </tr></table>
+  </td></tr>
 
-    <div style="margin:0 0 12px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #b45309;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Prévention des fermetures administratives</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Un avis défavorable de la commission de sécurité peut entraîner une fermeture administrative
-        immédiate de votre établissement (art. L123-4 du CCH). Main Courante vous aide à anticiper
-        les échéances, à tracer vos actions correctives et à démontrer votre professionnalisme.
-      </p>
-    </div>
-
-    <div style="margin:0 0 28px;padding:16px 18px 16px 20px;background:#f8fafc;border-left:3px solid #1d4ed8;border-radius:0 8px 8px 0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1e293b">Toute votre sécurité en un seul endroit</p>
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.75">
-        Main courante de sécurité, registre de sécurité incendie, jauge de capacité, rondes de
-        vérification, rapports automatiques — tout est centralisé, horodaté et exportable.
-      </p>
-    </div>
-
-    <p style="color:#475569;font-size:14px;line-height:1.8;margin:0 0 28px;font-style:italic;border-top:1px solid #f1f5f9;padding-top:20px">
-      Vous êtes un professionnel de l'ERP. Main Courante est l'outil conçu par des professionnels de l'ERP, pour vous.
-    </p>
-
-    <div style="height:1px;background:linear-gradient(to right,#e2e8f0,#cbd5e1,#e2e8f0);margin:0 0 28px"></div>
-
-    <div style="text-align:center;margin:0 0 24px">
-      <a href="https://maincourante.eu" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;padding:16px 40px;border-radius:10px;text-decoration:none;letter-spacing:0.02em">
-        Accéder à Main Courante →
+  <!-- CTA CARD -->
+  <tr><td style="background:#0f172a;border:1px solid #1e2d4a;border-top:none;border-radius:0 0 16px 16px;padding:28px 32px;text-align:center">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <svg width="28" height="32" viewBox="0 0 28 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 12px">
+        <polygon points="14,2 26,8 26,22 14,30 2,22 2,8" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="14" y="20" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="800" font-family="Arial,sans-serif">MC</text>
+      </svg>
+      <p style="color:#e2e8f0;font-size:15px;font-weight:600;margin:0 0 16px">Votre tableau de bord vous attend.</p>
+      <a href="https://maincourante.eu" style="display:inline-block;border:1.5px solid #f59e0b;color:#f59e0b;background:transparent;font-size:14px;font-weight:700;padding:12px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.04em">
+        ACCÉDER À MON TABLEAU DE BORD →
       </a>
-    </div>
-    <p style="text-align:center;color:#94a3b8;font-size:13px;margin:0">Des questions ? Répondez directement à cet email.</p>
-  </div>
+      <p style="color:#475569;font-size:11px;margin:16px 0 0">Des questions ? Écrivez-nous à <a href="mailto:contact@maincourante.eu" style="color:#64748b;text-decoration:underline">contact@maincourante.eu</a></p>
+    </td></tr></table>
+  </td></tr>
 
-  <div style="padding:24px 0 0;text-align:center">
-    <p style="color:#94a3b8;font-size:12px;margin:0 0 4px;font-weight:600">L'équipe Main Courante</p>
-    <p style="color:#cbd5e1;font-size:11px;margin:0">
-      <a href="https://maincourante.eu" style="color:#94a3b8;text-decoration:none">maincourante.eu</a>
+  <!-- FOOTER -->
+  <tr><td style="padding:20px 0;text-align:center">
+    <p style="color:#334155;font-size:11px;margin:0 0 4px;font-weight:600">L'équipe Main Courante</p>
+    <p style="color:#1e293b;font-size:11px;margin:0">
+      <a href="https://maincourante.eu" style="color:#334155;text-decoration:none">maincourante.eu</a>
       &nbsp;·&nbsp;
-      <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a>
+      <a href="mailto:contact@maincourante.eu" style="color:#334155;text-decoration:none">contact@maincourante.eu</a>
     </p>
-  </div>
+  </td></tr>
 
-</div></body></html>`;
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
 }
 
 function buildEngagementPrecocePreviewHtml(planLabel: string, joursDepuis: number, joursRestants: number): string {
