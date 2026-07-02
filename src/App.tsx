@@ -17,6 +17,7 @@ import DashboardSignaturesPage from './pages/DashboardSignaturesPage';
 import RapportsPage from './pages/RapportsPage';
 import RegistreSecuritePage from './pages/RegistreSecuritePage';
 import EmailsPage from './pages/EmailsPage';
+import EmailModelesPage from './pages/EmailModelesPage';
 import CompleteProfilePage from './pages/CompleteProfilePage';
 import BaliseRondesPage from './pages/BaliseRondesPage';
 import JaugeConfigPage from './pages/JaugeConfigPage';
@@ -236,6 +237,7 @@ export default function App() {
             <Route path="/rapports" element={<AdminRoute><RapportsPage /></AdminRoute>} />
             <Route path="/registre-securite" element={<AdminRoute><RegistreSecuritePage /></AdminRoute>} />
             <Route path="/emails" element={<SuperAdminRoute><EmailsPage /></SuperAdminRoute>} />
+            <Route path="/emails/modeles" element={<SuperAdminRoute><EmailModelesPage /></SuperAdminRoute>} />
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
             <Route path="/jauge" element={<AdminRoute><JaugePage /></AdminRoute>} />
             <Route path="/jauge/config" element={<AdminRoute><JaugeConfigPage /></AdminRoute>} />

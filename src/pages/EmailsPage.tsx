@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Mail, ToggleLeft, ToggleRight, Settings, ChevronDown, ChevronUp,
-  Save, X, CheckCircle, AlertCircle, RefreshCw, Send, Plus, Trash2,
+  Save, X, CheckCircle, AlertCircle, RefreshCw, Send, Plus, Trash2, FileText,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -49,6 +50,7 @@ const TYPE_DESC: Record<string, string> = {
 
 export default function EmailsPage() {
   const { signOut, isSuperAdmin } = useAuth();
+  const navigate = useNavigate();
   const [rules, setRules] = useState<EmailRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -498,6 +500,37 @@ export default function EmailsPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Section SuperAdmin — Modèles de mail */}
+        {isSuperAdmin && (
+          <div className="mt-8">
+            <div className="h-px bg-slate-800 mb-6" />
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-blue-600 to-cyan-500" />
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-white font-semibold text-sm">Modèles de mail</p>
+                    <p className="text-slate-500 text-xs mt-0.5">10 modèles — Aperçu et prévisualisation</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/emails/modeles')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg shrink-0
+                    text-blue-300 hover:text-white bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30
+                    hover:border-blue-500/50 transition-all"
+                >
+                  <FileText className="w-3 h-3" />
+                  Voir les modèles
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
