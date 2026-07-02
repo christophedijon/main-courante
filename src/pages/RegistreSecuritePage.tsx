@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ClipboardList, Upload, Eye, History, X, ChevronDown, ChevronUp,
-  Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2, Pencil, Trash2,
-  Archive, PlayCircle, Flame, BookOpen, Bell, PenSquare, Timer,
-} from 'lucide-react';
+import { ClipboardList, Upload, Eye, History, X, ChevronDown, ChevronUp, Plus, Save, CheckCircle, AlertTriangle, Clock, Minus, FileText, Loader2, Pencil, Trash2, Archive, PlayCircle, Flame, BookOpen, Bell, SquarePen as PenSquare, Timer, Square, CheckSquare2 } from 'lucide-react';
+import { VERIFICATIONS_OBLIGATOIRES, VerificationItem } from '../data/verificationsObligatoires';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEntreprise } from '../hooks/useEntreprise';
@@ -1548,12 +1545,217 @@ function MobileCardView({ items, historiqueCounts }: { items: RegistreItem[]; hi
   );
 }
 
+// ─── Verifications Checklist ─────────────────────────────────────────────────
+
+type SECTION_META = { key: string; label: string; color: string };
+
+const SECTIONS: SECTION_META[] = [
+  { key: 'obligatoire', label: 'Obligatoires réglementaires', color: 'text-red-400' },
+  { key: 'frequente',   label: 'Vérifications fréquentes',    color: 'text-amber-400' },
+  { key: 'equipement',  label: 'Équipements techniques',       color: 'text-blue-400' },
+  { key: 'type_p',      label: 'Spécifique Type P (discothèque)', color: 'text-violet-400' },
+  { key: 'type_n',      label: 'Spécifique Type N (restauration)', color: 'text-emerald-400' },
+];
+
+function frequenceToPeriodicite(f: string): string {
+  if (f === 'Annuelle') return 'annuelle';
+  if (f === 'Semestrielle') return 'semestrielle';
+  return 'sans';
+}
+
+function VerificationsChecklist({
+  typeErp,
+  activitesComplementaires,
+  etablissementId,
+  onDone,
+  onCancel,
+}: {
+  typeErp: string;
+  activitesComplementaires: string;
+  etablissementId: string | null;
+  onDone: (items: RegistreItem[]) => void;
+  onCancel: () => void;
+}) {
+  const [checked, setChecked] = useState<Set<string>>(
+    () => new Set(VERIFICATIONS_OBLIGATOIRES.filter((v) => v.preChecked).map((v) => v.id))
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const erpUpper = (typeErp + ' ' + activitesComplementaires).toUpperCase();
+  const showTypeP = erpUpper.includes('P');
+  const showTypeN = erpUpper.includes('N');
+
+  function toggle(id: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSection(items: VerificationItem[]) {
+    const ids = items.map((v) => v.id);
+    const allChecked = ids.every((id) => checked.has(id));
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (allChecked) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  async function handleValidate() {
+    const toInsert = VERIFICATIONS_OBLIGATOIRES.filter((v) => checked.has(v.id));
+    if (toInsert.length === 0) { onDone([]); return; }
+
+    setSaving(true);
+    setError(null);
+
+    const rows = toInsert.map((v) => ({
+      installation: v.nom,
+      reference_reglementaire: v.reference,
+      periodicite: frequenceToPeriodicite(v.frequence),
+      organisme_verificateur: '',
+      nom_verificateur: '',
+      telephone_verificateur: '',
+      email_organisme: '',
+      applicable: true,
+      etablissement_id: etablissementId,
+    }));
+
+    const { data, error: insertErr } = await supabase
+      .from('registre_securite')
+      .insert(rows)
+      .select();
+
+    if (insertErr) {
+      setError(insertErr.message);
+      setSaving(false);
+      return;
+    }
+
+    onDone((data ?? []) as RegistreItem[]);
+  }
+
+  const visibleSections = SECTIONS.filter((s) => {
+    if (s.key === 'type_p') return showTypeP;
+    if (s.key === 'type_n') return showTypeN;
+    return true;
+  });
+
+  const totalChecked = checked.size;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm">
+      <div className="w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b border-slate-800 shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-white font-bold text-lg leading-tight">Vérifications à configurer</h2>
+              <p className="text-slate-400 text-sm mt-1">Sélectionnez les vérifications réglementaires applicables à votre établissement.</p>
+            </div>
+            <button onClick={onCancel} className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white shrink-0 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Sections */}
+        <div className="overflow-y-auto flex-1 px-4 py-4 space-y-5">
+          {visibleSections.map((section) => {
+            const sectionItems = VERIFICATIONS_OBLIGATOIRES.filter((v) => v.categorie === section.key);
+            const allChecked = sectionItems.every((v) => checked.has(v.id));
+            const someChecked = sectionItems.some((v) => checked.has(v.id));
+
+            return (
+              <div key={section.key}>
+                <button
+                  onClick={() => toggleSection(sectionItems)}
+                  className="flex items-center gap-2 mb-2 group w-full text-left"
+                >
+                  <span className={`font-semibold text-[13px] uppercase tracking-wider ${section.color}`}>{section.label}</span>
+                  <span className="ml-auto text-[11px] text-slate-500 group-hover:text-slate-400 transition-colors">
+                    {allChecked ? 'Tout décocher' : someChecked ? 'Tout cocher' : 'Tout cocher'}
+                  </span>
+                </button>
+                <div className="space-y-1.5">
+                  {sectionItems.map((item) => {
+                    const isChecked = checked.has(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => toggle(item.id)}
+                        className={`w-full flex items-start gap-3 px-3.5 py-3 rounded-xl border transition-all text-left ${
+                          isChecked
+                            ? 'bg-blue-600/10 border-blue-500/30'
+                            : 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          {isChecked
+                            ? <CheckSquare2 className="w-4 h-4 text-blue-400" />
+                            : <Square className="w-4 h-4 text-slate-500" />
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-sm font-semibold leading-snug ${isChecked ? 'text-white' : 'text-slate-300'}`}>{item.nom}</span>
+                            <span className="text-[10px] font-mono text-slate-500 bg-slate-700/60 px-1.5 py-0.5 rounded">{item.reference}</span>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                              item.frequence === 'Annuelle' ? 'bg-blue-500/10 text-blue-400'
+                              : item.frequence === 'Semestrielle' ? 'bg-cyan-500/10 text-cyan-400'
+                              : 'bg-slate-600/30 text-slate-400'
+                            }`}>{item.frequence}</span>
+                          </div>
+                          <p className="text-[12px] text-slate-500 mt-0.5 leading-snug">{item.description}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-4 border-t border-slate-800 shrink-0 space-y-3">
+          {error && (
+            <p className="text-red-400 text-xs text-center">{error}</p>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleValidate}
+              disabled={saving}
+              className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              {saving
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Création en cours…</>
+                : <><CheckCircle className="w-4 h-4" />Valider la sélection ({totalChecked})</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function RegistreSecuritePage() {
   const { signOut, session } = useAuth();
-  const { nom, logo_url, id: etablissementId, registre_onboarding_done } = useEntreprise();
+  const { nom, logo_url, id: etablissementId, registre_onboarding_done, type_erp, activites_complementaires } = useEntreprise();
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [items, setItems] = useState<RegistreItem[]>([]);
   const [historiqueCounts, setHistoriqueCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -1580,7 +1782,7 @@ export default function RegistreSecuritePage() {
         .eq('id', etablissementId);
     }
     if (openAdd) {
-      setTimeout(() => setShowAddModal(true), 150);
+      setShowChecklist(true);
     }
   }
 
@@ -1952,6 +2154,21 @@ export default function RegistreSecuritePage() {
           onClose={() => setShowAddModal(false)}
           onAdded={(item) => { setItems((prev) => [...prev, item]); setShowAddModal(false); }}
           etablissementId={etablissementId}
+        />
+      )}
+
+      {showChecklist && (
+        <VerificationsChecklist
+          typeErp={type_erp}
+          activitesComplementaires={activites_complementaires}
+          etablissementId={etablissementId}
+          onDone={(newItems) => {
+            setShowChecklist(false);
+            if (newItems.length > 0) {
+              setItems((prev) => [...prev, ...newItems]);
+            }
+          }}
+          onCancel={() => setShowChecklist(false)}
         />
       )}
 
