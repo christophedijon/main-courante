@@ -13,7 +13,7 @@ export default function StepEtablissement() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('entreprise').select('id, nom').then(({ data }) => {
+    supabase.from('etablissements').select('id, nom').then(({ data }) => {
       setItems(data ?? []);
       setLoading(false);
     });

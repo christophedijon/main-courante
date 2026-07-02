@@ -35,16 +35,16 @@ export default function ToolboxPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [entrepriseId, setEntrepriseId] = useState<string | null>(null);
 
-  // Load etablissement_id for the public jauge QR link
+  // Load etablissement id for the public jauge QR link
   useEffect(() => {
     if (!canSeeJauge) return;
     supabase
-      .from('entreprise')
-      .select('etablissement_id')
+      .from('etablissements')
+      .select('id')
       .order('enseigne', { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => { if (data?.etablissement_id) setEntrepriseId(data.etablissement_id); });
+      .then(({ data }) => { if (data?.id) setEntrepriseId(data.id); });
   }, [canSeeJauge]);
 
   const appOrigin = import.meta.env.VITE_APP_URL ?? window.location.origin;
