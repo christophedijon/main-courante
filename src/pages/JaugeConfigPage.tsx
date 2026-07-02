@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeftRight, ArrowRight, Users, RotateCcw, CheckCircle,
   AlertCircle, ExternalLink, Gauge, X, Wifi, FlaskConical, Power,
+  Activity, Scale, Clock, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
 import { useSessionActive } from '../hooks/useSessionActive';
+import { useEntreprise } from '../hooks/useEntreprise';
 
 type ModeJauge = 'entree_sortie' | 'sortie' | 'automatique';
 
@@ -29,6 +31,11 @@ export default function JaugeConfigPage() {
   const { signOut, session } = useAuth();
   const navigate = useNavigate();
   const sessionState = useSessionActive();
+  const { jauge_onboarding_done, id: etablissementId, loading: etabLoading } = useEntreprise();
+
+  // Session-only bypass: true once user clicks "Configurer" or "J'ai compris"
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [showLaterWarning, setShowLaterWarning] = useState(false);
 
   const [entreprise, setEntreprise] = useState<EntrepriseJauge | null>(null);
   const [jaugeEtat, setJaugeEtat] = useState<JaugeEtat | null>(null);
@@ -177,6 +184,10 @@ export default function JaugeConfigPage() {
       showToast('Erreur lors de la sauvegarde', 'error');
     } else {
       showToast('Mode de comptage mis à jour', 'success');
+      // Mark jauge onboarding done in DB on first real save
+      if (!jauge_onboarding_done && entreprise.id) {
+        supabase.from('etablissements').update({ jauge_onboarding_done: true }).eq('id', entreprise.id);
+      }
     }
     setSavingMode(false);
   }
@@ -229,6 +240,139 @@ export default function JaugeConfigPage() {
     occupancyPct >= 90 ? 'bg-red-500' :
     occupancyPct >= 70 ? 'bg-amber-500' :
     'bg-emerald-500';
+
+  // Show onboarding until DB flag is set OR user dismisses for this session
+  const showOnboarding = !etabLoading && !jauge_onboarding_done && !onboardingDismissed;
+
+  if (showOnboarding) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <AppHeader onSignOut={signOut} />
+
+        {/* "Plus tard" warning modal */}
+        {showLaterWarning && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+            <div className="bg-slate-900 border border-amber-700/40 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                <Scale className="w-5 h-5 text-amber-400" />
+              </div>
+              <h3 className="text-white font-semibold text-base mb-2">Attention</h3>
+              <p className="text-slate-300 text-sm leading-relaxed mb-5">
+                La jauge de capacité vous aide à respecter l'article GN 11 et à prouver le respect
+                de votre effectif maximal lors des contrôles de la commission de sécurité.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => { setShowLaterWarning(false); }}
+                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-all"
+                >
+                  Configurer maintenant
+                </button>
+                <button
+                  onClick={() => { setShowLaterWarning(false); setOnboardingDismissed(true); }}
+                  className="w-full py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-sm transition-all"
+                >
+                  J'ai compris
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+          {/* Page icon + title */}
+          <div className="flex flex-col items-center text-center gap-4 pt-4 pb-2">
+            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <Activity className="w-8 h-8 text-blue-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Jauge de capacité</h1>
+              <p className="text-slate-400 text-sm mt-1">Suivi en temps réel de l'affluence dans votre établissement</p>
+            </div>
+          </div>
+
+          {/* Regulatory callout */}
+          <div className="bg-amber-950/40 border border-amber-700/50 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Scale className="w-4 h-4 text-amber-400 shrink-0" />
+              <p className="text-amber-300 font-semibold text-sm">Obligation réglementaire — Art. GN 11</p>
+            </div>
+            <p className="text-amber-200/80 text-sm leading-relaxed">
+              L'article GN 11 du règlement de sécurité (Arrêté du 25 juin 1980 modifié) impose à tout
+              exploitant d'ERP d'afficher près de l'entrée principale un avis mentionnant l'effectif maximal
+              du public admissible. L'exploitant doit être en mesure de démontrer à tout moment qu'il
+              respecte cet effectif maximal autorisé.
+            </p>
+            <p className="text-amber-300/60 text-xs italic mt-3 leading-relaxed">
+              Mentions obligatoires de l'avis : type d'établissement, catégorie, effectif maximal,
+              date de visite de réception, date d'autorisation d'ouverture.
+            </p>
+          </div>
+
+          {/* Feature card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <h2 className="text-white font-semibold text-sm mb-3">La jauge Main Courante</h2>
+            <p className="text-slate-400 text-sm leading-relaxed mb-5">
+              La jauge vous permet de suivre en temps réel le nombre de personnes présentes dans votre
+              établissement et de prouver le respect de votre effectif maximal autorisé.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                <div>
+                  <p className="text-slate-200 text-sm font-medium">Entrée-Sortie (Flic Hub)</p>
+                  <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
+                    Comptage manuel via boutons physiques Flic Hub. Chaque pression = +1 entrée ou -1 sortie.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <span className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                <div>
+                  <p className="text-slate-200 text-sm font-medium">Sortie uniquement</p>
+                  <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
+                    Décomptage des sorties uniquement. Utile quand les entrées sont comptées par la billetterie.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <span className="w-2 h-2 rounded-full bg-violet-400 mt-1.5 shrink-0" />
+                <div>
+                  <p className="text-slate-200 text-sm font-medium">Automatique (ZAPSIS)</p>
+                  <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
+                    Synchronisation automatique avec votre logiciel de billetterie ZAPSIS toutes les 3 minutes.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Time estimate */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl">
+            <Clock className="w-4 h-4 text-slate-500 shrink-0" />
+            <p className="text-slate-400 text-sm">Temps estimé : <span className="text-white font-semibold">5 minutes</span></p>
+          </div>
+
+          {/* CTA buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              onClick={() => setOnboardingDismissed(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all"
+            >
+              Configurer ma jauge
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowLaterWarning(true)}
+              className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-sm transition-all"
+            >
+              Plus tard
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">

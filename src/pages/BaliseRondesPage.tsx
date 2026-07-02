@@ -3,7 +3,7 @@ import {
   Radio, Plus, Pencil, Trash2, Star, ToggleLeft, ToggleRight,
   Shuffle, List, Clock, ChevronDown, GripVertical, X, Save,
   Loader2, CheckCircle, AlertTriangle, Info, Download, User,
-  ChevronRight, MapPin,
+  ChevronRight, MapPin, Navigation, Smartphone, Bluetooth,
 } from 'lucide-react';
 import {
   DndContext,
@@ -114,12 +114,117 @@ function SortableBeaconRow({ item, onRemove }: { item: BeaconInRonde; onRemove: 
 
 function BaliseRondesPage() {
   const { signOut } = useAuth();
+  const { rondes_onboarding_done, loading: etabLoading } = useEntreprise();
   const [tab, setTab] = useState<'balises' | 'rondes' | 'rapports'>('balises');
   const [toast, setToast] = useState<ToastMsg | null>(null);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   const notify = useCallback((type: ToastMsg['type'], text: string) => setToast({ type, text }), []);
 
   async function handleSignOut() { await signOut(); }
+
+  const showOnboarding = !etabLoading && !rondes_onboarding_done && !onboardingDismissed;
+
+  if (showOnboarding) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <AppHeader onSignOut={handleSignOut} />
+        <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+          {/* Icon + title */}
+          <div className="flex flex-col items-center text-center gap-4 pt-4 pb-2">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <Navigation className="w-8 h-8 text-emerald-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Rondes de sécurité</h1>
+              <p className="text-slate-400 text-sm mt-1">
+                Planifiez et suivez les rondes de vos agents grâce aux balises BLE
+              </p>
+            </div>
+          </div>
+
+          {/* Intro card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Planifiez et suivez les rondes de vos agents de sécurité grâce aux balises BLE
+              (Bluetooth Low Energy). Chaque passage est horodaté et géolocalisé automatiquement.
+            </p>
+          </div>
+
+          {/* Ce qu'il vous faut */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <h2 className="text-white font-semibold text-sm mb-4">Ce qu'il vous faut</h2>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                  <Bluetooth className="w-4 h-4 text-blue-400" />
+                </div>
+                <p className="text-slate-300 text-sm">Balises BLE BluCharm BC021 (1 par zone de passage)</p>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-slate-300 text-sm">Smartphone avec Bluetooth activé</p>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                  <Radio className="w-4 h-4 text-violet-400" />
+                </div>
+                <p className="text-slate-300 text-sm">Application Main Courante sur le téléphone de l'agent</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Comment ça marche */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <h2 className="text-white font-semibold text-sm mb-4">Comment ça marche</h2>
+            <div className="space-y-3">
+              {[
+                { n: 1, text: 'Placez les balises dans vos zones de passage' },
+                { n: 2, text: 'Configurez les rondes (mode aléatoire ou parcours défini)' },
+                { n: 3, text: 'L\'agent scanne les balises pendant sa ronde' },
+                { n: 4, text: 'Les passages sont enregistrés automatiquement avec horodatage' },
+              ].map(({ n, text }) => (
+                <div key={n} className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-400 font-bold shrink-0 mt-0.5">
+                    {n}
+                  </span>
+                  <p className="text-slate-300 text-sm leading-relaxed">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Time estimate */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl">
+            <Clock className="w-4 h-4 text-slate-500 shrink-0" />
+            <p className="text-slate-400 text-sm">
+              Temps estimé : <span className="text-white font-semibold">10 minutes</span>
+              <span className="text-slate-600 text-xs ml-1">(hors installation physique des balises)</span>
+            </p>
+          </div>
+
+          {/* CTA */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              onClick={() => setOnboardingDismissed(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all"
+            >
+              Configurer mes rondes
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setOnboardingDismissed(true)}
+              className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-sm transition-all"
+            >
+              Plus tard
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -224,7 +329,14 @@ function BaliseTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => v
           beacon={editing}
           etablissementId={etablissementId}
           onClose={() => { setModalOpen(false); setEditing(null); }}
-          onSaved={() => { setModalOpen(false); setEditing(null); load(); notify('success', editing ? 'Balise modifiée' : 'Balise ajoutée'); }}
+          onSaved={() => {
+            setModalOpen(false); setEditing(null); load();
+            notify('success', editing ? 'Balise modifiée' : 'Balise ajoutée');
+            // Mark rondes onboarding done on first beacon creation
+            if (!editing && etablissementId) {
+              supabase.from('etablissements').update({ rondes_onboarding_done: true }).eq('id', etablissementId);
+            }
+          }}
           notify={notify}
         />
       )}
@@ -577,7 +689,14 @@ function RondeTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => vo
           beacons={beacons}
           etablissementId={etablissementId}
           onClose={() => { setModalOpen(false); setEditing(null); }}
-          onSaved={() => { setModalOpen(false); setEditing(null); load(); notify('success', editing ? 'Ronde modifiée' : 'Ronde créée'); }}
+          onSaved={() => {
+            setModalOpen(false); setEditing(null); load();
+            notify('success', editing ? 'Ronde modifiée' : 'Ronde créée');
+            // Mark rondes onboarding done on first ronde creation
+            if (!editing && etablissementId) {
+              supabase.from('etablissements').update({ rondes_onboarding_done: true }).eq('id', etablissementId);
+            }
+          }}
           notify={notify}
         />
       )}
