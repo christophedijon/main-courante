@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
     const { data: jaugeActions } = await supabase
       .from("jauge_actions")
       .select("action, delta, created_at, source")
-      .eq("entreprise_id", entreprise.id)
+      .eq("etablissement_id", entreprise.id)
       .eq("is_test", true)
       .gte("created_at", openedAt.toISOString())
       .lte("created_at", closedAt.toISOString())
