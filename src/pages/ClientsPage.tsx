@@ -71,7 +71,7 @@ export default function ClientsPage() {
   const [sortKey, setSortKey] = useState<'nom' | 'created_at' | 'date_fin_essai'>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [actionMenu, setActionMenu] = useState<string | null>(null);
-  const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const [toast, setToast] = useState<{ type: ToastType; msg: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -468,7 +468,13 @@ export default function ClientsPage() {
                                 setActionMenu(null); setMenuAnchor(null);
                               } else {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                setMenuAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                const spaceBelow = window.innerHeight - rect.bottom;
+                                const menuHeight = 380;
+                                if (spaceBelow < menuHeight) {
+                                  setMenuAnchor({ bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right });
+                                } else {
+                                  setMenuAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                }
                                 setActionMenu(etab.id);
                               }
                             }}
@@ -504,7 +510,11 @@ export default function ClientsPage() {
             <div className="fixed inset-0 z-[100]" onClick={() => { setActionMenu(null); setMenuAnchor(null); }} />
             <div
               className="fixed w-52 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[101] py-1 overflow-hidden"
-              style={{ top: menuAnchor.top, right: menuAnchor.right }}
+              style={{
+                top: menuAnchor.top,
+                bottom: menuAnchor.bottom,
+                right: menuAnchor.right,
+              }}
             >
               {etab.statut === 'brouillon' && (
                 <MenuItem icon={Play} onClick={() => { navigate(`/onboarding?etabId=${etab.id}`); setActionMenu(null); setMenuAnchor(null); }}>
