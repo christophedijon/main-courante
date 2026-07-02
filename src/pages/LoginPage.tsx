@@ -3,14 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { useEntreprise } from '../hooks/useEntreprise';
 import { ResetPasswordModal } from '../components/ResetPasswordModal';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const { nom, logo_url } = useEntreprise();
-  const isImageLogo = logo_url && logo_url.match(/\.(png|jpe?g|gif|webp)$/i);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -87,19 +84,10 @@ export default function LoginPage() {
           <div className="p-8 sm:p-10">
             {/* Logo / Brand */}
             <div className="flex flex-col items-center mb-10">
-              {isImageLogo ? (
-                <img
-                  src={logo_url!}
-                  alt="Logo entreprise"
-                  className="h-14 w-auto max-w-[160px] object-contain rounded-xl mb-4"
-                />
-              ) : (
-                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
-                  <Shield className="w-7 h-7 text-blue-400" />
-                </div>
-              )}
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
+                <Shield className="w-7 h-7 text-blue-400" />
+              </div>
               <h1 className="text-2xl font-semibold text-white tracking-tight">Main Courante</h1>
-              {nom && <p className="text-sm text-slate-400 mt-1">{nom}</p>}
             </div>
 
             {/* Error banner */}
