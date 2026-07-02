@@ -2211,6 +2211,19 @@ export default function RegistreSecuritePage() {
         />
       )}
 
+      {showConfirmations && (
+        <ConfirmationsModal onClose={() => setShowConfirmations(false)} />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-slate-800 border border-slate-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in">
+          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          {toast}
+        </div>
+      )}
+      </>
+      )}
+
       {showChecklist && (
         <VerificationsChecklist
           typeErp={type_erp}
@@ -2226,19 +2239,6 @@ export default function RegistreSecuritePage() {
           }}
           onCancel={() => setShowChecklist(false)}
         />
-      )}
-
-      {showConfirmations && (
-        <ConfirmationsModal onClose={() => setShowConfirmations(false)} />
-      )}
-
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-slate-800 border border-slate-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in">
-          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-          {toast}
-        </div>
-      )}
-      </>
       )}
     </div>
   );
