@@ -1756,6 +1756,7 @@ export default function RegistreSecuritePage() {
   const { nom, logo_url, id: etablissementId, registre_onboarding_done, type_erp, activites_complementaires } = useEntreprise();
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
   const [items, setItems] = useState<RegistreItem[]>([]);
   const [historiqueCounts, setHistoriqueCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -1893,7 +1894,7 @@ export default function RegistreSecuritePage() {
       <AppHeader onSignOut={signOut} />
 
       {/* ── Onboarding welcome screen ── */}
-      {onboardingDone === false && (
+      {onboardingDone === false && !showWarning && (
         <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12">
           <div className="w-full max-w-2xl">
             {/* Hero */}
@@ -1991,10 +1992,67 @@ export default function RegistreSecuritePage() {
                 Configurer mon registre
               </button>
               <button
-                onClick={() => setOnboardingDone(true)}
+                onClick={() => setShowWarning(true)}
                 className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-sm"
               >
                 Plus tard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Warning screen (après "Plus tard") ── */}
+      {onboardingDone === false && showWarning && (
+        <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-xl">
+            {/* Icon */}
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center mb-5">
+                <AlertTriangle className="w-8 h-8 text-amber-400" />
+              </div>
+              <h1 className="text-2xl font-black text-white mb-2">Le registre de sécurité est obligatoire</h1>
+            </div>
+
+            {/* Body text */}
+            <div className="space-y-4 mb-6 text-slate-300 text-sm leading-relaxed">
+              <p>
+                Le registre de sécurité est un document obligatoire pour tout établissement recevant
+                du public{' '}
+                <span className="italic text-slate-500">(article R123-51 du Code de la Construction et de l'Habitation)</span>.
+                Il doit être tenu à jour et présenté lors de chaque visite de la commission de sécurité.
+              </p>
+              <p>
+                L'absence de registre ou un registre incomplet peut entraîner un avis défavorable de
+                la commission, voire une mise en demeure ou une fermeture administrative de
+                l'établissement{' '}
+                <span className="italic text-slate-500">(article L123-4 du CCH)</span>.
+              </p>
+            </div>
+
+            {/* Warning callout */}
+            <div className="bg-amber-500/8 border border-amber-500/30 rounded-xl px-4 py-3.5 mb-8 flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-amber-200/80 text-sm leading-relaxed">
+                Vous pourrez configurer votre registre à tout moment depuis le menu{' '}
+                <span className="font-semibold text-amber-300">Registre de sécurité</span>.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => { setShowWarning(false); setShowChecklist(true); }}
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-sm shadow-lg shadow-blue-500/10"
+              >
+                <Flame className="w-4 h-4" />
+                Configurer maintenant
+              </button>
+              <button
+                onClick={() => setOnboardingDone(true)}
+                className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-400 text-xs py-2 transition-colors"
+              >
+                J'ai compris, continuer sans configurer
               </button>
             </div>
           </div>
