@@ -24,8 +24,7 @@ Deno.serve(async (req: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  const today = new Date().toISOString().slice(0, 10);
-  const details: Array<{ etablissement_id: string; nom: string; status: string; entrees?: number; diff?: number; error?: string }> = [];
+  const details: Array<{ etablissement_id: string; nom: string; status: string; entrees?: number; error?: string }> = [];
   let succes = 0;
   let erreurs = 0;
 
@@ -69,54 +68,17 @@ Deno.serve(async (req: Request) => {
         throw new Error(`Zapsis valeur non parseable: "${zapData.data}"`);
       }
 
-      // 2. Lire l'état jauge actuel pour aujourd'hui
-      const { data: etat } = await supabase
-        .from("jauge_etat")
-        .select("entrees_max_zapsis")
-        .eq("etablissement_id", etab.id)
-        .eq("date_soiree", today)
-        .eq("is_test", false)
-        .maybeSingle();
+      // 2. Sync jauge — calcul absolu, toujours convergent vers la vérité Zapsis.
+      //    count_actuel = max(0, entrees_zapsis - sorties_flic_aujourd_hui)
+      //    Immune aux saisies manuelles qui pourraient écraser la valeur.
+      const { error: rpcErr } = await supabase.rpc("sync_jauge_zapsis", {
+        p_etablissement_id: etab.id,
+        p_entrees: entrees,
+        p_is_test: false,
+      });
+      if (rpcErr) throw new Error(`sync_jauge_zapsis: ${rpcErr.message}`);
 
-      const lastZapsisCount = etat?.entrees_max_zapsis ?? null;
-
-      if (lastZapsisCount === null || lastZapsisCount === 0 && entrees > 0 && etat === null) {
-        // Premier appel de la journée : initialise avec le total Zapsis
-        const { error: rpcErr } = await supabase.rpc("set_entrees_manuelles", {
-          p_etablissement_id: etab.id,
-          p_entrees: entrees,
-          p_user_id: null,
-          p_is_test: false,
-        });
-        if (rpcErr) throw new Error(`set_entrees_manuelles: ${rpcErr.message}`);
-
-        details.push({ etablissement_id: etab.id, nom: etab.nom, status: "init", entrees });
-      } else {
-        // Incrément delta depuis le dernier poll
-        const diff = entrees - (lastZapsisCount ?? 0);
-        if (diff > 0) {
-          const { error: rpcErr } = await supabase.rpc("increment_jauge", {
-            p_etablissement_id: etab.id,
-            p_delta: diff,
-            p_source: "app",
-            p_user_id: null,
-            p_is_test: false,
-          });
-          if (rpcErr) throw new Error(`increment_jauge: ${rpcErr.message}`);
-        }
-        details.push({ etablissement_id: etab.id, nom: etab.nom, status: "ok", entrees, diff: Math.max(0, diff) });
-      }
-
-      // 3. Mettre à jour entrees_max_zapsis si valeur plus haute
-      if (entrees > (lastZapsisCount ?? 0)) {
-        await supabase
-          .from("jauge_etat")
-          .update({ entrees_max_zapsis: entrees })
-          .eq("etablissement_id", etab.id)
-          .eq("date_soiree", today)
-          .eq("is_test", false);
-      }
-
+      details.push({ etablissement_id: etab.id, nom: etab.nom, status: "ok", entrees });
       succes++;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

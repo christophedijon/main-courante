@@ -41,7 +41,8 @@ export default function HomePage() {
   const [jaugeModalOpen, setJaugeModalOpen] = useState(false);
   const [jaugeCount, setJaugeCount] = useState<number | null>(null);
 
-  const showJaugeAction = !jaugeLoading && (mode_jauge === 'sortie' || mode_jauge === 'automatique') && entrepriseId !== null && Ep > 0;
+  // En mode automatique, la jauge est pilotée par Zapsis — pas de saisie manuelle possible.
+  const showJaugeAction = !jaugeLoading && mode_jauge === 'sortie' && entrepriseId !== null && Ep > 0;
 
   useEffect(() => {
     if (!canSeeRegistre) return;
