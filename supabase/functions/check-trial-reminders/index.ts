@@ -68,11 +68,13 @@ function buildEngagementPrecoceHtml(opts: {
     ? "Votre essai Light — 15 jours déjà !"
     : "Votre essai Testeur — 30 jours déjà !";
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>@media screen and (max-width:600px){.eml-pad{padding:24px 16px!important}.eml-cta{padding:20px 16px!important}}</style>
+</head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
 <div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
   ${headerBlock("Main Courante", tagline, "#0f172a")}
-  <div style="padding:36px 24px 20px">
+  <div class="eml-pad" style="padding:36px 24px 20px">
     <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">${greeting}</h2>
     <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">
       Cela fait maintenant ${isPlanLight ? "15" : "30"} jours que <strong style="color:#1e293b">${opts.nomEtab}</strong>
@@ -95,7 +97,7 @@ function buildEngagementPrecoceHtml(opts: {
     </ul>
   </div>
 
-  <div style="padding:28px 24px;text-align:center">
+  <div class="eml-cta" style="padding:28px 24px;text-align:center">
     <p style="color:#475569;font-size:14px;margin:0 0 20px">
       Passez à l'abonnement maintenant et continuez sans interruption.
     </p>
@@ -117,11 +119,21 @@ function buildEngagementTardifHtml(opts: {
 }) {
   const greeting = opts.prenom ? `Bonjour ${opts.prenom},` : "Bonjour,";
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  @media screen and (max-width:600px){
+    .eml-pad{padding:24px 16px!important}
+    .eml-cta{padding:20px 16px!important}
+    .stat-table{display:block!important;width:100%!important}
+    .stat-tr{display:block!important;text-align:center!important}
+    .stat-td{display:inline-block!important;width:28%!important;min-width:0!important;box-sizing:border-box!important;vertical-align:top!important}
+  }
+</style>
+</head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
 <div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
   ${headerBlock("Main Courante", "Votre essai Testeur — Bilan à 60 jours", "#0f172a")}
-  <div style="padding:36px 24px 20px">
+  <div class="eml-pad" style="padding:36px 24px 20px">
     <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">${greeting}</h2>
     <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">
       Cela fait <strong style="color:#1e293b">60 jours</strong> que <strong style="color:#1e293b">${opts.nomEtab}</strong>
@@ -129,19 +141,35 @@ function buildEngagementTardifHtml(opts: {
     </p>
   </div>
 
-  <div style="margin:0 24px 24px;display:flex;gap:16px">
-    <div style="flex:1;padding:20px;background:#f1f5f9;border-radius:10px;text-align:center">
-      <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">${opts.totalEvents}</p>
-      <p style="font-size:13px;color:#64748b;margin:6px 0 0">événements enregistrés</p>
-    </div>
-    <div style="flex:1;padding:20px;background:#f1f5f9;border-radius:10px;text-align:center">
-      <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">${opts.totalRondes}</p>
-      <p style="font-size:13px;color:#64748b;margin:6px 0 0">rondes effectuées</p>
-    </div>
-    <div style="flex:1;padding:20px;background:#f1f5f9;border-radius:10px;text-align:center">
-      <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">${opts.jourRestants}</p>
-      <p style="font-size:13px;color:#64748b;margin:6px 0 0">jours restants</p>
-    </div>
+  <div style="margin:0 24px 24px">
+    <table class="stat-table" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr class="stat-tr">
+        <td class="stat-td" width="33%" style="padding:4px">
+          <table width="100%" cellpadding="20" cellspacing="0" border="0" style="background:#f1f5f9;border-radius:10px;text-align:center">
+            <tr><td>
+              <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">${opts.totalEvents}</p>
+              <p style="font-size:13px;color:#64748b;margin:6px 0 0">événements enregistrés</p>
+            </td></tr>
+          </table>
+        </td>
+        <td class="stat-td" width="33%" style="padding:4px">
+          <table width="100%" cellpadding="20" cellspacing="0" border="0" style="background:#f1f5f9;border-radius:10px;text-align:center">
+            <tr><td>
+              <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">${opts.totalRondes}</p>
+              <p style="font-size:13px;color:#64748b;margin:6px 0 0">rondes effectuées</p>
+            </td></tr>
+          </table>
+        </td>
+        <td class="stat-td" width="33%" style="padding:4px">
+          <table width="100%" cellpadding="20" cellspacing="0" border="0" style="background:#f1f5f9;border-radius:10px;text-align:center">
+            <tr><td>
+              <p style="font-size:32px;font-weight:800;color:#2563eb;margin:0">${opts.jourRestants}</p>
+              <p style="font-size:13px;color:#64748b;margin:6px 0 0">jours restants</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </div>
 
   <div style="padding:0 24px 8px">
@@ -154,7 +182,7 @@ function buildEngagementTardifHtml(opts: {
     </div>
   </div>
 
-  <div style="padding:28px 24px;text-align:center">
+  <div class="eml-cta" style="padding:28px 24px;text-align:center">
     ${ctaButton("Choisir mon abonnement", "https://maincourante.eu/abonnement")}
   </div>
 
@@ -174,11 +202,13 @@ function buildUrgenceJ20Html(opts: {
     day: "numeric", month: "long", year: "numeric",
   });
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>@media screen and (max-width:600px){.eml-pad{padding:24px 16px!important}.eml-box{margin:0 12px 24px!important;padding:16px!important}.eml-cta{padding:20px 16px!important}}</style>
+</head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
 <div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
   ${headerBlock("Main Courante", "Votre essai se termine dans 20 jours", "#0f172a")}
-  <div style="padding:36px 24px 20px">
+  <div class="eml-pad" style="padding:36px 24px 20px">
     <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">${greeting}</h2>
     <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">
       La période d'essai de <strong style="color:#1e293b">${opts.nomEtab}</strong> se termine
@@ -190,7 +220,7 @@ function buildUrgenceJ20Html(opts: {
     </p>
   </div>
 
-  <div style="margin:0 24px 24px;padding:20px 24px;background:#fff7ed;border-left:4px solid #f97316;border-radius:6px">
+  <div class="eml-box" style="margin:0 24px 24px;padding:20px 24px;background:#fff7ed;border-left:4px solid #f97316;border-radius:6px">
     <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#9a3412">Ce qui vous attend sans abonnement</p>
     <ul style="margin:0;padding-left:20px;color:#475569;font-size:13px;line-height:1.8">
       <li>Accès à l'interface suspendu</li>
@@ -199,7 +229,7 @@ function buildUrgenceJ20Html(opts: {
     </ul>
   </div>
 
-  <div style="padding:0 24px 28px;text-align:center">
+  <div class="eml-cta" style="padding:0 24px 28px;text-align:center">
     <p style="color:#475569;font-size:14px;margin:0 0 20px">
       Souscrivez maintenant et continuez sans interruption.
     </p>
@@ -222,14 +252,16 @@ function buildUrgenceJ5Html(opts: {
     day: "numeric", month: "long", year: "numeric",
   });
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>@media screen and (max-width:600px){.eml-pad{padding:24px 16px!important}.eml-box{margin:0 12px 28px!important;padding:16px!important}.eml-cta{padding:0 16px 28px!important}}</style>
+</head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
 <div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
   <div style="background:#dc2626;padding:28px 24px;text-align:center">
     <span style="color:#ffffff;font-weight:700;font-size:20px">Main Courante</span>
     <p style="color:rgba(255,255,255,0.9);font-size:13px;margin:6px 0 0">Plus que 5 jours — Action requise</p>
   </div>
-  <div style="padding:36px 24px 20px">
+  <div class="eml-pad" style="padding:36px 24px 20px">
     <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">${greeting}</h2>
     <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">
       <strong style="color:#dc2626">Votre essai se termine dans 5 jours</strong>, le ${dateFormatted}.
@@ -240,7 +272,7 @@ function buildUrgenceJ5Html(opts: {
     </p>
   </div>
 
-  <div style="margin:0 24px 28px;padding:20px 24px;background:#fef2f2;border:2px solid #dc2626;border-radius:10px;text-align:center">
+  <div class="eml-box" style="margin:0 24px 28px;padding:20px 24px;background:#fef2f2;border:2px solid #dc2626;border-radius:10px;text-align:center">
     <p style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 12px">
       5 jours pour sécuriser la continuité de votre établissement
     </p>
@@ -249,7 +281,7 @@ function buildUrgenceJ5Html(opts: {
     </p>
   </div>
 
-  <div style="padding:0 24px 36px;text-align:center">
+  <div class="eml-cta" style="padding:0 24px 36px;text-align:center">
     ${ctaButton("S'abonner maintenant", "https://maincourante.eu/abonnement", "#dc2626")}
   </div>
 
@@ -265,11 +297,13 @@ function buildExpireClientHtml(opts: {
 }) {
   const greeting = opts.prenom ? `Bonjour ${opts.prenom},` : "Bonjour,";
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>@media screen and (max-width:600px){.eml-pad{padding:24px 16px!important}.eml-box{margin:0 12px 24px!important;padding:16px!important}.eml-cta{padding:0 16px 28px!important}}</style>
+</head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
 <div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
   ${headerBlock("Main Courante", "Votre période d'essai est terminée", "#64748b")}
-  <div style="padding:36px 24px 20px">
+  <div class="eml-pad" style="padding:36px 24px 20px">
     <h2 style="color:#1e293b;font-size:22px;font-weight:700;margin:0 0 12px">${greeting}</h2>
     <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px">
       La période d'essai de <strong style="color:#1e293b">${opts.nomEtab}</strong> est maintenant expirée.
@@ -281,7 +315,7 @@ function buildExpireClientHtml(opts: {
     </p>
   </div>
 
-  <div style="margin:0 24px 24px;padding:20px 24px;background:#f1f5f9;border-radius:10px">
+  <div class="eml-box" style="margin:0 24px 24px;padding:20px 24px;background:#f1f5f9;border-radius:10px">
     <p style="font-size:14px;font-weight:700;color:#0f172a;margin:0 0 8px">Vos données sont en sécurité</p>
     <p style="color:#475569;font-size:13px;line-height:1.7;margin:0">
       Toutes vos entrées main courante, vos rondes, vos registres et vos rapports sont conservés.
@@ -289,7 +323,7 @@ function buildExpireClientHtml(opts: {
     </p>
   </div>
 
-  <div style="padding:0 24px 28px;text-align:center">
+  <div class="eml-cta" style="padding:0 24px 28px;text-align:center">
     <p style="color:#475569;font-size:14px;margin:0 0 20px">
       Reprenez votre activité sans délai.
     </p>
@@ -320,14 +354,16 @@ function buildExpireEquipeHtml(opts: {
     day: "numeric", month: "long", year: "numeric",
   });
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>@media screen and (max-width:600px){.eml-pad{padding:20px 16px!important}.eml-box{padding:12px 14px!important}}</style>
+</head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
 <div style="max-width:600px;margin:0 auto;background:#ffffff;color:#1e293b">
   <div style="background:#1e293b;padding:24px;text-align:center">
     <span style="color:#ffffff;font-weight:700;font-size:18px">Main Courante — Notification interne</span>
     <p style="color:#94a3b8;font-size:12px;margin:4px 0 0">Essai expiré</p>
   </div>
-  <div style="padding:28px 24px">
+  <div class="eml-pad" style="padding:28px 24px">
     <h2 style="color:#1e293b;font-size:18px;font-weight:700;margin:0 0 20px">
       Essai expiré : ${opts.nomEtab}
     </h2>
@@ -363,7 +399,7 @@ function buildExpireEquipeHtml(opts: {
     </table>
   </div>
   <div style="padding:0 24px 24px">
-    <div style="background:#fef2f2;border-left:4px solid #dc2626;border-radius:6px;padding:14px 18px">
+    <div class="eml-box" style="background:#fef2f2;border-left:4px solid #dc2626;border-radius:6px;padding:14px 18px">
       <p style="margin:0;font-size:13px;color:#7f1d1d">
         Le statut de cet établissement a été automatiquement mis à jour en <strong>expiré</strong>.
         Un suivi commercial est recommandé.

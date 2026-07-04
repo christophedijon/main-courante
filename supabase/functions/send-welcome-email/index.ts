@@ -112,11 +112,24 @@ Deno.serve(async (req: Request) => {
 
     const html = `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  @media screen and (max-width:600px){
+    .wlc-outer{padding:0 4px!important}
+    .card-td{display:block!important;width:100%!important;box-sizing:border-box!important}
+    .card-td-right{border-left:none!important;border-top:1px solid #1e2d4a!important}
+    .tile-table{display:block!important;width:100%!important}
+    .tile-tr{display:block!important;text-align:center!important}
+    .tile-td{display:inline-block!important;width:44%!important;min-width:0!important;box-sizing:border-box!important;vertical-align:top!important;padding:4px!important}
+    .pq-td{display:block!important;width:100%!important;box-sizing:border-box!important}
+    .pq-td-right{border-left:none!important;border-top:1px solid #1e2d4a!important}
+  }
+</style>
+</head>
 <body style="margin:0;padding:0;background:#0d1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0d1117">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+<table width="600" cellpadding="0" cellspacing="0" class="wlc-outer" style="max-width:600px;width:100%">
 
   <!-- HEADER -->
   <tr><td align="center" style="padding:40px 24px 16px">
@@ -143,7 +156,7 @@ Deno.serve(async (req: Request) => {
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:12px;overflow:hidden">
       <tr>
         <!-- Info -->
-        <td width="55%" style="padding:20px;vertical-align:top">
+        <td class="card-td" width="55%" style="padding:20px;vertical-align:top">
           <table cellpadding="0" cellspacing="0" style="margin-bottom:16px">
             <tr>
               <td style="padding-right:10px;vertical-align:middle">
@@ -182,7 +195,7 @@ Deno.serve(async (req: Request) => {
           </table>
         </td>
         <!-- Gauge -->
-        <td width="45%" style="padding:20px;vertical-align:middle;text-align:center;border-left:1px solid #1e2d4a">
+        <td class="card-td card-td-right" width="45%" style="padding:20px;vertical-align:middle;text-align:center;border-left:1px solid #1e2d4a">
           <svg width="140" height="82" viewBox="0 0 140 82" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
             <path d="M10,75 A60,60 0 0,0 130,75" fill="none" stroke="#1e293b" stroke-width="10" stroke-linecap="round"/>
             <path d="M10,75 A60,60 0 0,0 28,33" fill="none" stroke="#ef4444" stroke-width="10" stroke-linecap="butt"/>
@@ -204,9 +217,9 @@ Deno.serve(async (req: Request) => {
 
   <!-- 4 FEATURE TILES -->
   <tr><td style="padding:0 16px 10px">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="24%" style="padding-right:6px">
+    <table class="tile-table" width="100%" cellpadding="0" cellspacing="0">
+      <tr class="tile-tr">
+        <td class="tile-td" width="24%" style="padding-right:6px">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:10px">
             <tr><td style="padding:16px 8px;text-align:center">
               <div style="font-size:24px;line-height:1;margin-bottom:8px">🔥</div>
@@ -215,7 +228,7 @@ Deno.serve(async (req: Request) => {
             </td></tr>
           </table>
         </td>
-        <td width="24%" style="padding:0 3px">
+        <td class="tile-td" width="24%" style="padding:0 3px">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:10px">
             <tr><td style="padding:16px 8px;text-align:center">
               <div style="font-size:24px;line-height:1;margin-bottom:8px">👥</div>
@@ -224,7 +237,7 @@ Deno.serve(async (req: Request) => {
             </td></tr>
           </table>
         </td>
-        <td width="26%" style="padding:0 3px">
+        <td class="tile-td" width="26%" style="padding:0 3px">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#1e293b;border:1px solid #334155;border-radius:10px">
             <tr><td style="padding:14px 8px;text-align:center">
               <p style="color:#ef4444;font-size:10px;font-weight:900;text-transform:uppercase;line-height:1.25;margin:0 0 8px;letter-spacing:0.04em">REGISTRE<br>DE<br>SÉCURITÉ</p>
@@ -233,7 +246,7 @@ Deno.serve(async (req: Request) => {
             </td></tr>
           </table>
         </td>
-        <td width="26%" style="padding-left:6px">
+        <td class="tile-td" width="26%" style="padding-left:6px">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:10px">
             <tr><td style="padding:16px 8px;text-align:center">
               <div style="font-size:24px;line-height:1;margin-bottom:8px">⏱️</div>
@@ -251,7 +264,7 @@ Deno.serve(async (req: Request) => {
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border:1px solid #1e2d4a;border-radius:12px;overflow:hidden">
       <tr>
         <!-- Visual -->
-        <td width="38%" style="padding:20px;background:#110808;vertical-align:middle;text-align:center">
+        <td class="pq-td" width="38%" style="padding:20px;background:#110808;vertical-align:middle;text-align:center">
           <div style="background:#dc2626;border-radius:8px;padding:14px 12px;margin-bottom:10px">
             <p style="color:#ffffff;font-size:14px;font-weight:900;text-transform:uppercase;margin:0;line-height:1.4;letter-spacing:0.04em">REGISTRE<br>DE<br>SÉCURITÉ</p>
           </div>
@@ -266,7 +279,7 @@ Deno.serve(async (req: Request) => {
           </table>
         </td>
         <!-- Text -->
-        <td style="padding:20px;vertical-align:top;border-left:1px solid #1e2d4a">
+        <td class="pq-td pq-td-right" style="padding:20px;vertical-align:top;border-left:1px solid #1e2d4a">
           <p style="color:#f59e0b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">Pourquoi c'est essentiel ?</p>
           <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0 0 10px">
             En tant qu'exploitant d'un ERP, vous êtes personnellement responsable de la sécurité de votre public.

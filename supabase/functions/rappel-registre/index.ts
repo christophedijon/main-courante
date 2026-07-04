@@ -87,7 +87,7 @@ function buildOrganismeHtml(
         <td style="padding: 12px 16px; font-size: 14px; color: #1e293b; font-weight: 500;">
           ${entry.item.installation}
         </td>
-        <td style="padding: 12px 16px; font-size: 13px; color: #64748b;">
+        <td class="col-hide" style="padding: 12px 16px; font-size: 13px; color: #64748b;">
           ${entry.item.reference_reglementaire}
         </td>
         <td style="padding: 12px 16px; font-size: 13px; color: #1e293b;">
@@ -101,7 +101,17 @@ function buildOrganismeHtml(
 
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8" /></head>
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  @media screen and (max-width:600px){
+    .org-pad{padding:18px 20px!important}
+    .org-table th,.org-table td{padding:9px 10px!important;font-size:12px!important}
+    .col-hide{display:none!important}
+    .org-coords{padding:14px 20px!important}
+    .org-footer{padding:12px 20px!important}
+  }
+</style>
+</head>
 <body style="font-family: Arial, sans-serif; background: #f8fafc; padding: 32px; color: #1e293b;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
     <div style="background: #1e293b; padding: 24px 32px;">
@@ -115,17 +125,17 @@ function buildOrganismeHtml(
         Visite(s) périodique(s) à planifier
       </p>
     </div>
-    <div style="padding: 32px;">
+    <div class="org-pad" style="padding: 32px;">
       <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
         Madame, Monsieur,<br><br>
         Nous vous contactons afin de planifier la ou les visite(s) périodique(s)
         réglementaire(s) concernant notre établissement <strong>${entrepriseNom}</strong>.
       </p>
-      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+      <table class="org-table" width="100%" cellpadding="0" cellspacing="0" border="0"
              style="border-collapse: collapse; margin-bottom: 24px;">
         <tr style="background: #f1f5f9;">
           <th style="padding: 12px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0;">Installation</th>
-          <th style="padding: 12px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0;">Référence</th>
+          <th class="col-hide" style="padding: 12px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0;">Référence</th>
           <th style="padding: 12px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0;">Échéance</th>
           <th style="padding: 12px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0;">Statut</th>
         </tr>
@@ -156,7 +166,7 @@ function buildOrganismeHtml(
         Cordialement,<br>
         <strong>${entrepriseNom}</strong>
       </p>
-      <div style="margin-top: 24px; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #1e293b;">
+      <div class="org-coords" style="margin-top: 24px; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #1e293b;">
         <p style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">
           Coordonnées de l'établissement
         </p>
@@ -184,7 +194,7 @@ function buildOrganismeHtml(
         </table>
       </div>
     </div>
-    <div style="background: #f8fafc; padding: 16px 32px; border-top: 1px solid #e2e8f0;">
+    <div class="org-footer" style="background: #f8fafc; padding: 16px 32px; border-top: 1px solid #e2e8f0;">
       <p style="color: #94a3b8; font-size: 12px; margin: 0; text-align: center;">
         Ce message est généré automatiquement par le système Main Courante
       </p>
@@ -298,11 +308,11 @@ Deno.serve(async (req: Request) => {
         <h2 style="color:#ef4444;font-size:16px;margin-bottom:12px;border-bottom:2px solid #ef4444;padding-bottom:6px;">
           En retard (${retard.length})
         </h2>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <table class="int-table" style="width:100%;border-collapse:collapse;margin-bottom:24px;">
           <thead>
             <tr style="background:#1e1e2e;color:#94a3b8;">
               <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Installation</th>
-              <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Référence</th>
+              <th class="col-hide" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Référence</th>
               <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Retard</th>
             </tr>
           </thead>
@@ -310,7 +320,7 @@ Deno.serve(async (req: Request) => {
             ${retard.map(({ item, jours }) => `
               <tr style="border-bottom:1px solid #2d2d3d;">
                 <td style="padding:8px 12px;font-size:13px;color:#f1f5f9;">${item.installation}</td>
-                <td style="padding:8px 12px;font-size:12px;color:#94a3b8;">${item.reference_reglementaire}</td>
+                <td class="col-hide" style="padding:8px 12px;font-size:12px;color:#94a3b8;">${item.reference_reglementaire}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#ef4444;font-weight:600;">${jours} jour(s)</td>
               </tr>
             `).join("")}
@@ -322,11 +332,11 @@ Deno.serve(async (req: Request) => {
         <h2 style="color:#f59e0b;font-size:16px;margin-bottom:12px;border-bottom:2px solid #f59e0b;padding-bottom:6px;">
           Échéances à venir (${bientot.length})
         </h2>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <table class="int-table" style="width:100%;border-collapse:collapse;margin-bottom:24px;">
           <thead>
             <tr style="background:#1e1e2e;color:#94a3b8;">
               <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Installation</th>
-              <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Référence</th>
+              <th class="col-hide" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Référence</th>
               <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Date limite</th>
               <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;">Dans</th>
             </tr>
@@ -335,7 +345,7 @@ Deno.serve(async (req: Request) => {
             ${bientot.map(({ item, next, joursRestants }) => `
               <tr style="border-bottom:1px solid #2d2d3d;">
                 <td style="padding:8px 12px;font-size:13px;color:#f1f5f9;">${item.installation}</td>
-                <td style="padding:8px 12px;font-size:12px;color:#94a3b8;">${item.reference_reglementaire}</td>
+                <td class="col-hide" style="padding:8px 12px;font-size:12px;color:#94a3b8;">${item.reference_reglementaire}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#f59e0b;font-weight:600;">${formatDate(next)}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#f59e0b;">J-${joursRestants}</td>
               </tr>
@@ -347,13 +357,21 @@ Deno.serve(async (req: Request) => {
       const html = `
         <!DOCTYPE html>
         <html>
-        <head><meta charset="UTF-8" /></head>
+        <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0">
+        <style>
+          @media screen and (max-width:600px){
+            .int-wrap{padding:16px!important}
+            .int-table th,.int-table td{padding:7px 10px!important;font-size:12px!important}
+            .col-hide{display:none!important}
+          }
+        </style>
+        </head>
         <body style="background:#0f0f1a;font-family:system-ui,sans-serif;color:#e2e8f0;padding:32px;max-width:680px;margin:0 auto;">
           <div style="background:#1a1a2e;border-radius:16px;padding:24px;margin-bottom:24px;border:1px solid #2d2d3d;">
             <h1 style="color:#ffffff;font-size:20px;margin:0 0 4px 0;">Registre de sécurité</h1>
             <p style="color:#64748b;font-size:13px;margin:0;">${entrepriseNom}</p>
           </div>
-          <div style="background:#1a1a2e;border-radius:16px;padding:24px;border:1px solid #2d2d3d;">
+          <div class="int-wrap" style="background:#1a1a2e;border-radius:16px;padding:24px;border:1px solid #2d2d3d;">
             ${retardHtml}
             ${bientotHtml}
           </div>

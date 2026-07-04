@@ -26,12 +26,10 @@ Deno.serve(async (req: Request) => {
     let finSoiree: Date;
 
     if (isTest) {
-      // Mode test : fenêtre de 48h glissante pour capturer les événements récents
       finSoiree = new Date(now);
       debutSoiree = new Date(now);
       debutSoiree.setUTCHours(debutSoiree.getUTCHours() - 48);
     } else {
-      // Mode normal : hier 15h00 UTC → aujourd'hui 07h00 UTC
       finSoiree = new Date(now);
       finSoiree.setUTCHours(7, 0, 0, 0);
       debutSoiree = new Date(finSoiree);
@@ -41,7 +39,6 @@ Deno.serve(async (req: Request) => {
 
     const dateSoireeStr = debutSoiree.toISOString().split("T")[0];
 
-    // Vérifier si le rapport existe déjà (ignoré en mode test)
     const { data: existing } = await supabase
       .from("rapports_soiree")
       .select("id")
@@ -55,7 +52,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Récupérer les événements de la soirée
     const { data: evenements, error: evErr } = await supabase
       .from("evenements")
       .select(`
@@ -78,7 +74,6 @@ Deno.serve(async (req: Request) => {
 
     if (evErr) throw evErr;
 
-    // Aucun événement : pas de rapport
     if (!evenements || evenements.length === 0) {
       return new Response(
         JSON.stringify({ message: "Aucun événement sur cette soirée — pas de rapport", date: dateSoireeStr }),
@@ -86,10 +81,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Agents uniques (via created_by ou created_by_email)
     const agentIds = [...new Set(evenements.map((e: any) => e.created_by).filter(Boolean))];
 
-    // Récupérer les profils des agents
     const { data: profiles } = agentIds.length > 0 ? await supabase
       .from("user_profiles")
       .select("id, first_name, last_name")
@@ -100,14 +93,12 @@ Deno.serve(async (req: Request) => {
       const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
       if (full) profMap[p.id] = full;
     });
-    // Fallback sur created_by_email si pas de profil
     evenements.forEach((e: any) => {
       if (e.created_by && !profMap[e.created_by] && e.created_by_email) {
         profMap[e.created_by] = e.created_by_email;
       }
     });
 
-    // Récupérer les infos entreprise
     const { data: entreprise } = await supabase
       .from("etablissements")
       .select("nom, logo_url, effectif_public")
@@ -115,7 +106,6 @@ Deno.serve(async (req: Request) => {
       .limit(1)
       .maybeSingle();
 
-    // Récupérer les actions jauge pour la soirée
     const { data: jaugeActions } = await supabase
       .from("jauge_actions")
       .select("action, delta, created_at")
@@ -123,11 +113,9 @@ Deno.serve(async (req: Request) => {
       .lte("created_at", finSoiree.toISOString())
       .order("created_at", { ascending: true });
 
-    // Stats événements
     const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
     const nbPersonnes = evenements.filter((e: any) => e.type !== "ssi").length;
 
-    // Stats jauge (defaults si pas de données)
     let totalVisiteurs = 0;
     let countMax = 0;
     let heurePointe = "—";
@@ -156,7 +144,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Formater la date de la soirée
     const dateSoireeLabel = debutSoiree.toLocaleDateString("fr-FR", {
       weekday: "long",
       day: "2-digit",
@@ -167,7 +154,6 @@ Deno.serve(async (req: Request) => {
     const heureDebut = debutSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
     const heureFin = finSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-    // Lignes du tableau d'événements
     const lignesEvenements = evenements.map((e: any) => {
       const heure = new Date(e.date_evenement).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
       const agent = profMap[e.created_by] ?? e.created_by_email ?? "Inconnu";
@@ -193,7 +179,7 @@ Deno.serve(async (req: Request) => {
           </td>
           <td style="padding:12px 16px;font-size:13px;color:#374151">${e.niveau_label ?? "—"}</td>
           <td style="padding:12px 16px;font-size:13px;color:#374151">${agent}</td>
-          <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-style:italic">${e.commentaire ?? "—"}</td>
+          <td class="col-hide" style="padding:12px 16px;font-size:13px;color:#6b7280;font-style:italic">${e.commentaire ?? "—"}</td>
         </tr>
       `;
     }).join("");
@@ -210,28 +196,42 @@ Deno.serve(async (req: Request) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Rapport de soirée — ${dateSoireeLabel}</title>
+  <style>
+    @media screen and (max-width:600px){
+      .rpt-header{padding:24px 20px 18px!important}
+      .rpt-subtitle{padding:14px 20px!important}
+      .rpt-stats{padding:16px 8px!important}
+      .stat-table{display:block!important;width:100%!important}
+      .stat-tr{display:block!important;text-align:center!important}
+      .stat-td{display:inline-block!important;width:29%!important;min-width:0!important;box-sizing:border-box!important;vertical-align:top!important}
+      .col-hide{display:none!important}
+      .evt-table th,.evt-table td{padding:7px 8px!important;font-size:11px!important}
+      .rpt-section{padding:16px 20px 10px!important}
+      .rpt-footer{display:block!important;padding:16px 20px!important;text-align:center!important}
+    }
+  </style>
 </head>
 <body style="margin:0;padding:32px 16px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
   <div style="max-width:760px;margin:0 auto">
 
     <!-- En-tête -->
-    <div style="background:#0f172a;border-radius:16px 16px 0 0;padding:36px 40px 28px">
+    <div class="rpt-header" style="background:#0f172a;border-radius:16px 16px 0 0;padding:36px 40px 28px">
       ${logoHtml}
       <p style="color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;margin:0 0 6px">Main Courante — Rapport automatique</p>
       <h1 style="color:#ffffff;font-size:24px;font-weight:800;margin:0;line-height:1.2">${nomEntreprise}</h1>
     </div>
 
     <!-- Sous-titre soirée -->
-    <div style="background:#1e293b;padding:18px 40px">
+    <div class="rpt-subtitle" style="background:#1e293b;padding:18px 40px">
       <p style="color:#e2e8f0;font-size:17px;font-weight:700;margin:0 0 4px">Soirée du ${dateSoireeLabel}</p>
       <p style="color:#475569;font-size:13px;margin:0">${heureDebut} → ${heureFin}</p>
     </div>
 
     <!-- Stats -->
-    <div style="background:#f1f5f9;padding:20px 40px;border-bottom:1px solid #e2e8f0">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td width="14%" style="padding:4px;">
+    <div class="rpt-stats" style="background:#f1f5f9;padding:20px 40px;border-bottom:1px solid #e2e8f0">
+      <table class="stat-table" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr class="stat-tr">
+          <td class="stat-td" style="padding:4px;width:14%">
             <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
               <tr><td>
                 <div style="color:#1e293b;font-size:28px;font-weight:700;line-height:1;">${evenements.length}</div>
@@ -239,7 +239,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="14%" style="padding:4px;">
+          <td class="stat-td" style="padding:4px;width:14%">
             <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
               <tr><td>
                 <div style="color:#ef4444;font-size:28px;font-weight:700;line-height:1;">${nbSSI}</div>
@@ -247,7 +247,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="14%" style="padding:4px;">
+          <td class="stat-td" style="padding:4px;width:14%">
             <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
               <tr><td>
                 <div style="color:#3b82f6;font-size:28px;font-weight:700;line-height:1;">${nbPersonnes}</div>
@@ -255,7 +255,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="14%" style="padding:4px;">
+          <td class="stat-td" style="padding:4px;width:14%">
             <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
               <tr><td>
                 <div style="color:#22c55e;font-size:28px;font-weight:700;line-height:1;">${agentIds.length}</div>
@@ -263,7 +263,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="14%" style="padding:4px;">
+          <td class="stat-td" style="padding:4px;width:14%">
             <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
               <tr><td>
                 <div style="color:#22c55e;font-size:28px;font-weight:700;line-height:1;">${totalVisiteurs}</div>
@@ -271,7 +271,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="14%" style="padding:4px;">
+          <td class="stat-td" style="padding:4px;width:14%">
             <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
               <tr><td>
                 <div style="color:#f59e0b;font-size:28px;font-weight:700;line-height:1;">${countMax}</div>
@@ -279,7 +279,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="16%" style="padding:4px;">
+          <td class="stat-td" style="padding:4px;width:16%">
             <table width="100%" cellpadding="16" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;text-align:center;">
               <tr><td>
                 <div style="color:#60a5fa;font-size:28px;font-weight:700;line-height:1;">${heurePointe}</div>
@@ -293,10 +293,10 @@ Deno.serve(async (req: Request) => {
 
     <!-- Tableau des événements -->
     <div style="background:#ffffff;border-radius:0 0 16px 16px;overflow:hidden">
-      <div style="padding:24px 40px 16px">
+      <div class="rpt-section" style="padding:24px 40px 16px">
         <h2 style="font-size:15px;font-weight:700;color:#0f172a;margin:0">Journal des événements</h2>
       </div>
-      <table style="width:100%;border-collapse:collapse">
+      <table class="evt-table" style="width:100%;border-collapse:collapse">
         <thead>
           <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
             <th style="padding:10px 16px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;text-align:left">Heure</th>
@@ -304,14 +304,14 @@ Deno.serve(async (req: Request) => {
             <th style="padding:10px 16px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;text-align:left">Espace / Zone</th>
             <th style="padding:10px 16px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;text-align:left">Niveau</th>
             <th style="padding:10px 16px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;text-align:left">Agent</th>
-            <th style="padding:10px 16px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;text-align:left">Commentaire</th>
+            <th class="col-hide" style="padding:10px 16px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;text-align:left">Commentaire</th>
           </tr>
         </thead>
         <tbody>${lignesEvenements}</tbody>
       </table>
 
       <!-- Pied de page -->
-      <div style="padding:20px 40px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">
+      <div class="rpt-footer" style="padding:20px 40px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">
         <p style="font-size:12px;color:#94a3b8;margin:0">Généré automatiquement par Main Courante</p>
         <p style="font-size:12px;color:#94a3b8;margin:0">${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</p>
       </div>
@@ -321,7 +321,6 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-    // Sauvegarder le rapport en base (upsert en mode test pour écraser l'existant)
     const { error: insertErr } = await supabase
       .from("rapports_soiree")
       .upsert({
@@ -335,7 +334,6 @@ Deno.serve(async (req: Request) => {
 
     if (insertErr) throw insertErr;
 
-    // Envoyer le rapport par e-mail via Resend si la règle est active
     const { data: emailRule } = await supabase
       .from("email_rules")
       .select("*")

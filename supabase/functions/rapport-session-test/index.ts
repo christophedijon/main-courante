@@ -122,7 +122,7 @@ Deno.serve(async (req: Request) => {
               <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;color:${actionColor};background:${actionColor}18">${actionLabel}</span>
             </td>
             <td style="padding:10px 16px;font-size:13px;color:#374151;font-weight:600">${deltaStr}</td>
-            <td style="padding:10px 16px;font-size:12px;color:#94a3b8">${a.source ?? "app"}</td>
+            <td class="col-hide" style="padding:10px 16px;font-size:12px;color:#94a3b8">${a.source ?? "app"}</td>
           </tr>`;
         }).join("");
 
@@ -144,12 +144,27 @@ Deno.serve(async (req: Request) => {
     const contenuHtml = `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Rapport SESSION TEST — ${dateLabel}</title></head>
+<title>Rapport SESSION TEST — ${dateLabel}</title>
+<style>
+  @media screen and (max-width:600px){
+    .rst-header{padding:24px 20px 18px!important}
+    .rst-subtitle{padding:14px 20px!important}
+    .rst-stats{padding:14px 8px!important}
+    .stat-table{display:block!important;width:100%!important}
+    .stat-tr{display:block!important;text-align:center!important}
+    .stat-td{display:inline-block!important;width:44%!important;min-width:0!important;box-sizing:border-box!important;vertical-align:top!important}
+    .rst-section{padding:14px 20px 10px!important}
+    .rst-table th,.rst-table td{padding:8px 10px!important;font-size:11px!important}
+    .col-hide{display:none!important}
+    .rst-footer{padding:14px 20px!important}
+  }
+</style>
+</head>
 <body style="margin:0;padding:32px 16px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
   <div style="max-width:720px;margin:0 auto">
 
     <!-- En-tête TEST -->
-    <div style="background:#78350f;border-radius:16px 16px 0 0;padding:36px 40px 28px">
+    <div class="rst-header" style="background:#78350f;border-radius:16px 16px 0 0;padding:36px 40px 28px">
       ${logoHtml}
       <p style="color:#fcd34d;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin:0 0 6px">
         ⚠ SESSION DE TEST — Données non opérationnelles
@@ -158,16 +173,16 @@ Deno.serve(async (req: Request) => {
     </div>
 
     <!-- Sous-titre -->
-    <div style="background:#92400e;padding:18px 40px">
+    <div class="rst-subtitle" style="background:#92400e;padding:18px 40px">
       <p style="color:#fef3c7;font-size:17px;font-weight:700;margin:0 0 4px">Session test du ${dateLabel}</p>
       <p style="color:#d97706;font-size:13px;margin:0">${ouvertureLabel} → ${fermetureLabel} — durée : ${Math.round((closedAt.getTime() - openedAt.getTime()) / 60000)} min</p>
     </div>
 
     <!-- Stats -->
-    <div style="background:#fffbeb;padding:20px 40px;border-bottom:1px solid #fde68a">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td width="25%" style="padding:4px">
+    <div class="rst-stats" style="background:#fffbeb;padding:20px 40px;border-bottom:1px solid #fde68a">
+      <table class="stat-table" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr class="stat-tr">
+          <td class="stat-td" width="25%" style="padding:4px">
             <table width="100%" cellpadding="14" cellspacing="0" border="0" style="background:#fff;border-radius:12px;text-align:center;border:1px solid #fde68a">
               <tr><td>
                 <div style="color:#92400e;font-size:26px;font-weight:700;line-height:1">${entreesMax}</div>
@@ -175,7 +190,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="25%" style="padding:4px">
+          <td class="stat-td" width="25%" style="padding:4px">
             <table width="100%" cellpadding="14" cellspacing="0" border="0" style="background:#fff;border-radius:12px;text-align:center;border:1px solid #fde68a">
               <tr><td>
                 <div style="color:#78350f;font-size:26px;font-weight:700;line-height:1">${totalEntrees}</div>
@@ -183,7 +198,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="25%" style="padding:4px">
+          <td class="stat-td" width="25%" style="padding:4px">
             <table width="100%" cellpadding="14" cellspacing="0" border="0" style="background:#fff;border-radius:12px;text-align:center;border:1px solid ${nbSSI > 0 ? "#fca5a5" : "#fde68a"}">
               <tr><td>
                 <div style="color:${nbSSI > 0 ? "#ef4444" : "#78350f"};font-size:26px;font-weight:700;line-height:1">${nbSSI}</div>
@@ -191,7 +206,7 @@ Deno.serve(async (req: Request) => {
               </td></tr>
             </table>
           </td>
-          <td width="25%" style="padding:4px">
+          <td class="stat-td" width="25%" style="padding:4px">
             <table width="100%" cellpadding="14" cellspacing="0" border="0" style="background:#fff;border-radius:12px;text-align:center;border:1px solid #fde68a">
               <tr><td>
                 <div style="color:${nbGestionClient > 0 ? "#3b82f6" : "#78350f"};font-size:26px;font-weight:700;line-height:1">${nbGestionClient}</div>
@@ -208,16 +223,16 @@ Deno.serve(async (req: Request) => {
 
     <!-- Actions Flic -->
     <div style="background:#ffffff;border-top:1px solid #fde68a">
-      <div style="padding:20px 40px 12px">
+      <div class="rst-section" style="padding:20px 40px 12px">
         <h2 style="font-size:14px;font-weight:700;color:#92400e;margin:0">Journal actions Flic (test)</h2>
       </div>
-      <table style="width:100%;border-collapse:collapse">
+      <table class="rst-table" style="width:100%;border-collapse:collapse">
         <thead>
           <tr style="background:#fffbeb;border-bottom:2px solid #fde68a">
             <th style="padding:9px 16px;font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:.06em;text-align:left">Heure</th>
             <th style="padding:9px 16px;font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:.06em;text-align:left">Action</th>
             <th style="padding:9px 16px;font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:.06em;text-align:left">Delta</th>
-            <th style="padding:9px 16px;font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:.06em;text-align:left">Source</th>
+            <th class="col-hide" style="padding:9px 16px;font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:.06em;text-align:left">Source</th>
           </tr>
         </thead>
         <tbody>${lignesActions}</tbody>
@@ -226,10 +241,10 @@ Deno.serve(async (req: Request) => {
 
     <!-- Événements -->
     <div style="background:#ffffff;border-top:1px solid #f1f5f9;border-radius:0 0 16px 16px;overflow:hidden">
-      <div style="padding:20px 40px 12px">
+      <div class="rst-section" style="padding:20px 40px 12px">
         <h2 style="font-size:14px;font-weight:700;color:#92400e;margin:0">Événements saisis (test)</h2>
       </div>
-      <table style="width:100%;border-collapse:collapse">
+      <table class="rst-table" style="width:100%;border-collapse:collapse">
         <thead>
           <tr style="background:#fffbeb;border-bottom:2px solid #fde68a">
             <th style="padding:9px 16px;font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;letter-spacing:.06em;text-align:left">Heure</th>
@@ -240,7 +255,7 @@ Deno.serve(async (req: Request) => {
         <tbody>${lignesEvenements}</tbody>
       </table>
 
-      <div style="padding:18px 40px;border-top:1px solid #fde68a;background:#fffbeb">
+      <div class="rst-footer" style="padding:18px 40px;border-top:1px solid #fde68a;background:#fffbeb">
         <p style="font-size:12px;color:#92400e;margin:0;font-weight:600">
           ⚠ Ces données de test ont été purgées automatiquement — elles ne figurent pas dans les rapports de soirée.
         </p>
