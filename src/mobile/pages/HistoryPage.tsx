@@ -55,13 +55,13 @@ type RegistreHistoriqueEntry = {
   registre_securite?: { installation: string };
 };
 
-const INITIAL: Filters = { type: 'all', date: '7d', dateFrom: '', dateTo: '' };
+const INITIAL: Filters = { type: 'all', date: 'today', dateFrom: '', dateTo: '' };
 
 function toDateStr(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-function getDateRange(filters: Filters, drillDate: string | null) {
+function getDateRange(filters: Filters, drillDate: string | null, lastSoireeDate: string | null) {
   if (drillDate) {
     return {
       fromISO: drillDate + 'T00:00:00.000Z',
@@ -76,9 +76,12 @@ function getDateRange(filters: Filters, drillDate: string | null) {
   to.setHours(23, 59, 59, 999);
 
   switch (filters.date) {
-    case 'today':
-      from.setHours(0, 0, 0, 0);
+    case 'today': {
+      const d = lastSoireeDate ?? toDateStr(now);
+      from = new Date(d + 'T00:00:00');
+      to = new Date(d + 'T23:59:59');
       break;
+    }
     case '7d':
       from.setDate(from.getDate() - 6);
       from.setHours(0, 0, 0, 0);
@@ -150,6 +153,7 @@ export default function HistoryPage() {
   const [filters, setFilters] = useState<Filters>(INITIAL);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [drillDate, setDrillDate] = useState<string | null>(null);
+  const [lastSoireeDate, setLastSoireeDate] = useState<string | null>(null);
 
   // List mode state
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -171,13 +175,30 @@ export default function HistoryPage() {
   // Show table when: no drill-down, type=all, date≠today
   const showTable = drillDate === null && filters.type === 'all' && filters.date !== 'today';
 
+  // Fetch last active soiree date on mount
+  useEffect(() => {
+    if (!etabId) return;
+    supabase
+      .from('jauge_etat')
+      .select('date_soiree')
+      .eq('etablissement_id', etabId)
+      .eq('is_test', false)
+      .gt('count_actuel', 0)
+      .order('date_soiree', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.date_soiree) setLastSoireeDate(data.date_soiree as string);
+      });
+  }, [etabId]);
+
   // Load events list (list mode or drill-down)
   useEffect(() => {
     if (activeTab !== 'events') return;
     if (showTable) return;
     (async () => {
       setLoading(true);
-      const { fromISO, toISO } = getDateRange(filters, drillDate);
+      const { fromISO, toISO } = getDateRange(filters, drillDate, lastSoireeDate);
       let q = supabase
         .from('evenements')
         .select('id, numero, type, espace_nom, zone_nom, niveau_label, date_evenement, created_by_email')
@@ -199,7 +220,7 @@ export default function HistoryPage() {
       setEvents((data ?? []) as EventItem[]);
       setLoading(false);
     })();
-  }, [filters, activeTab, showTable, drillDate]);
+  }, [filters, activeTab, showTable, drillDate, lastSoireeDate]);
 
   // Load table data
   useEffect(() => {
@@ -208,7 +229,7 @@ export default function HistoryPage() {
     if (!etabId) return;
     (async () => {
       setTableLoading(true);
-      const { fromISO, toISO, fromDate, toDate } = getDateRange(filters, null);
+      const { fromISO, toISO, fromDate, toDate } = getDateRange(filters, null, lastSoireeDate);
 
       const [jaugeRes, evRes] = await Promise.all([
         supabase
@@ -255,7 +276,7 @@ export default function HistoryPage() {
       setTableRows(rows);
       setTableLoading(false);
     })();
-  }, [activeTab, filters, etabId, showTable]);
+  }, [activeTab, filters, etabId, showTable, lastSoireeDate]);
 
   useEffect(() => {
     if (activeTab !== 'ia') return;
@@ -683,7 +704,7 @@ export default function HistoryPage() {
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => { setFilters(INITIAL); setDrillDate(null); }}
+                onClick={() => { setFilters(INITIAL); setDrillDate(null); setSheetOpen(false); }}
                 className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors"
               >
                 Réinitialiser
