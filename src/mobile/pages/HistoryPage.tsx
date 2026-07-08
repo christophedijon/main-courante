@@ -1,14 +1,27 @@
 import { useEffect, useState } from 'react';
-import { Filter, X, ChevronDown, ChevronUp as ChevronUpIcon, FileText, Calendar, AlertTriangle, CheckCircle, Clock, Minus } from 'lucide-react';
+import {
+  Filter, X, ChevronDown, ChevronUp as ChevronUpIcon,
+  FileText, Calendar, ArrowLeft,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useEntreprise } from '../../hooks/useEntreprise';
 import EventCard, { EventItem } from '../components/EventCard';
 import EmptyState from '../components/EmptyState';
 import EntrepriseBadge from '../components/EntrepriseBadge';
 
 type Filters = {
   type: 'all' | 'ssi' | 'securite_personnes';
-  date: 'all' | 'today' | '7d' | '30d';
+  date: 'all' | 'today' | '7d' | '30d' | 'custom';
+  dateFrom: string;
+  dateTo: string;
+};
+
+type TableRow = {
+  date: string; // YYYY-MM-DD
+  entrees_max: number;
+  nb_ssi: number;
+  nb_personnes: number;
 };
 
 type Rapport = {
@@ -42,12 +55,65 @@ type RegistreHistoriqueEntry = {
   registre_securite?: { installation: string };
 };
 
-const INITIAL: Filters = { type: 'all', date: 'all' };
+const INITIAL: Filters = { type: 'all', date: '7d', dateFrom: '', dateTo: '' };
+
+function toDateStr(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+function getDateRange(filters: Filters, drillDate: string | null) {
+  if (drillDate) {
+    return {
+      fromISO: drillDate + 'T00:00:00.000Z',
+      toISO: drillDate + 'T23:59:59.999Z',
+      fromDate: drillDate,
+      toDate: drillDate,
+    };
+  }
+  const now = new Date();
+  let from = new Date(now);
+  let to = new Date(now);
+  to.setHours(23, 59, 59, 999);
+
+  switch (filters.date) {
+    case 'today':
+      from.setHours(0, 0, 0, 0);
+      break;
+    case '7d':
+      from.setDate(from.getDate() - 6);
+      from.setHours(0, 0, 0, 0);
+      break;
+    case '30d':
+      from.setDate(from.getDate() - 29);
+      from.setHours(0, 0, 0, 0);
+      break;
+    case 'custom':
+      from = filters.dateFrom
+        ? new Date(filters.dateFrom + 'T00:00:00')
+        : new Date(now.getFullYear(), now.getMonth(), 1);
+      to = filters.dateTo ? new Date(filters.dateTo + 'T23:59:59') : to;
+      break;
+    default: // 'all'
+      from.setDate(from.getDate() - 89);
+      from.setHours(0, 0, 0, 0);
+  }
+  return {
+    fromISO: from.toISOString(),
+    toISO: to.toISOString(),
+    fromDate: toDateStr(from),
+    toDate: toDateStr(to),
+  };
+}
+
+function formatDateFR(d: string) {
+  return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
 
 function IaRecordSections({ sections }: { sections: { title: string; content: string }[] }) {
   const [open, setOpen] = useState(false);
   const COLORS = ['text-blue-400', 'text-red-400', 'text-amber-400', 'text-cyan-400'];
-
   return (
     <div>
       <button
@@ -65,9 +131,7 @@ function IaRecordSections({ sections }: { sections: { title: string; content: st
               <p className={`text-[11px] font-bold uppercase tracking-wider mb-1 ${COLORS[i % COLORS.length]}`}>
                 {i + 1}. {s.title}
               </p>
-              <p className="text-slate-400 text-[12px] leading-relaxed whitespace-pre-line">
-                {s.content}
-              </p>
+              <p className="text-slate-400 text-[12px] leading-relaxed whitespace-pre-line">{s.content}</p>
             </div>
           ))}
         </div>
@@ -78,49 +142,120 @@ function IaRecordSections({ sections }: { sections: { title: string; content: st
 
 export default function HistoryPage() {
   const { isDirection, isChefDePoste, isSuperAdmin } = useAuth();
+  const { id: etabId } = useEntreprise();
   const canSeeRapports = isDirection || isChefDePoste || isSuperAdmin;
   const canSeeRegistre = isDirection || isChefDePoste || isSuperAdmin;
-  const [activeTab, setActiveTab] = useState<'events' | 'ia' | 'rapports' | 'registre'>('events');
 
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'events' | 'ia' | 'rapports' | 'registre'>('events');
   const [filters, setFilters] = useState<Filters>(INITIAL);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [drillDate, setDrillDate] = useState<string | null>(null);
 
+  // List mode state
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Table mode state
+  const [tableRows, setTableRows] = useState<TableRow[]>([]);
+  const [tableLoading, setTableLoading] = useState(false);
+
+  // Other tabs
   const [iaHistory, setIaHistory] = useState<IaRecord[]>([]);
   const [iaLoading, setIaLoading] = useState(false);
-
   const [rapports, setRapports] = useState<Rapport[]>([]);
   const [rapportsLoading, setRapportsLoading] = useState(false);
   const [openRapportId, setOpenRapportId] = useState<string | null>(null);
-
   const [registreHistory, setRegistreHistory] = useState<RegistreHistoriqueEntry[]>([]);
   const [registreLoading, setRegistreLoading] = useState(false);
 
+  // Show table when: no drill-down, type=all, date≠today
+  const showTable = drillDate === null && filters.type === 'all' && filters.date !== 'today';
+
+  // Load events list (list mode or drill-down)
   useEffect(() => {
     if (activeTab !== 'events') return;
+    if (showTable) return;
     (async () => {
       setLoading(true);
+      const { fromISO, toISO } = getDateRange(filters, drillDate);
       let q = supabase
         .from('evenements')
         .select('id, numero, type, espace_nom, zone_nom, niveau_label, date_evenement, created_by_email')
         .order('date_evenement', { ascending: false })
         .limit(100);
 
-      if (filters.type !== 'all') q = q.eq('type', filters.type);
-      if (filters.date !== 'all') {
-        const d = new Date();
-        if (filters.date === 'today') d.setHours(0, 0, 0, 0);
-        if (filters.date === '7d') d.setDate(d.getDate() - 7);
-        if (filters.date === '30d') d.setDate(d.getDate() - 30);
-        q = q.gte('date_evenement', d.toISOString());
+      if (drillDate) {
+        q = q.gte('date_evenement', fromISO).lte('date_evenement', toISO);
+      } else if (filters.date === 'custom') {
+        if (filters.dateFrom) q = q.gte('date_evenement', filters.dateFrom + 'T00:00:00.000Z');
+        if (filters.dateTo) q = q.lte('date_evenement', filters.dateTo + 'T23:59:59.999Z');
+        if (filters.type !== 'all') q = q.eq('type', filters.type);
+      } else {
+        if (filters.type !== 'all') q = q.eq('type', filters.type);
+        if (filters.date !== 'all') q = q.gte('date_evenement', fromISO);
       }
 
       const { data } = await q;
       setEvents((data ?? []) as EventItem[]);
       setLoading(false);
     })();
-  }, [filters, activeTab]);
+  }, [filters, activeTab, showTable, drillDate]);
+
+  // Load table data
+  useEffect(() => {
+    if (activeTab !== 'events') return;
+    if (!showTable) return;
+    if (!etabId) return;
+    (async () => {
+      setTableLoading(true);
+      const { fromISO, toISO, fromDate, toDate } = getDateRange(filters, null);
+
+      const [jaugeRes, evRes] = await Promise.all([
+        supabase
+          .from('jauge_etat')
+          .select('date_soiree, count_actuel')
+          .eq('etablissement_id', etabId)
+          .eq('is_test', false)
+          .gte('date_soiree', fromDate)
+          .lte('date_soiree', toDate),
+        supabase
+          .from('evenements')
+          .select('date_evenement, type')
+          .eq('etablissement_id', etabId)
+          .gte('date_evenement', fromISO)
+          .lte('date_evenement', toISO),
+      ]);
+
+      // Max count_actuel per date_soiree
+      const jaugeByDate: Record<string, number> = {};
+      for (const row of jaugeRes.data ?? []) {
+        const d = row.date_soiree as string;
+        jaugeByDate[d] = Math.max(jaugeByDate[d] ?? 0, (row.count_actuel as number) ?? 0);
+      }
+
+      // Count events by date and type
+      const evByDate: Record<string, { ssi: number; personnes: number }> = {};
+      for (const row of evRes.data ?? []) {
+        const d = new Date(row.date_evenement as string).toISOString().split('T')[0];
+        if (!evByDate[d]) evByDate[d] = { ssi: 0, personnes: 0 };
+        if (row.type === 'ssi') evByDate[d].ssi++;
+        if (row.type === 'securite_personnes') evByDate[d].personnes++;
+      }
+
+      const allDates = new Set([...Object.keys(jaugeByDate), ...Object.keys(evByDate)]);
+      const rows: TableRow[] = Array.from(allDates)
+        .sort((a, b) => b.localeCompare(a))
+        .map((date) => ({
+          date,
+          entrees_max: jaugeByDate[date] ?? 0,
+          nb_ssi: evByDate[date]?.ssi ?? 0,
+          nb_personnes: evByDate[date]?.personnes ?? 0,
+        }));
+
+      setTableRows(rows);
+      setTableLoading(false);
+    })();
+  }, [activeTab, filters, etabId, showTable]);
 
   useEffect(() => {
     if (activeTab !== 'ia') return;
@@ -169,8 +304,19 @@ export default function HistoryPage() {
 
   const activeFiltersCount = Number(filters.type !== 'all') + Number(filters.date !== 'all');
 
+  const totalRow = tableRows.reduce(
+    (acc, r) => ({
+      date: 'TOTAL',
+      entrees_max: acc.entrees_max + r.entrees_max,
+      nb_ssi: acc.nb_ssi + r.nb_ssi,
+      nb_personnes: acc.nb_personnes + r.nb_personnes,
+    }),
+    { date: 'TOTAL', entrees_max: 0, nb_ssi: 0, nb_personnes: 0 }
+  );
+
   return (
     <div>
+      {/* Header */}
       <div className="px-5 pt-6 pb-3 flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h1 className="text-white text-2xl font-bold truncate">Historique</h1>
@@ -197,39 +343,23 @@ export default function HistoryPage() {
       {/* Tabs */}
       <div className="px-5 pb-3">
         <div className="flex gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('events')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
-              ${activeTab === 'events' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-          >
+          <button type="button" onClick={() => setActiveTab('events')}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'events' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
             Événements
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ia')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
-              ${activeTab === 'ia' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-          >
+          <button type="button" onClick={() => setActiveTab('ia')}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'ia' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
             Historique IA
           </button>
           {canSeeRapports && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('rapports')}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
-                ${activeTab === 'rapports' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-            >
+            <button type="button" onClick={() => setActiveTab('rapports')}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'rapports' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
               Rapports
             </button>
           )}
           {canSeeRegistre && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('registre')}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
-                ${activeTab === 'registre' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-            >
+            <button type="button" onClick={() => setActiveTab('registre')}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'registre' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
               Registre
             </button>
           )}
@@ -238,10 +368,108 @@ export default function HistoryPage() {
 
       {/* Events tab */}
       {activeTab === 'events' && (
-        <div className="px-5 py-4 space-y-2.5">
-          {loading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
-          {!loading && events.length === 0 && <EmptyState text="Aucun événement trouvé" hint="Essayez d'ajuster vos filtres" />}
-          {events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
+        <div className="px-5 py-4">
+          {/* Drill-down back button */}
+          {drillDate && (
+            <button
+              type="button"
+              onClick={() => setDrillDate(null)}
+              className="flex items-center gap-2 text-blue-400 text-sm font-medium mb-4 hover:text-blue-300 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Retour au tableau — {formatDateFR(drillDate)}
+            </button>
+          )}
+
+          {/* Table view */}
+          {showTable && (
+            <>
+              {tableLoading && (
+                <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>
+              )}
+              {!tableLoading && tableRows.length === 0 && (
+                <EmptyState text="Aucune donnée" hint="Aucun événement ni entrée de jauge sur cette période" />
+              )}
+              {!tableLoading && tableRows.length > 0 && (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]">
+                      <thead>
+                        <tr className="border-b border-slate-800">
+                          <th className="text-left py-3 px-3 text-[11px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
+                            Date
+                          </th>
+                          <th className="text-center py-3 px-2 text-[11px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
+                            Entrées max
+                          </th>
+                          <th className="text-center py-3 px-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                            SSI
+                          </th>
+                          <th className="text-center py-3 px-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                            Personnes
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tableRows.map((row, i) => (
+                          <tr
+                            key={row.date}
+                            onClick={() => setDrillDate(row.date)}
+                            className={`border-b border-slate-800/50 cursor-pointer transition-colors active:bg-slate-700/50 hover:bg-slate-800/50 ${i % 2 === 1 ? 'bg-slate-800/20' : ''}`}
+                          >
+                            <td className="py-3 px-3 text-slate-200 font-medium whitespace-nowrap">
+                              {formatDateFR(row.date)}
+                            </td>
+                            <td className="py-3 px-2 text-center text-slate-300">
+                              {row.entrees_max > 0 ? row.entrees_max : <span className="text-slate-700">—</span>}
+                            </td>
+                            <td className={`py-3 px-2 text-center font-semibold ${row.nb_ssi > 0 ? 'text-orange-400' : 'text-slate-700'}`}>
+                              {row.nb_ssi > 0 ? row.nb_ssi : '—'}
+                            </td>
+                            <td className={`py-3 px-2 text-center font-semibold ${row.nb_personnes > 0 ? 'text-blue-400' : 'text-slate-700'}`}>
+                              {row.nb_personnes > 0 ? row.nb_personnes : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Total row */}
+                        <tr className="bg-slate-800/60 border-t border-slate-600">
+                          <td className="py-3 px-3 text-white font-bold text-[11px] uppercase tracking-wide">
+                            TOTAL
+                          </td>
+                          <td className="py-3 px-2 text-center text-white font-bold">
+                            {totalRow.entrees_max || <span className="text-slate-600">—</span>}
+                          </td>
+                          <td className={`py-3 px-2 text-center font-bold ${totalRow.nb_ssi > 0 ? 'text-orange-400' : 'text-slate-600'}`}>
+                            {totalRow.nb_ssi || '—'}
+                          </td>
+                          <td className={`py-3 px-2 text-center font-bold ${totalRow.nb_personnes > 0 ? 'text-blue-400' : 'text-slate-600'}`}>
+                            {totalRow.nb_personnes || '—'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-slate-600 text-[11px] text-center py-2">
+                    Appuyez sur une ligne pour voir le détail
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* List view */}
+          {!showTable && (
+            <div className="space-y-2.5">
+              {loading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
+              {!loading && events.length === 0 && (
+                <EmptyState
+                  text="Aucun événement trouvé"
+                  hint={drillDate ? `Aucun événement le ${formatDateFR(drillDate)}` : "Essayez d'ajuster vos filtres"}
+                />
+              )}
+              {events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
+            </div>
+          )}
         </div>
       )}
 
@@ -278,9 +506,7 @@ export default function HistoryPage() {
       {/* Rapports tab */}
       {activeTab === 'rapports' && (
         <div className="px-5 py-4 space-y-3">
-          {rapportsLoading && (
-            <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>
-          )}
+          {rapportsLoading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
           {!rapportsLoading && rapports.length === 0 && (
             <EmptyState text="Aucun rapport disponible" hint="Les rapports sont générés automatiquement chaque matin à 8h00" />
           )}
@@ -291,7 +517,6 @@ export default function HistoryPage() {
             });
             const heureDebut = new Date(rapport.debut_soiree).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
             const heureFin = new Date(rapport.fin_soiree).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
             return (
               <div key={rapport.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
                 <button
@@ -321,7 +546,6 @@ export default function HistoryPage() {
                     }
                   </div>
                 </button>
-
                 {isOpen && rapport.contenu_html && (
                   <div className="border-t border-slate-800 overflow-auto bg-white rounded-b-2xl" style={{ maxHeight: '75vh' }}>
                     <div dangerouslySetInnerHTML={{ __html: rapport.contenu_html }} />
@@ -354,7 +578,9 @@ export default function HistoryPage() {
                     {entry.registre_securite?.installation ?? '—'}
                   </p>
                   <p className="text-slate-500 text-xs mt-0.5">
-                    {new Date(entry.date_verification + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    {new Date(entry.date_verification + 'T12:00:00').toLocaleDateString('fr-FR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                    })}
                   </p>
                 </div>
                 {entry.rapport_url && (
@@ -378,16 +604,22 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* Filter sheet */}
+      {/* Filter bottom sheet */}
       {sheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/70 animate-fade-in" onClick={() => setSheetOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/70"
+          onClick={() => setSheetOpen(false)}
+        >
           <div
-            className="w-full max-w-xl mx-auto bg-slate-900 border-t border-slate-800 rounded-t-3xl p-5 pb-28 animate-slide-up"
+            className="w-full max-w-xl mx-auto bg-slate-900 border-t border-slate-800 rounded-t-3xl p-5 pb-28 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-white font-bold text-lg">Filtres</h2>
-              <button onClick={() => setSheetOpen(false)} className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center">
+              <button
+                onClick={() => setSheetOpen(false)}
+                className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center"
+              >
                 <X className="w-4 h-4 text-slate-300" />
               </button>
             </div>
@@ -401,7 +633,10 @@ export default function HistoryPage() {
                   { v: 'securite_personnes', l: 'Personnes' },
                 ]}
                 value={filters.type}
-                onChange={(v) => setFilters((f) => ({ ...f, type: v as Filters['type'] }))}
+                onChange={(v) => {
+                  setDrillDate(null);
+                  setFilters((f) => ({ ...f, type: v as Filters['type'] }));
+                }}
               />
               <FilterGroup
                 label="Période"
@@ -410,15 +645,45 @@ export default function HistoryPage() {
                   { v: 'today', l: "Aujourd'hui" },
                   { v: '7d', l: '7 jours' },
                   { v: '30d', l: '30 jours' },
+                  { v: 'custom', l: 'Période' },
                 ]}
                 value={filters.date}
-                onChange={(v) => setFilters((f) => ({ ...f, date: v as Filters['date'] }))}
+                onChange={(v) => {
+                  setDrillDate(null);
+                  setFilters((f) => ({ ...f, date: v as Filters['date'] }));
+                }}
               />
+              {filters.date === 'custom' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                      Du
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.dateFrom}
+                      onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                      Au
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.dateTo}
+                      onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setFilters(INITIAL)}
+                onClick={() => { setFilters(INITIAL); setDrillDate(null); }}
                 className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 rounded-xl transition-colors"
               >
                 Réinitialiser
@@ -437,7 +702,12 @@ export default function HistoryPage() {
   );
 }
 
-function FilterGroup({ label, options, value, onChange }: {
+function FilterGroup({
+  label,
+  options,
+  value,
+  onChange,
+}: {
   label: string;
   options: { v: string; l: string }[];
   value: string;
