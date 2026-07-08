@@ -382,7 +382,7 @@ export default function HistoryPage() {
       {sheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/70 animate-fade-in" onClick={() => setSheetOpen(false)}>
           <div
-            className="w-full max-w-xl mx-auto bg-slate-900 border-t border-slate-800 rounded-t-3xl p-5 animate-slide-up"
+            className="w-full max-w-xl mx-auto bg-slate-900 border-t border-slate-800 rounded-t-3xl p-5 pb-28 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
