@@ -39,7 +39,7 @@ const GROUPES = [
       { path: '/jauge/config',          label: 'Jauge',            icon: Gauge,           superOnly: false, adminOnly: true },
       { path: '/balises-rondes',        label: 'Balises & Rondes', icon: Radio,           superOnly: false, adminOnly: true },
       { path: '/rapports',              label: 'Rapports',         icon: BarChart2,       superOnly: false, adminOnly: true },
-      { path: '/emails',                label: 'Emails',           icon: Mail,            superOnly: true,  adminOnly: false },
+      { path: '/emails',                label: 'Emails',           icon: Mail,            superOnly: false, adminOnly: true  },
     ],
   },
   {
