@@ -323,7 +323,10 @@ export default function HistoryPage() {
     })();
   }, [activeTab]);
 
-  const activeFiltersCount = Number(filters.type !== 'all') + Number(filters.date !== 'all');
+  const activeFiltersCount =
+    Number(filters.type !== 'all') +
+    Number(filters.date !== 'today') +
+    Number(!!filters.dateFrom || !!filters.dateTo);
 
   const totalRow = tableRows.reduce(
     (acc, r) => ({
