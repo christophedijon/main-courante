@@ -171,6 +171,30 @@ export function useOnboarding(existingEtabId?: string) {
       onboarding_completed_at: new Date().toISOString(),
     }).eq('id', etabId);
 
+    // Créer les règles email par défaut pour ce client
+    await supabase.from('email_rules').upsert([
+      {
+        etablissement_id: etabId,
+        type: 'rapport_soiree',
+        active: true,
+        dest_direction: true,
+        dest_chef_de_poste: false,
+        dest_agent_securite: false,
+        dest_serveur: false,
+        dest_emails_libres: [],
+      },
+      {
+        etablissement_id: etabId,
+        type: 'registre_securite',
+        active: true,
+        dest_direction: true,
+        dest_chef_de_poste: false,
+        dest_agent_securite: false,
+        dest_serveur: false,
+        dest_emails_libres: [],
+      },
+    ], { onConflict: 'etablissement_id,type', ignoreDuplicates: true });
+
     // Email bienvenue — fire-and-forget, non bloquant
     supabase.functions.invoke('send-welcome-email', {
       body: { etablissement_id: etabId },

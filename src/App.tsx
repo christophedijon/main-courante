@@ -239,7 +239,7 @@ export default function App() {
             <Route path="/dashboard-signatures" element={<AdminRoute><DashboardSignaturesPage /></AdminRoute>} />
             <Route path="/rapports" element={<AdminRoute><RapportsPage /></AdminRoute>} />
             <Route path="/registre-securite" element={<AdminRoute><RegistreSecuritePage /></AdminRoute>} />
-            <Route path="/emails" element={<SuperAdminRoute><EmailsPage /></SuperAdminRoute>} />
+            <Route path="/emails" element={<AdminRoute><EmailsPage /></AdminRoute>} />
             <Route path="/emails/modeles" element={<SuperAdminRoute><EmailModelesPage /></SuperAdminRoute>} />
             <Route path="/balises-rondes" element={<AdminRoute><BaliseRondesPage /></AdminRoute>} />
             <Route path="/jauge" element={<AdminRoute><JaugePage /></AdminRoute>} />

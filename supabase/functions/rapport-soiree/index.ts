@@ -39,158 +39,182 @@ Deno.serve(async (req: Request) => {
 
     const dateSoireeStr = debutSoiree.toISOString().split("T")[0];
 
-    const { data: existing } = await supabase
-      .from("rapports_soiree")
-      .select("id")
-      .eq("date_soiree", dateSoireeStr)
-      .maybeSingle();
-
-    if (!isTest && existing) {
-      return new Response(
-        JSON.stringify({ message: "Rapport déjà généré pour cette soirée", date: dateSoireeStr }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { data: evenements, error: evErr } = await supabase
-      .from("evenements")
-      .select(`
-        id,
-        created_at,
-        date_evenement,
-        type,
-        espace_nom,
-        zone_nom,
-        niveau_label,
-        commentaire,
-        created_by,
-        created_by_email,
-        user_fonction,
-        etablissement_nom
-      `)
-      .gte("date_evenement", debutSoiree.toISOString())
-      .lte("date_evenement", finSoiree.toISOString())
-      .order("date_evenement", { ascending: true });
-
-    if (evErr) throw evErr;
-
-    if (!evenements || evenements.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "Aucun événement sur cette soirée — pas de rapport", date: dateSoireeStr }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const agentIds = [...new Set(evenements.map((e: any) => e.created_by).filter(Boolean))];
-
-    const { data: profiles } = agentIds.length > 0 ? await supabase
-      .from("user_profiles")
-      .select("id, first_name, last_name")
-      .in("id", agentIds) : { data: [] };
-
-    const profMap: Record<string, string> = {};
-    (profiles ?? []).forEach((p: any) => {
-      const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
-      if (full) profMap[p.id] = full;
-    });
-    evenements.forEach((e: any) => {
-      if (e.created_by && !profMap[e.created_by] && e.created_by_email) {
-        profMap[e.created_by] = e.created_by_email;
-      }
-    });
-
-    const { data: entreprise } = await supabase
+    // Fetch all active etablissements
+    const { data: etablissements, error: etabErr } = await supabase
       .from("etablissements")
-      .select("nom, logo_url, effectif_public")
-      .in("statut", ["essai", "actif"])
-      .limit(1)
-      .maybeSingle();
+      .select("id, nom, logo_url, effectif_public")
+      .in("statut", ["essai", "actif"]);
 
-    const { data: jaugeActions } = await supabase
-      .from("jauge_actions")
-      .select("action, delta, created_at")
-      .gte("created_at", debutSoiree.toISOString())
-      .lte("created_at", finSoiree.toISOString())
-      .order("created_at", { ascending: true });
+    if (etabErr) throw etabErr;
 
-    const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
-    const nbPersonnes = evenements.filter((e: any) => e.type !== "ssi").length;
+    if (!etablissements || etablissements.length === 0) {
+      return new Response(
+        JSON.stringify({ message: "Aucun établissement actif", date: dateSoireeStr }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    let totalVisiteurs = 0;
-    let countMax = 0;
-    let heurePointe = "—";
+    const results: Array<{
+      etab_id: string;
+      nom: string;
+      skipped?: string;
+      nb_evenements?: number;
+      nb_agents?: number;
+      email_sent?: boolean;
+    }> = [];
 
-    if (jaugeActions && jaugeActions.length > 0) {
-      totalVisiteurs = (jaugeActions as any[])
-        .filter((a) => a.action === "entree")
-        .reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
+    for (const etab of etablissements) {
+      // Duplicate guard scoped to this etablissement
+      const { data: existing } = await supabase
+        .from("rapports_soiree")
+        .select("id")
+        .eq("date_soiree", dateSoireeStr)
+        .eq("etablissement_id", etab.id)
+        .maybeSingle();
 
-      let running = 0;
-      let heurePointeDate: Date | null = null;
-      for (const a of jaugeActions as any[]) {
-        running = Math.max(0, running + (a.delta ?? 0));
-        if (running > countMax) {
-          countMax = running;
-          heurePointeDate = new Date(a.created_at);
+      if (!isTest && existing) {
+        results.push({ etab_id: etab.id, nom: etab.nom, skipped: "already_generated" });
+        continue;
+      }
+
+      // Fetch evenements for THIS etablissement only
+      const { data: evenements, error: evErr } = await supabase
+        .from("evenements")
+        .select(`
+          id,
+          created_at,
+          date_evenement,
+          type,
+          espace_nom,
+          zone_nom,
+          niveau_label,
+          commentaire,
+          created_by,
+          created_by_email,
+          user_fonction,
+          etablissement_nom
+        `)
+        .eq("etablissement_id", etab.id)
+        .gte("date_evenement", debutSoiree.toISOString())
+        .lte("date_evenement", finSoiree.toISOString())
+        .order("date_evenement", { ascending: true });
+
+      if (evErr) {
+        console.error(`[rapport-soiree] evenements error for ${etab.nom}:`, evErr.message);
+        results.push({ etab_id: etab.id, nom: etab.nom, skipped: `evenements_error: ${evErr.message}` });
+        continue;
+      }
+
+      if (!evenements || evenements.length === 0) {
+        results.push({ etab_id: etab.id, nom: etab.nom, skipped: "no_events" });
+        continue;
+      }
+
+      const agentIds = [...new Set(evenements.map((e: any) => e.created_by).filter(Boolean))];
+
+      const { data: profiles } = agentIds.length > 0 ? await supabase
+        .from("user_profiles")
+        .select("id, first_name, last_name")
+        .in("id", agentIds) : { data: [] };
+
+      const profMap: Record<string, string> = {};
+      (profiles ?? []).forEach((p: any) => {
+        const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+        if (full) profMap[p.id] = full;
+      });
+      evenements.forEach((e: any) => {
+        if (e.created_by && !profMap[e.created_by] && e.created_by_email) {
+          profMap[e.created_by] = e.created_by_email;
+        }
+      });
+
+      // Fetch jauge_actions for THIS etablissement only
+      const { data: jaugeActions } = await supabase
+        .from("jauge_actions")
+        .select("action, delta, created_at")
+        .eq("etablissement_id", etab.id)
+        .gte("created_at", debutSoiree.toISOString())
+        .lte("created_at", finSoiree.toISOString())
+        .order("created_at", { ascending: true });
+
+      const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
+      const nbPersonnes = evenements.filter((e: any) => e.type !== "ssi").length;
+
+      let totalVisiteurs = 0;
+      let countMax = 0;
+      let heurePointe = "—";
+
+      if (jaugeActions && jaugeActions.length > 0) {
+        totalVisiteurs = (jaugeActions as any[])
+          .filter((a) => a.action === "entree")
+          .reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
+
+        let running = 0;
+        let heurePointeDate: Date | null = null;
+        for (const a of jaugeActions as any[]) {
+          running = Math.max(0, running + (a.delta ?? 0));
+          if (running > countMax) {
+            countMax = running;
+            heurePointeDate = new Date(a.created_at);
+          }
+        }
+
+        if (heurePointeDate) {
+          heurePointe = heurePointeDate.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Europe/Paris",
+          }).replace(":", "h");
         }
       }
 
-      if (heurePointeDate) {
-        heurePointe = heurePointeDate.toLocaleTimeString("fr-FR", {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Europe/Paris",
-        }).replace(":", "h");
-      }
-    }
+      const dateSoireeLabel = debutSoiree.toLocaleDateString("fr-FR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      });
 
-    const dateSoireeLabel = debutSoiree.toLocaleDateString("fr-FR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
+      const heureDebut = debutSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      const heureFin = finSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-    const heureDebut = debutSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-    const heureFin = finSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      const lignesEvenements = evenements.map((e: any) => {
+        const heure = new Date(e.date_evenement).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+        const agent = profMap[e.created_by] ?? e.created_by_email ?? "Inconnu";
+        const typeColor =
+          e.type === "ssi" ? "#ef4444" :
+          e.type === "securite_personnes" ? "#3b82f6" :
+          e.type === "radio" ? "#10b981" : "#f59e0b";
+        const typeLabel =
+          e.type === "ssi" ? "SSI" :
+          e.type === "securite_personnes" ? "Sécurité" :
+          e.type === "radio" ? "Radio" : (e.type ?? "—");
 
-    const lignesEvenements = evenements.map((e: any) => {
-      const heure = new Date(e.date_evenement).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-      const agent = profMap[e.created_by] ?? e.created_by_email ?? "Inconnu";
-      const typeColor =
-        e.type === "ssi" ? "#ef4444" :
-        e.type === "securite_personnes" ? "#3b82f6" :
-        e.type === "radio" ? "#10b981" : "#f59e0b";
-      const typeLabel =
-        e.type === "ssi" ? "SSI" :
-        e.type === "securite_personnes" ? "Sécurité" :
-        e.type === "radio" ? "Radio" : (e.type ?? "—");
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9">
+            <td style="padding:12px 16px;font-size:13px;color:#64748b;white-space:nowrap">${heure}</td>
+            <td style="padding:12px 16px">
+              <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;color:${typeColor};background:${typeColor}18">
+                ${typeLabel}
+              </span>
+            </td>
+            <td style="padding:12px 16px;font-size:13px;color:#374151">
+              ${e.espace_nom ?? "—"}${e.zone_nom ? ` <span style="color:#9ca3af">/ ${e.zone_nom}</span>` : ""}
+            </td>
+            <td style="padding:12px 16px;font-size:13px;color:#374151">${e.niveau_label ?? "—"}</td>
+            <td style="padding:12px 16px;font-size:13px;color:#374151">${agent}</td>
+            <td class="col-hide" style="padding:12px 16px;font-size:13px;color:#6b7280;font-style:italic">${e.commentaire ?? "—"}</td>
+          </tr>
+        `;
+      }).join("");
 
-      return `
-        <tr style="border-bottom:1px solid #f1f5f9">
-          <td style="padding:12px 16px;font-size:13px;color:#64748b;white-space:nowrap">${heure}</td>
-          <td style="padding:12px 16px">
-            <span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;color:${typeColor};background:${typeColor}18">
-              ${typeLabel}
-            </span>
-          </td>
-          <td style="padding:12px 16px;font-size:13px;color:#374151">
-            ${e.espace_nom ?? "—"}${e.zone_nom ? ` <span style="color:#9ca3af">/ ${e.zone_nom}</span>` : ""}
-          </td>
-          <td style="padding:12px 16px;font-size:13px;color:#374151">${e.niveau_label ?? "—"}</td>
-          <td style="padding:12px 16px;font-size:13px;color:#374151">${agent}</td>
-          <td class="col-hide" style="padding:12px 16px;font-size:13px;color:#6b7280;font-style:italic">${e.commentaire ?? "—"}</td>
-        </tr>
-      `;
-    }).join("");
+      const logoHtml = etab.logo_url
+        ? `<img src="${etab.logo_url}" style="height:44px;width:auto;border-radius:8px;margin-bottom:10px;display:block" alt="Logo">`
+        : "";
 
-    const logoHtml = entreprise?.logo_url
-      ? `<img src="${entreprise.logo_url}" style="height:44px;width:auto;border-radius:8px;margin-bottom:10px;display:block" alt="Logo">`
-      : "";
+      const nomEntreprise = etab.nom ?? "Rapport de soirée";
 
-    const nomEntreprise = entreprise?.nom ?? "Rapport de soirée";
-
-    const contenuHtml = `<!DOCTYPE html>
+      const contenuHtml = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -321,70 +345,86 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-    const { error: insertErr } = await supabase
-      .from("rapports_soiree")
-      .upsert({
-        date_soiree: dateSoireeStr,
-        debut_soiree: debutSoiree.toISOString(),
-        fin_soiree: finSoiree.toISOString(),
-        nb_evenements: evenements.length,
-        nb_agents: agentIds.length,
-        contenu_html: contenuHtml,
-      }, { onConflict: "date_soiree" });
+      const { error: insertErr } = await supabase
+        .from("rapports_soiree")
+        .upsert({
+          date_soiree: dateSoireeStr,
+          etablissement_id: etab.id,
+          debut_soiree: debutSoiree.toISOString(),
+          fin_soiree: finSoiree.toISOString(),
+          nb_evenements: evenements.length,
+          nb_agents: agentIds.length,
+          contenu_html: contenuHtml,
+        }, { onConflict: "etablissement_id,date_soiree" });
 
-    if (insertErr) throw insertErr;
-
-    const { data: emailRule } = await supabase
-      .from("email_rules")
-      .select("*")
-      .eq("type", "rapport_soiree")
-      .limit(1)
-      .maybeSingle();
-
-    let emailSent = false;
-    if (emailRule?.active) {
-      const emailSet = new Set<string>((emailRule.dest_emails_libres ?? []).filter(Boolean));
-      const fonctions: string[] = [];
-      if (emailRule.dest_direction) fonctions.push("Direction");
-      if (emailRule.dest_chef_de_poste) fonctions.push("Chef de Poste");
-      if (emailRule.dest_agent_securite) fonctions.push("Agent de Sécurité");
-      if (emailRule.dest_serveur) fonctions.push("Serveur");
-
-      if (fonctions.length > 0) {
-        const { data: roleUsers } = await supabase
-          .from("managed_users")
-          .select("email")
-          .in("fonction", fonctions);
-        (roleUsers ?? []).forEach((u: any) => { if (u.email) emailSet.add(u.email); });
+      if (insertErr) {
+        console.error(`[rapport-soiree] upsert error for ${etab.nom}:`, insertErr.message);
+        results.push({ etab_id: etab.id, nom: etab.nom, skipped: `upsert_error: ${insertErr.message}` });
+        continue;
       }
 
-      const recipients = Array.from(emailSet);
-      if (recipients.length > 0) {
-        try {
-          const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-          const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@send.maincourante.eu";
-          for (const to of recipients) {
-            await resend.emails.send({
-              from: FROM_EMAIL,
-              to,
-              subject: `[Main Courante] Rapport de soirée — ${nomEntreprise} — ${dateSoireeLabel}`,
-              html: contenuHtml,
-            });
+      // Fetch email_rules for THIS etablissement only
+      const { data: emailRule } = await supabase
+        .from("email_rules")
+        .select("*")
+        .eq("type", "rapport_soiree")
+        .eq("etablissement_id", etab.id)
+        .limit(1)
+        .maybeSingle();
+
+      let emailSent = false;
+      if (emailRule?.active) {
+        const emailSet = new Set<string>((emailRule.dest_emails_libres ?? []).filter(Boolean));
+        const fonctions: string[] = [];
+        if (emailRule.dest_direction) fonctions.push("Direction");
+        if (emailRule.dest_chef_de_poste) fonctions.push("Chef de Poste");
+        if (emailRule.dest_agent_securite) fonctions.push("Agent de Sécurité");
+        if (emailRule.dest_serveur) fonctions.push("Serveur");
+
+        if (fonctions.length > 0) {
+          const { data: roleUsers } = await supabase
+            .from("managed_users")
+            .select("email")
+            .eq("etablissement_id", etab.id)
+            .in("fonction", fonctions);
+          (roleUsers ?? []).forEach((u: any) => { if (u.email) emailSet.add(u.email); });
+        }
+
+        const recipients = Array.from(emailSet);
+        if (recipients.length > 0) {
+          try {
+            const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+            const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@send.maincourante.eu";
+            for (const to of recipients) {
+              await resend.emails.send({
+                from: FROM_EMAIL,
+                to,
+                subject: `[Main Courante] Rapport de soirée — ${nomEntreprise} — ${dateSoireeLabel}`,
+                html: contenuHtml,
+              });
+            }
+            emailSent = true;
+          } catch (_emailErr) {
+            // Email failure is non-blocking — report is already saved
           }
-          emailSent = true;
-        } catch (_emailErr) {
-          // Email failure is non-blocking — report is already saved
         }
       }
+
+      results.push({
+        etab_id: etab.id,
+        nom: etab.nom,
+        nb_evenements: evenements.length,
+        nb_agents: agentIds.length,
+        email_sent: emailSent,
+      });
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         date: dateSoireeStr,
-        nb_evenements: evenements.length,
-        nb_agents: agentIds.length,
-        email_sent: emailSent,
+        total_etablissements: etablissements.length,
+        results,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
