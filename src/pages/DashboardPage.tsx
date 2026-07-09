@@ -8,6 +8,7 @@ import {
 import { supabase } from '../lib/supabase';
 import type { ManagedUser } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useEntreprise } from '../hooks/useEntreprise';
 import CreateUserModal from '../components/CreateUserModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import Toast, { type ToastType } from '../components/Toast';
@@ -42,6 +43,7 @@ function avatarLetter(email: string) {
 
 export default function DashboardPage() {
   const { session, signOut } = useAuth();
+  const { id: etabId } = useEntreprise();
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<UserWithEtab[]>([]);
@@ -223,6 +225,7 @@ export default function DashboardPage() {
             password: invitePassword,
             fonction: inviteFonction,
             invited_by: s?.user.id,
+            etablissement_id: etabId,
           }),
         }
       );

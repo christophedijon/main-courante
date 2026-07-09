@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useEntreprise } from '../../hooks/useEntreprise';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import RoleBadge from '../components/RoleBadge';
 import ImageViewer from '../components/ImageViewer';
@@ -61,6 +62,7 @@ const bCls = `w-full py-3.5 rounded-2xl font-bold text-[15px] flex items-center 
 
 export default function MobileProfilePage() {
   const { session, userFonction, isSuperAdmin, isChefDePoste, signOut, hasAdminAccess } = useAuth();
+  const { id: etabId } = useEntreprise();
   const navigate = useNavigate();
   const { profile: basicProfile } = useCurrentProfile();
   const [formations, setFormations] = useState<Formation[]>([]);
@@ -379,6 +381,7 @@ export default function MobileProfilePage() {
             password: invitePassword,
             fonction: 'Agent de Sécurité',
             invited_by: s?.user.id,
+            etablissement_id: etabId,
           }),
         }
       );
