@@ -13,10 +13,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { to, subject, html } = await req.json() as {
+    const { to, subject, html, replyTo } = await req.json() as {
       to: string | string[];
       subject: string;
       html: string;
+      replyTo?: string;
     };
 
     if (!to || !subject || !html) {
@@ -36,6 +37,7 @@ Deno.serve(async (req: Request) => {
         to: recipient,
         subject,
         html,
+        ...(replyTo ? { replyTo } : {}),
       });
       if (error) throw error;
     }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, Maximize2, QrCode, Shield } from 'lucide-react';
+import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, Maximize2, QrCode, Shield, MessageSquare } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionActive } from '../../hooks/useSessionActive';
@@ -227,6 +227,20 @@ export default function ToolboxPage() {
             </div>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => navigate('/mobile/feedback')}
+          className="col-span-2 text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-violet-500/40 p-4 flex items-center gap-4 transition-all active:scale-[0.98] group"
+        >
+          <div className="w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 bg-violet-500/15 border-violet-500/30 group-hover:bg-violet-500/25 transition-colors">
+            <MessageSquare className="w-5 h-5 text-violet-400" strokeWidth={2.3} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-[14px] leading-tight">Feedback</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Signaler un bug ou suggérer une amélioration</p>
+          </div>
+        </button>
       </div>
 
       {canOpenExceptionnelle && !sessionState.isActive && (
