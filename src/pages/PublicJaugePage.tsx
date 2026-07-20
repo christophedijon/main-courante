@@ -53,10 +53,6 @@ function getNiveau(taux: number): Niveau {
   return 'vert';
 }
 
-function today() {
-  return new Date().toISOString().split('T')[0];
-}
-
 function PublicJaugePage() {
   const { etablissementId } = useParams<{ etablissementId: string }>();
 
@@ -96,12 +92,8 @@ function PublicJaugePage() {
       }
 
       const { data: etat } = await supabase
-        .from('jauge_etat')
-        .select('count_actuel')
-        .eq('etablissement_id', ent.id)
-        .eq('date_soiree', today())
-        .eq('is_test', false)
-        .maybeSingle();
+        .rpc('get_public_jauge', { p_etablissement_id: ent.id })
+        .maybeSingle() as { data: { count_actuel?: number } | null; error: unknown };
 
       if (cancelled) return;
 
@@ -122,13 +114,9 @@ function PublicJaugePage() {
 
     const interval = setInterval(async () => {
       const { data } = await supabase
-        .from('jauge_etat')
-        .select('count_actuel')
-        .eq('etablissement_id', entrepriseId)
-        .eq('date_soiree', today())
-        .eq('is_test', false)
-        .maybeSingle();
-      if (data != null) setCount(data.count_actuel);
+        .rpc('get_public_jauge', { p_etablissement_id: entrepriseId })
+        .maybeSingle() as { data: { count_actuel?: number } | null; error: unknown };
+      if (data != null) setCount(data.count_actuel ?? 0);
     }, 3000);
 
     return () => clearInterval(interval);

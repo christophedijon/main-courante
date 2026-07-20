@@ -67,6 +67,7 @@ export default function JaugeConfigPage() {
       supabase
         .from('jauge_etat')
         .select('count_actuel')
+        .eq('etablissement_id', etablissementId ?? '')
         .eq('date_soiree', new Date().toISOString().slice(0, 10))
         .eq('is_test', false)
         .maybeSingle(),
@@ -87,6 +88,7 @@ export default function JaugeConfigPage() {
         supabase
           .from('jauge_etat')
           .select('count_actuel')
+          .eq('etablissement_id', etablissementId ?? '')
           .eq('date_soiree', new Date().toISOString().slice(0, 10))
           .eq('is_test', false)
           .maybeSingle()
