@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Secret header check — fail closed if env var is not configured
+    // Shared secret — fail closed if not configured.
     const flicSecret = Deno.env.get("FLIC_HUB_SECRET");
     if (!flicSecret) {
       console.error("[flic-jauge] FLIC_HUB_SECRET not configured");
@@ -38,9 +38,22 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const action: string = body?.action;
     const source: string = body?.source ?? "flic";
+    // The Flic Hub package must identify itself. We accept either:
+    //   { mac: "<hub-mac>", bid: "<button-id>" }   (recommended)
+    //   { "serial-number": "<button-serial>" }     (legacy Flic Cloud Buttons format)
+    //   { button_mac, button_bid }                 (snake_case alias)
+    const buttonMac: string | undefined =
+      body?.mac ?? body?.button_mac ?? body?.["serial-number"];
+    const buttonBid: string | undefined = body?.bid ?? body?.button_bid ?? null;
 
     if (!["entree", "sortie", "reset"].includes(action)) {
       return json({ success: false, error: "Invalid action. Expected: entree | sortie | reset" }, 400);
+    }
+    if (!buttonMac) {
+      return json(
+        { success: false, error: "Missing button identifier (mac / serial-number)" },
+        400,
+      );
     }
 
     const supabase = createClient(
@@ -48,25 +61,59 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch entreprise_id — filter actif/essai, order by enseigne nulls last
-    const { data: entreprise, error: entErr } = await supabase
+    // Resolve the button → establishment mapping. No fallback: if the physical
+    // button is not registered, we refuse to touch any jauge.
+    let mappingQuery = supabase
+      .from("flic_buttons")
+      .select("etablissement_id")
+      .eq("button_mac", buttonMac);
+
+    if (buttonBid) {
+      mappingQuery = mappingQuery.eq("button_bid", buttonBid);
+    } else {
+      // Single-button hub: match the row whose button_bid is NULL.
+      mappingQuery = mappingQuery.is("button_bid", null);
+    }
+
+    const { data: mapping, error: mapErr } = await mappingQuery.maybeSingle();
+
+    if (mapErr) {
+      console.error("[flic-jauge] mapping lookup failed:", mapErr);
+      return json({ success: false, error: "Service unavailable" }, 500);
+    }
+    if (!mapping) {
+      console.warn(`[flic-jauge] no mapping for mac=${buttonMac} bid=${buttonBid ?? 'null'}`);
+      return json(
+        { success: false, error: "Button not registered to any establishment" },
+        404,
+      );
+    }
+
+    const etablissementId: string = mapping.etablissement_id;
+
+    // An establishment in "automatique" mode is driven by Zapsis, not by Flic.
+    // Ignore Flic actions to avoid corrupting the Zapsis-derived count.
+    const { data: etab, error: etabErr } = await supabase
       .from("etablissements")
-      .select("id")
-      .in("statut", ["essai", "actif"])
-      .order("enseigne", { ascending: true, nullsFirst: false })
-      .limit(1)
+      .select("mode_jauge")
+      .eq("id", etablissementId)
       .maybeSingle();
 
-    if (entErr || !entreprise) {
-      console.error("[flic-jauge] etablissement lookup failed:", entErr);
+    if (etabErr || !etab) {
+      console.error("[flic-jauge] etablissement lookup failed:", etabErr);
       return json({ success: false, error: "Service unavailable" }, 500);
     }
 
-    const entrepriseId: string = entreprise.id;
+    if (etab.mode_jauge === "automatique") {
+      return json(
+        { success: false, error: "Establishment is in automatic (Zapsis) mode; Flic actions ignored" },
+        409,
+      );
+    }
 
     if (action === "reset") {
       const { data, error } = await supabase.rpc("reset_jauge", {
-        p_etablissement_id: entrepriseId,
+        p_etablissement_id: etablissementId,
         p_user_id: null,
       });
       if (error) {
@@ -79,7 +126,7 @@ Deno.serve(async (req: Request) => {
     const delta = action === "entree" ? 1 : -1;
 
     const { data, error } = await supabase.rpc("increment_jauge", {
-      p_etablissement_id: entrepriseId,
+      p_etablissement_id: etablissementId,
       p_delta: delta,
       p_source: source,
       p_user_id: null,

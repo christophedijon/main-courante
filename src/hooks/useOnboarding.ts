@@ -195,6 +195,22 @@ export function useOnboarding(existingEtabId?: string) {
       },
     ], { onConflict: 'etablissement_id,type', ignoreDuplicates: true });
 
+    // Persister le mapping bouton Flic → établissement si un Flic Hub a été
+    // configuré pendant l'onboarding. button_bid reste null ici (bouton unique
+    // par hub en configuration par défaut); l'utilisateur pourra l'ajouter
+    // plus tard depuis la page Jauge.
+    if (state.data.flic_hub_enabled && state.data.flic_hub_mac?.trim()) {
+      await supabase.from('flic_buttons')
+        .upsert({
+          etablissement_id: etabId,
+          button_mac: state.data.flic_hub_mac.trim(),
+          button_bid: null,
+        }, { onConflict: 'button_mac,button_bid' })
+        .then(({ error }) => {
+          if (error) console.warn('[activateClient] flic_buttons upsert failed (non-fatal):', error);
+        });
+    }
+
     // Email bienvenue — fire-and-forget, non bloquant
     supabase.functions.invoke('send-welcome-email', {
       body: { etablissement_id: etabId },

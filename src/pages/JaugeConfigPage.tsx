@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeftRight, ArrowRight, Users, RotateCcw, CheckCircle,
   AlertCircle, ExternalLink, Gauge, X, Wifi, FlaskConical, Power,
-  Activity, Scale, Clock, ChevronRight,
+  Activity, Scale, Clock, ChevronRight, Plus, Trash2, Radio,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +46,13 @@ export default function JaugeConfigPage() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [togglingTest, setTogglingTest] = useState(false);
 
+  // Flic button mappings for this establishment
+  type FlicButton = { id: string; button_mac: string; button_bid: string | null };
+  const [flicButtons, setFlicButtons] = useState<FlicButton[]>([]);
+  const [newMac, setNewMac] = useState('');
+  const [newBid, setNewBid] = useState('');
+  const [savingButton, setSavingButton] = useState(false);
+
   const [countdown, setCountdown] = useState<number>(0);
   const [dernierAjout, setDernierAjout] = useState<{ delta: number; heure: string } | null>(null);
   const [totalSorties, setTotalSorties] = useState<number>(0);
@@ -57,7 +64,7 @@ export default function JaugeConfigPage() {
   }
 
   async function loadData() {
-    const [entrepriseRes, etatRes] = await Promise.all([
+    const [entrepriseRes, etatRes, buttonsRes] = await Promise.all([
       supabase
         .from('etablissements')
         .select('id, mode_jauge, effectif_public, url_billetterie, frequence_billetterie')
@@ -71,10 +78,16 @@ export default function JaugeConfigPage() {
         .eq('date_soiree', new Date().toISOString().slice(0, 10))
         .eq('is_test', false)
         .maybeSingle(),
+      supabase
+        .from('flic_buttons')
+        .select('id, button_mac, button_bid')
+        .eq('etablissement_id', etablissementId ?? '')
+        .order('created_at', { ascending: true }),
     ]);
 
     if (entrepriseRes.data) setEntreprise(entrepriseRes.data as EntrepriseJauge);
     setJaugeEtat(etatRes.data ?? { count_actuel: 0 });
+    setFlicButtons((buttonsRes.data as FlicButton[] | null) ?? []);
     setLoading(false);
   }
 
@@ -230,6 +243,34 @@ export default function JaugeConfigPage() {
     } finally {
       setTogglingTest(false);
     }
+  }
+
+  async function handleAddFlicButton() {
+    if (!entreprise || savingButton) return;
+    const mac = newMac.trim();
+    if (!mac) { showToast('Adresse MAC requise', 'error'); return; }
+    setSavingButton(true);
+    const bid = newBid.trim() || null;
+    const { data, error } = await supabase
+      .from('flic_buttons')
+      .insert({ etablissement_id: entreprise.id, button_mac: mac, button_bid: bid })
+      .select('id, button_mac, button_bid')
+      .maybeSingle();
+    if (error) {
+      showToast(error.code === '23505' ? 'Ce bouton est déjà associé à un établissement' : 'Erreur lors de l\'ajout', 'error');
+    } else if (data) {
+      setFlicButtons([...flicButtons, data as FlicButton]);
+      setNewMac(''); setNewBid('');
+      showToast('Bouton Flic associé', 'success');
+    }
+    setSavingButton(false);
+  }
+
+  async function handleRemoveFlicButton(id: string) {
+    const { error } = await supabase.from('flic_buttons').delete().eq('id', id);
+    if (error) { showToast('Erreur lors de la suppression', 'error'); return; }
+    setFlicButtons(flicButtons.filter(b => b.id !== id));
+    showToast('Bouton retiré', 'success');
   }
 
   const isTestActive = sessionState.sessionType === 'test';
@@ -702,7 +743,73 @@ export default function JaugeConfigPage() {
               </button>
             </section>
 
-            {/* Section 4 — Session de test */}
+            {/* Section 4 — Boutons Flic */}
+            <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-1">
+                <Radio className="w-5 h-5 text-blue-400" />
+                <h2 className="text-white font-semibold text-base">Boutons Flic</h2>
+              </div>
+              <p className="text-slate-500 text-sm mb-5">
+                Associe chaque bouton Flic physique à cet établissement. Sans cette association,
+                les appuis du bouton sont ignorés par le webhook.
+              </p>
+
+              {flicButtons.length > 0 && (
+                <ul className="space-y-2 mb-5">
+                  {flicButtons.map(b => (
+                    <li key={b.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-slate-200 text-sm font-mono truncate">{b.button_mac}</p>
+                        <p className="text-slate-500 text-xs mt-0.5">
+                          {b.button_bid ? `Bouton ${b.button_bid}` : 'Bouton unique (pas de bid)'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveFlicButton(b.id)}
+                        className="text-slate-500 hover:text-red-400 transition-colors shrink-0 ml-3"
+                        aria-label="Retirer le bouton"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-2 items-end">
+                <div>
+                  <label className="text-xs text-slate-400 uppercase tracking-wide">MAC du Flic Hub</label>
+                  <input
+                    value={newMac}
+                    onChange={e => setNewMac(e.target.value)}
+                    placeholder="90:88:a9:5b:10:fb"
+                    className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 uppercase tracking-wide">Bouton ID</label>
+                  <input
+                    value={newBid}
+                    onChange={e => setNewBid(e.target.value)}
+                    placeholder="optionnel"
+                    className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <button
+                  onClick={handleAddFlicButton}
+                  disabled={savingButton || !newMac.trim()}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Ajouter
+                </button>
+              </div>
+              <p className="text-slate-600 text-xs mt-3 leading-relaxed">
+                Récupérez l'adresse MAC dans l'app Flic (Paramètres du Hub) ou via Flic Hub Studio.
+                Le « Bouton ID » n'est requis que si plusieurs boutons partagent le même hub.
+              </p>
+            </section>
+
+            {/* Section 5 — Session de test */}
             <section className={`border rounded-2xl p-6 transition-colors ${
               isTestActive
                 ? 'bg-amber-950/40 border-amber-700/60'
