@@ -5,7 +5,7 @@ import {
   MoreHorizontal, Play, Zap, Pause, CheckCircle2,
   Trash2, RefreshCw, ChevronDown, ChevronUp,
   Users, Clock, XCircle, FlaskConical, Mail, UserCheck, UserX,
-  Pencil, KeyRound, Eye, X, User, Calendar,
+  Pencil, KeyRound, Eye, X, User, Calendar, Download,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AppHeader from '../components/AppHeader';
@@ -76,6 +76,7 @@ export default function ClientsPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editDirectionEtab, setEditDirectionEtab] = useState<{ id: string; nom: string } | null>(null);
+  const [exportLoadingId, setExportLoadingId] = useState<string | null>(null);
   const [editFinEssaiEtab, setEditFinEssaiEtab] = useState<{ id: string; nom: string; date: string } | null>(null);
   const [detailsEtab, setDetailsEtab] = useState<Etablissement | null>(null);
   const [showNouveauModal, setShowNouveauModal] = useState(false);
@@ -195,6 +196,29 @@ export default function ClientsPage() {
     }
     setActionMenu(null); setMenuAnchor(null);
     setActionLoading(null);
+  }
+
+  async function exporterEtablissement(id: string) {
+    setExportLoadingId(id);
+    try {
+      const { data, error } = await supabase.functions.invoke('export-etablissement-data', {
+        body: { etablissement_id: id },
+      });
+      if (error || data?.error) {
+        showToast('error', data?.error ?? 'Erreur lors de l\'export');
+      } else if (data?.download_url) {
+        const a = document.createElement('a');
+        a.href = data.download_url;
+        a.download = data.filename ?? 'export.zip';
+        a.click();
+        showToast('success', 'Export téléchargé');
+      }
+    } catch {
+      showToast('error', 'Erreur inattendue');
+    } finally {
+      setExportLoadingId(null);
+    }
+    setActionMenu(null); setMenuAnchor(null);
   }
 
   async function supprimerEtablissement(id: string) {
@@ -587,6 +611,9 @@ export default function ClientsPage() {
                 )}
                 <MenuItem icon={Eye} onClick={() => { setDetailsEtab(etab); setActionMenu(null); setMenuAnchor(null); }}>
                   Voir les détails
+                </MenuItem>
+                <MenuItem icon={Download} onClick={() => exporterEtablissement(etab.id)}>
+                  {exportLoadingId === etab.id ? 'Export en cours…' : 'Exporter les données'}
                 </MenuItem>
                 <MenuItem icon={Calendar} onClick={() => { setEditFinEssaiEtab({ id: etab.id, nom: etab.nom, date: etab.date_fin_essai ?? '' }); setActionMenu(null); setMenuAnchor(null); }}>
                   Modifier fin d'essai

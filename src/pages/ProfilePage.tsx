@@ -4,6 +4,7 @@ import {
   User, Save, KeyRound, CheckCircle, AlertCircle, Eye, EyeOff,
   Phone, Mail, Globe, X, CreditCard, Upload, Calendar, ZoomIn,
   Image as ImageIcon, ChevronDown, GraduationCap, Plus, Trash2, ShieldCheck,
+  Download, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -192,6 +193,10 @@ export default function ProfilePage() {
 
   // Lightbox for carte de séjour photos
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  // Export modal
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportMsg, setExportMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Password modal
   const [showPwdModal, setShowPwdModal] = useState(false);
@@ -461,6 +466,36 @@ export default function ProfilePage() {
     setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
     setPwdMsg(null);
     setShowCurrent(false); setShowNew(false); setShowConfirm(false);
+  }
+
+  async function handleExportData() {
+    setExportLoading(true);
+    setExportMsg(null);
+    try {
+      const { data: etabId } = await supabase.rpc('get_user_etablissement_id');
+      if (!etabId) {
+        setExportMsg({ type: 'error', text: 'Impossible de déterminer votre établissement.' });
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke('export-etablissement-data', {
+        body: { etablissement_id: etabId },
+      });
+      if (error || data?.error) {
+        setExportMsg({ type: 'error', text: data?.error ?? 'Erreur lors de l\'export.' });
+        return;
+      }
+      if (data?.download_url) {
+        const a = document.createElement('a');
+        a.href = data.download_url;
+        a.download = data.filename ?? 'export.zip';
+        a.click();
+        setExportMsg({ type: 'success', text: 'Export téléchargé.' });
+      }
+    } catch {
+      setExportMsg({ type: 'error', text: 'Erreur inattendue.' });
+    } finally {
+      setExportLoading(false);
+    }
   }
 
   async function handleSignOut() { await signOut(); navigate('/'); }
@@ -1001,6 +1036,36 @@ export default function ProfilePage() {
                 </form>
               </div>
             </CollapseSection>
+
+            {/* Export data section */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-cyan-500 to-blue-400" />
+              <div className="p-6 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                    <Download className="w-4 h-4 text-cyan-400" />
+                    Exporter mes données
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Téléchargez toutes les données de votre établissement au format CSV (zip)
+                  </p>
+                  {exportMsg && (
+                    <p className={`text-xs mt-2 ${exportMsg.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {exportMsg.text}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportData}
+                  disabled={exportLoading}
+                  className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors whitespace-nowrap"
+                >
+                  {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {exportLoading ? 'Génération…' : 'Exporter'}
+                </button>
+              </div>
+            </div>
 
             {/* Password section */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">

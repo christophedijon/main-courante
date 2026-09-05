@@ -1,0 +1,2 @@
+[functions.export-etablissement-data]
+verify_jwt = true
