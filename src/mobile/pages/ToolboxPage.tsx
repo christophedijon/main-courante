@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionActive } from '../../hooks/useSessionActive';
 import EntrepriseBadge from '../components/EntrepriseBadge';
+import VideoHelpButton from '../../components/VideoHelpButton';
 
 type Categorie = 'fiches_metier' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
@@ -115,6 +116,7 @@ export default function ToolboxPage() {
             <h1 className="text-white text-2xl font-bold truncate">Boîte à outils</h1>
             <p className="text-slate-500 text-sm">Procédures & aide IA terrain</p>
           </div>
+          <VideoHelpButton videoId="2f92b401dbaa4c8f8996252f9fc1eacb" label="Aide vidéo" />
           <EntrepriseBadge />
         </div>
       </div>
