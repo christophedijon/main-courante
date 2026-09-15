@@ -6,11 +6,12 @@ import type { ManagedUser } from '../lib/supabase';
 type Props = {
   onClose: () => void;
   onCreated: (user: ManagedUser) => void;
+  etablissementId: string | null;
 };
 
 const FONCTIONS = ['Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur'];
 
-export default function CreateUserModal({ onClose, onCreated }: Props) {
+export default function CreateUserModal({ onClose, onCreated, etablissementId }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +36,7 @@ export default function CreateUserModal({ onClose, onCreated }: Props) {
           'Authorization': `Bearer ${session?.access_token}`,
           'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password, fonction, status }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, fonction, status, etablissement_id: etablissementId }),
       }
     );
 

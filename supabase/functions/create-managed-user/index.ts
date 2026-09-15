@@ -187,6 +187,21 @@ Deno.serve(async (req: Request) => {
       return jsonResp({ error: "Missing password" }, 400);
     }
 
+    // Auto-derive etablissement_id from the caller when not provided
+    let resolvedEtabId = etablissement_id;
+    if (!resolvedEtabId && !isSuperAdmin) {
+      const { data: callerManaged } = await adminClient
+        .from("managed_users")
+        .select("etablissement_id")
+        .eq("auth_user_id", caller.id)
+        .maybeSingle();
+      resolvedEtabId = callerManaged?.etablissement_id ?? null;
+    }
+
+    if (!resolvedEtabId && !isSuperAdmin) {
+      return jsonResp({ error: "Aucun établissement associé. Impossible de créer un utilisateur orphelin." }, 400);
+    }
+
     // Check for existing email in managed_users before attempting auth creation
     const { data: existingManaged } = await adminClient
       .from("managed_users")
@@ -267,7 +282,7 @@ Deno.serve(async (req: Request) => {
         fonction,
         status,
         auth_user_id: authUserId,
-        ...(etablissement_id ? { etablissement_id } : {}),
+        ...(resolvedEtabId ? { etablissement_id: resolvedEtabId } : {}),
         ...(invite ? {
           invited_at: new Date().toISOString(),
           profile_completed: true,

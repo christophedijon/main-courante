@@ -611,7 +611,7 @@ export default function DashboardPage() {
       </main>
 
       {showCreate && (
-        <CreateUserModal onClose={() => setShowCreate(false)} onCreated={handleCreated} />
+        <CreateUserModal onClose={() => setShowCreate(false)} onCreated={handleCreated} etablissementId={etabId} />
       )}
       {deleteTarget && (
         <DeleteConfirmModal

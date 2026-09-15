@@ -1,2 +1,5 @@
 [functions.export-etablissement-data]
 verify_jwt = true
+
+[functions.create-managed-user]
+verify_jwt = true
