@@ -41,7 +41,6 @@ import HistoryPage from './mobile/pages/HistoryPage';
 import SearchPage from './mobile/pages/SearchPage';
 import MobileProfilePage from './mobile/pages/MobileProfilePage';
 import MobileAdminPage from './mobile/pages/MobileAdminPage';
-import AssignationPage from './mobile/pages/AssignationPage';
 import PostesMobilePage from './mobile/pages/PostesMobilePage';
 import EventDetailPage from './mobile/pages/EventDetailPage';
 import DocumentListPage from './mobile/pages/DocumentListPage';
@@ -267,11 +266,7 @@ export default function App() {
                   <MobileAdminPage />
                 </RoleRoute>
               } />
-              <Route path="assignation" element={
-                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste']}>
-                  <AssignationPage />
-                </RoleRoute>
-              } />
+              <Route path="assignation" element={<Navigate to="/mobile/postes" replace />} />
 
               {/* SuperAdmin, Direction, Chef de poste, Agent de Sécurité */}
               <Route path="assistant-ia" element={

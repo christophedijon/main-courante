@@ -173,20 +173,6 @@ export default function ToolboxPage() {
         {canAssign && (
           <button
             type="button"
-            onClick={() => navigate('/mobile/assignation')}
-            className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
-          >
-            <div className="w-11 h-11 rounded-xl border flex items-center justify-center mb-3 bg-emerald-500/15 border-emerald-500/30">
-              <UserCheck className="w-5 h-5 text-emerald-400" strokeWidth={2.3} />
-            </div>
-            <p className="text-white font-semibold text-[14px] leading-tight">Assignation</p>
-            <p className="text-slate-500 text-[11px] mt-0.5">Attribuer les agents</p>
-          </button>
-        )}
-
-        {canAssign && (
-          <button
-            type="button"
             onClick={() => navigate('/mobile/registre-securite')}
             className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
           >
