@@ -151,27 +151,45 @@ Deno.serve(async (req: Request) => {
       return jsonResp({ success: true });
     }
 
-    // ── PATCH (update email and/or password) ──────────────────────
+    // ── PATCH (update email, password, and/or fonction) ──────────
     if (req.method === "PATCH") {
-      const { auth_user_id, email, password } = await req.json();
+      const { auth_user_id, email, password, fonction } = await req.json();
       if (!auth_user_id) {
         return jsonResp({ error: "Missing auth_user_id" }, 400);
       }
 
       await assertCanModify(adminClient, auth_user_id, isSuperAdmin, operatorFonction);
 
+      // Only Direction can change the fonction field — not even SuperAdmin
+      if (fonction !== undefined && operatorFonction !== "Direction") {
+ return jsonResp({ error: "Seul un compte Direction peut modifier la fonction d'un utilisateur." }, 403);
+      }
+
       const updates: Record<string, string> = {};
       if (email) updates.email = email;
       if (password) updates.password = password;
 
-      if (Object.keys(updates).length === 0) {
+      if (Object.keys(updates).length === 0 && fonction === undefined) {
         return jsonResp({ error: "Nothing to update" }, 400);
       }
 
-      const { error: updateErr } = await adminClient.auth.admin.updateUserById(auth_user_id, updates);
-      if (updateErr) {
-        console.error("[create-managed-user] updateUserById error:", updateErr);
-        return jsonResp({ error: "Failed to update user." }, 400);
+      if (Object.keys(updates).length > 0) {
+        const { error: updateErr } = await adminClient.auth.admin.updateUserById(auth_user_id, updates);
+        if (updateErr) {
+          console.error("[create-managed-user] updateUserById error:", updateErr);
+          return jsonResp({ error: "Failed to update user." }, 400);
+        }
+      }
+
+      if (fonction !== undefined) {
+        const { error: foncErr } = await adminClient
+          .from("managed_users")
+          .update({ fonction })
+          .eq("auth_user_id", auth_user_id);
+        if (foncErr) {
+          console.error("[create-managed-user] fonction update error:", foncErr);
+          return jsonResp({ error: "Failed to update fonction." }, 400);
+        }
       }
 
       return jsonResp({ success: true });

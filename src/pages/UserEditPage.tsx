@@ -106,7 +106,7 @@ export default function UserEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, userFonction } = useAuth();
   const fromMobile = (location.state as { from?: string } | null)?.from === 'mobile'
     || document.referrer.includes('/mobile/profil');
 
@@ -139,6 +139,13 @@ export default function UserEditPage() {
   const [drafts, setDrafts] = useState<FormationDraft[]>([{ type_formation: TYPES_FORMATION[0], date_formation: '' }]);
   const [formationsLoading, setFormationsLoading] = useState(false);
   const [formationsMsg, setFormationsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Fonction change
+  const FONCTIONS = ['Agent de Sécurité', 'Serveur', 'Chef de poste', 'Direction'];
+  const canEditFonction = userFonction === 'Direction';
+  const [editFonction, setEditFonction] = useState('');
+  const [fonctionLoading, setFonctionLoading] = useState(false);
+  const [fonctionMsg, setFonctionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Email change
   const [newEmail, setNewEmail] = useState('');
@@ -179,6 +186,7 @@ export default function UserEditPage() {
     const u = userRes.data as ManagedUserRow | null;
     setUser(u);
     setNewEmail(u?.email ?? '');
+    setEditFonction(u?.fonction ?? '');
 
     if (u?.auth_user_id) {
       const pRes = await supabase.from('user_profiles').select('*').eq('id', u.auth_user_id).maybeSingle();
@@ -359,6 +367,35 @@ export default function UserEditPage() {
   async function deleteFormation(fid: string) {
     await supabase.from('user_formations').delete().eq('id', fid);
     setFormations((f) => f.filter((x) => x.id !== fid));
+  }
+
+  async function handleChangeFonction(e: FormEvent) {
+    e.preventDefault();
+    if (!user?.auth_user_id || !canEditFonction) return;
+    setFonctionLoading(true);
+    setFonctionMsg(null);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-managed-user`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ auth_user_id: user.auth_user_id, fonction: editFonction }),
+      }
+    );
+    setFonctionLoading(false);
+    if (res.ok) {
+      setUser((u) => u ? { ...u, fonction: editFonction } : u);
+      setFonctionMsg({ type: 'success', text: 'Fonction mise à jour avec succès.' });
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setFonctionMsg({ type: 'error', text: data?.error ?? 'Erreur lors de la mise à jour de la fonction.' });
+      setEditFonction(user.fonction);
+    }
   }
 
   async function handleChangeEmail(e: FormEvent) {
@@ -726,6 +763,39 @@ export default function UserEditPage() {
                 </div>
               </form>
             </Section>
+
+            {/* Fonction change */}
+            {user.auth_user_id && (
+              <Section title="Fonction" icon={<Briefcase className="w-4 h-4 text-rose-400" />} accent="from-rose-500 to-pink-400">
+                {fonctionMsg && <Feedback msg={fonctionMsg} />}
+                <form onSubmit={handleChangeFonction} className="space-y-4">
+                  <Field label="Fonction de l'utilisateur">
+                    <select
+                      value={editFonction}
+                      disabled={!canEditFonction}
+                      onChange={(e) => setEditFonction(e.target.value)}
+                      className={`${inputCls} ${!canEditFonction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {FONCTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </Field>
+                  {!canEditFonction && (
+                    <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Seul un compte Direction peut modifier la fonction d'un utilisateur.
+                    </p>
+                  )}
+                  {canEditFonction && (
+                    <div className="flex justify-end">
+                      <button type="submit" disabled={fonctionLoading || editFonction === user.fonction} className={btnCls}>
+                        <Save className="w-4 h-4" />
+                        {fonctionLoading ? 'Mise à jour…' : 'Modifier la fonction'}
+                      </button>
+                    </div>
+                  )}
+                </form>
+              </Section>
+            )}
 
             {/* Email change */}
             {user.auth_user_id && (
