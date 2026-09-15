@@ -161,7 +161,8 @@ export default function PostesMobilePage() {
     const { data: managed } = await supabase
       .from('managed_users')
       .select('id, email, fonction, auth_user_id')
-      .not('auth_user_id', 'is', null);
+      .not('auth_user_id', 'is', null)
+      .in('fonction', ['Chef de poste', 'Agent de Sécurité']);
 
     const { data: profiles } = await supabase
       .from('user_profiles')
