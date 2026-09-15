@@ -15,7 +15,7 @@ function jsonResp(body: unknown, status = 200) {
   });
 }
 
-// ── Tables scoped directly by etablissement_id (v2 xlsx) ──
+// ── Tables scoped directly by etablissement_id (v3 xlsx npm) ──
 const DIRECT_TABLES = [
   "etablissements",
   "managed_users",
@@ -230,15 +230,18 @@ Deno.serve(async (req: Request) => {
     const emptyTables = allTables.filter((t) => t.rows.length === 0).map((t) => t.name);
     const headerMap = new Map<string, string[]>();
     if (emptyTables.length > 0) {
-      const { data: colData } = await adminClient
-        .rpc("get_table_columns", { table_names: emptyTables })
-        .catch(() => ({ data: null, error: null }));
-      if (colData && Array.isArray(colData)) {
-        for (const row of colData as { table_name: string; column_name: string }[]) {
-          const cols = headerMap.get(row.table_name) ?? [];
-          cols.push(row.column_name);
-          headerMap.set(row.table_name, cols);
+      try {
+        const { data: colData } = await adminClient
+          .rpc("get_table_columns", { table_names: emptyTables });
+        if (colData && Array.isArray(colData)) {
+          for (const row of colData as { table_name: string; column_name: string }[]) {
+            const cols = headerMap.get(row.table_name) ?? [];
+            cols.push(row.column_name);
+            headerMap.set(row.table_name, cols);
+          }
         }
+      } catch (e) {
+        console.error("[export] get_table_columns:", e instanceof Error ? e.message : String(e));
       }
     }
 
