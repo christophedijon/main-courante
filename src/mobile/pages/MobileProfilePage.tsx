@@ -27,8 +27,8 @@ type CarteSejour = {
   carte_sejour_verso_url: string | null;
 };
 
-type Formation = { id: string; type_formation: string; date_formation: string };
-type FormationDraft = { type_formation: string; date_formation: string };
+type Formation = { id: string; type_formation: string; date_formation: string; date_fin_validite: string | null };
+type FormationDraft = { type_formation: string; date_formation: string; date_fin_validite: string };
 type PhotoSide = 'recto' | 'verso';
 type Msg = { type: 'success' | 'error'; text: string };
 type Tab = 'info' | 'cartepro' | 'formations' | 'password';
@@ -98,7 +98,10 @@ export default function MobileProfilePage() {
   const [pwdSaving, setPwdSaving] = useState(false);
 
   // Formations drafts
-  const [drafts, setDrafts] = useState<FormationDraft[]>([{ type_formation: TYPES_FORMATION[0], date_formation: '' }]);
+  const [drafts, setDrafts] = useState<FormationDraft[]>([{ type_formation: TYPES_FORMATION[0], date_formation: '', date_fin_validite: '' }]);
+  const [editingFormationId, setEditingFormationId] = useState<string | null>(null);
+  const [editDateFinValidite, setEditDateFinValidite] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   // Lightbox for carte de séjour
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -143,7 +146,7 @@ export default function MobileProfilePage() {
   function fetchFormations(uid: string) {
     supabase
       .from('user_formations')
-      .select('id, type_formation, date_formation')
+      .select('id, type_formation, date_formation, date_fin_validite')
       .eq('user_id', uid)
       .order('date_formation', { ascending: false })
       .then(({ data }) => setFormations(data ?? []));
@@ -154,7 +157,8 @@ export default function MobileProfilePage() {
     setEditOpen(true);
     setActiveTab('info');
     setInfoMsg(null); setCarteProMsg(null); setFormationsMsg(null); setPwdMsg(null);
-    setDrafts([{ type_formation: TYPES_FORMATION[0], date_formation: '' }]);
+    setDrafts([{ type_formation: TYPES_FORMATION[0], date_formation: '', date_fin_validite: '' }]);
+    setEditingFormationId(null);
     if (!uid) return;
     // Recharger formations à l'ouverture
     fetchFormations(uid);
@@ -305,24 +309,46 @@ export default function MobileProfilePage() {
   async function handleSaveFormations(e: FormEvent) {
     e.preventDefault();
     if (!session?.user.id) return;
-    const valid = drafts.filter((d) => d.type_formation && d.date_formation);
+    const valid = drafts.filter((d) => d.type_formation && (d.date_formation || d.date_fin_validite));
     if (valid.length === 0) {
       setFormationsMsg({ type: 'error', text: 'Veuillez renseigner au moins une date.' });
       return;
     }
     setFormationsSaving(true); setFormationsMsg(null);
-    const rows = valid.map((d) => ({ user_id: session.user.id, type_formation: d.type_formation, date_formation: d.date_formation }));
+    const rows = valid.map((d) => ({
+      user_id: session.user.id,
+      type_formation: d.type_formation,
+      date_formation: d.date_formation || null,
+      date_fin_validite: d.date_fin_validite || null,
+    }));
     const { data, error } = await supabase.from('user_formations').insert(rows).select();
     setFormationsSaving(false);
     if (error) { setFormationsMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' }); return; }
     setFormations((prev) => [...(data as Formation[]), ...prev]);
-    setDrafts([{ type_formation: TYPES_FORMATION[0], date_formation: '' }]);
+    setDrafts([{ type_formation: TYPES_FORMATION[0], date_formation: '', date_fin_validite: '' }]);
     setFormationsMsg({ type: 'success', text: `${valid.length} formation${valid.length > 1 ? 's' : ''} ajoutée${valid.length > 1 ? 's' : ''}.` });
+  }
+
+  async function updateFormationDateFinValidite(fid: string) {
+    setEditSaving(true);
+    const { data, error } = await supabase
+      .from('user_formations')
+      .update({ date_fin_validite: editDateFinValidite || null })
+      .eq('id', fid)
+      .select()
+      .single();
+    setEditSaving(false);
+    if (error) { setFormationsMsg({ type: 'error', text: 'Erreur lors de la modification.' }); return; }
+    setFormations((prev) => prev.map((f) => f.id === fid ? { ...f, date_fin_validite: data.date_fin_validite } : f));
+    setEditingFormationId(null);
+    setEditDateFinValidite('');
+    setFormationsMsg({ type: 'success', text: 'Date de fin de validité enregistrée.' });
   }
 
   async function deleteFormation(fid: string) {
     await supabase.from('user_formations').delete().eq('id', fid);
     setFormations((prev) => prev.filter((x) => x.id !== fid));
+    if (editingFormationId === fid) { setEditingFormationId(null); setEditDateFinValidite(''); }
   }
 
   async function handleChangePassword(e: FormEvent) {
@@ -553,8 +579,17 @@ export default function MobileProfilePage() {
               {formations.map((f) => (
                 <div key={f.id} className="flex items-center gap-3">
                   <GraduationCap className="w-4 h-4 text-blue-400" />
-                  <span className="text-white text-sm font-medium flex-1">{f.type_formation}</span>
-                  <span className="text-xs text-slate-500">{new Date(f.date_formation).toLocaleDateString('fr-FR')}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-white text-sm font-medium block truncate">{f.type_formation}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {f.date_formation && <span className="text-[11px] text-slate-500">{formatDateFR(f.date_formation)}</span>}
+                      {f.date_fin_validite && (
+                        <span className={`text-[11px] ${isExpired(f.date_fin_validite) ? 'text-red-400 font-medium' : 'text-slate-500'}`}>
+                          · Validité : {formatDateFR(f.date_fin_validite)}{isExpired(f.date_fin_validite) ? ' · Expirée' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -952,14 +987,45 @@ export default function MobileProfilePage() {
                       <div className="space-y-2">
                         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Formations enregistrées</p>
                         {formations.map((f) => (
-                          <div key={f.id} className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl px-3 py-3">
-                            <GraduationCap className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span className="text-sm font-medium text-white flex-1">{f.type_formation}</span>
-                            <span className="text-xs text-slate-400">{formatDateFR(f.date_formation)}</span>
-                            <button type="button" onClick={() => deleteFormation(f.id)}
-                              className="w-8 h-8 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-3">
+                            <div className="flex items-center gap-3">
+                              <GraduationCap className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <span className="text-sm font-medium text-white flex-1">{f.type_formation}</span>
+                              {f.date_formation && <span className="text-xs text-slate-400">{formatDateFR(f.date_formation)}</span>}
+                              <button type="button" onClick={() => {
+                                if (editingFormationId === f.id) { setEditingFormationId(null); setEditDateFinValidite(''); }
+                                else { setEditingFormationId(f.id); setEditDateFinValidite(f.date_fin_validite ?? ''); }
+                              }}
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${editingFormationId === f.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400 hover:bg-blue-500/10'}`}>
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button type="button" onClick={() => deleteFormation(f.id)}
+                                className="w-8 h-8 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            {f.date_fin_validite && editingFormationId !== f.id && (
+                              <div className="mt-1.5 ml-7">
+                                <span className={`text-[11px] ${isExpired(f.date_fin_validite) ? 'text-red-400 font-medium' : 'text-slate-500'}`}>
+                                  Fin de validité : {formatDateFR(f.date_fin_validite)}{isExpired(f.date_fin_validite) ? ' · Expirée' : ''}
+                                </span>
+                              </div>
+                            )}
+                            {editingFormationId === f.id && (
+                              <div className="mt-2 ml-7 flex items-center gap-2">
+                                <input type="date" value={editDateFinValidite}
+                                  onChange={(e) => setEditDateFinValidite(e.target.value)}
+                                  className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                                <button type="button" onClick={() => updateFormationDateFinValidite(f.id)} disabled={editSaving}
+                                  className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-xs font-semibold transition-all">
+                                  {editSaving ? '…' : 'OK'}
+                                </button>
+                                <button type="button" onClick={() => { setEditingFormationId(null); setEditDateFinValidite(''); }}
+                                  className="w-8 h-8 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-all">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -999,12 +1065,20 @@ export default function MobileProfilePage() {
                               onChange={(e) => setDrafts((d) => d.map((x, i) => i === idx ? { ...x, date_formation: e.target.value } : x))}
                               className="w-full bg-slate-900 border border-slate-600 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" />
                           </div>
+                          <div className="relative">
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                            <input type="date" value={draft.date_fin_validite}
+                              onChange={(e) => setDrafts((d) => d.map((x, i) => i === idx ? { ...x, date_fin_validite: e.target.value } : x))}
+                              className="w-full bg-slate-900 border border-slate-600 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                              placeholder="Date de fin de validité" />
+                            <span className="absolute -bottom-4.5 left-9 text-[10px] text-slate-500 pointer-events-none">Fin de validité</span>
+                          </div>
                         </div>
                       ))}
 
                       <div className="flex gap-2">
                         <button type="button"
-                          onClick={() => setDrafts((d) => [...d, { type_formation: TYPES_FORMATION[0], date_formation: '' }])}
+                          onClick={() => setDrafts((d) => [...d, { type_formation: TYPES_FORMATION[0], date_formation: '', date_fin_validite: '' }])}
                           className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all">
                           <Plus className="w-4 h-4" /> Ajouter
                         </button>
