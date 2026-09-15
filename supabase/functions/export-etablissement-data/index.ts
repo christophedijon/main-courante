@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import * as XLSX from "npm:xlsx@0.18.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +15,7 @@ function jsonResp(body: unknown, status = 200) {
   });
 }
 
-// ── Tables scoped directly by etablissement_id ──
+// ── Tables scoped directly by etablissement_id (v2 xlsx) ──
 const DIRECT_TABLES = [
   "etablissements",
   "managed_users",
@@ -50,20 +51,12 @@ const DIRECT_TABLES = [
   "reminder_logs",
 ];
 
-// ── Tables scoped indirectly (via parent FK) ──
-// evenement_medias → evenements.evenement_id
-// evenement_motifs → evenements.evenement_id
-// rondes_config_balises → rondes_config.ronde_config_id
-// user_profiles → managed_users.auth_user_id (auth.users.id)
-// user_formations → managed_users.auth_user_id (auth.users.id)
-// ia_historique → managed_users.auth_user_id (agent_id)
-
 interface TableSpec {
   table: string;
   parentTable: string;
-  parentColumn: string; // column in parent table that holds etablissement_id
-  childColumn: string;  // column in child table that references parent
-  viaAuth?: boolean;     // true if join goes through auth.users
+  parentColumn: string;
+  childColumn: string;
+  viaAuth?: boolean;
 }
 
 const INDIRECT_TABLES: TableSpec[] = [
@@ -75,127 +68,48 @@ const INDIRECT_TABLES: TableSpec[] = [
   { table: "ia_historique", parentTable: "managed_users", parentColumn: "auth_user_id", childColumn: "agent_id", viaAuth: true },
 ];
 
-function csvEscape(val: unknown): string {
-  if (val === null || val === undefined) return "";
-  if (typeof val === "object") {
-    val = JSON.stringify(val);
-  }
-  const s = String(val);
-  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
+function truncateSheetName(name: string): string {
+  return name.replace(/[:\\/?*\[\]]/g, "_").substring(0, 31);
 }
 
-function rowsToCsv(rows: Record<string, unknown>[]): string {
-  if (rows.length === 0) return "";
-  const headers = Object.keys(rows[0]);
-  const lines = [headers.join(",")];
+function cellValue(val: unknown): string | number | boolean | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "number" || typeof val === "boolean") return val;
+  if (typeof val === "object") return JSON.stringify(val);
+  return String(val);
+}
+
+function buildSheetData(
+  rows: Record<string, unknown>[],
+  fallbackHeaders: string[],
+): (string | number | boolean | null)[][] {
+  const headers = rows.length > 0 ? Object.keys(rows[0]) : fallbackHeaders;
+
+  const result: (string | number | boolean | null)[][] = [headers];
+
   for (const row of rows) {
-    lines.push(headers.map((h) => csvEscape(row[h])).join(","));
+    result.push(headers.map((h) => cellValue(row[h])));
   }
-  return lines.join("\n");
+
+  return result;
 }
 
-// Minimal ZIP writer (store-only, no compression) — produces a valid .zip
-// CRC32 lookup table
-const CRC_TABLE = (() => {
-  const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+function autoSizeColumns(
+  ws: XLSX.WorkSheet,
+  data: (string | number | boolean | null)[][],
+): void {
+  if (data.length === 0) return;
+  const colCount = data[0].length;
+  for (let c = 0; c < colCount; c++) {
+    let maxLen = 10;
+    for (let r = 0; r < data.length; r++) {
+      const v = data[r][c];
+      const s = v === null || v === undefined ? "" : String(v);
+      if (s.length > maxLen) maxLen = s.length;
     }
-    table[i] = c;
+    ws["!cols"] = ws["!cols"] ?? [];
+    ws["!cols"][c] = { wch: Math.min(maxLen + 2, 50) };
   }
-  return table;
-})();
-
-function crc32(data: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i++) {
-    crc = CRC_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function uint16(n: number): number[] {
-  return [n & 0xff, (n >>> 8) & 0xff];
-}
-
-function uint32(n: number): number[] {
-  return [n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff];
-}
-
-function buildZip(files: { name: string; content: string }[]): Uint8Array {
-  const chunks: number[] = [];
-  const centralDir: number[] = [];
-  let offset = 0;
-
-  for (const file of files) {
-    const nameBytes = new TextEncoder().encode(file.name);
-    const dataBytes = new TextEncoder().encode(file.content);
-    const crc = crc32(dataBytes);
-
-    // Local file header
-    const localHeader = [
-      ...uint32(0x04034b50), // signature
-      ...uint16(20),        // version needed
-      ...uint16(0),         // flags
-      ...uint16(0),         // compression (store)
-      ...uint16(0),         // mod time
-      ...uint16(0),         // mod date
-      ...uint32(crc),       // crc32
-      ...uint32(dataBytes.length), // compressed size
-      ...uint32(dataBytes.length), // uncompressed size
-      ...uint16(nameBytes.length), // filename length
-      ...uint16(0),         // extra field length
-      ...Array.from(nameBytes),
-    ];
-    chunks.push(...localHeader, ...Array.from(dataBytes));
-
-    // Central directory entry
-    centralDir.push(
-      ...uint32(0x02014b50), // signature
-      ...uint16(20),         // version made by
-      ...uint16(20),         // version needed
-      ...uint16(0),          // flags
-      ...uint16(0),          // compression
-      ...uint16(0),          // mod time
-      ...uint16(0),          // mod date
-      ...uint32(crc),
-      ...uint32(dataBytes.length),
-      ...uint32(dataBytes.length),
-      ...uint16(nameBytes.length),
-      ...uint16(0),          // extra field length
-      ...uint16(0),          // comment length
-      ...uint16(0),          // disk number
-      ...uint16(0),          // internal attrs
-      ...uint32(0),          // external attrs
-      ...uint32(offset),     // offset of local header
-      ...Array.from(nameBytes),
-    );
-
-    offset += localHeader.length + dataBytes.length;
-  }
-
-  const cdStart = offset;
-  const cdSize = centralDir.length;
-
-  // End of central directory
-  const endRecord = [
-    ...uint32(0x06054b50),
-    ...uint16(0),         // disk number
-    ...uint16(0),         // disk with CD
-    ...uint16(files.length),
-    ...uint16(files.length),
-    ...uint32(cdSize),
-    ...uint32(cdStart),
-    ...uint16(0),         // comment length
-  ];
-
-  chunks.push(...centralDir, ...endRecord);
-  return new Uint8Array(chunks);
 }
 
 Deno.serve(async (req: Request) => {
@@ -249,13 +163,12 @@ Deno.serve(async (req: Request) => {
       .replace(/[^a-zA-Z0-9_-]/g, "_")
       .substring(0, 40);
     const dateStr = new Date().toISOString().slice(0, 10);
-    const zipName = `export_${etabName}_${dateStr}.zip`;
+    const fileName = `export_${etabName}_${dateStr}.xlsx`;
 
-    const csvFiles: { name: string; content: string }[] = [];
     const tableLog: { table: string; rows: number }[] = [];
+    const allTables: { name: string; rows: Record<string, unknown>[] }[] = [];
 
-    // ── Export etablissements (filtered by id) ──
-    // Direct tables: select * where etablissement_id = X
+    // ── Direct tables ──
     for (const table of DIRECT_TABLES) {
       let query = adminClient.from(table).select("*");
       if (table === "etablissements") {
@@ -269,23 +182,16 @@ Deno.serve(async (req: Request) => {
         tableLog.push({ table, rows: -1 });
         continue;
       }
-      const rows = data ?? [];
-      if (rows.length > 0) {
-        csvFiles.push({
-          name: `${table}.csv`,
-          content: rowsToCsv(rows as Record<string, unknown>[]),
-        });
-      }
+      const rows = (data ?? []) as Record<string, unknown>[];
+      allTables.push({ name: table, rows });
       tableLog.push({ table, rows: rows.length });
     }
 
-    // ── Indirect tables: fetch parent IDs, then select children ──
+    // ── Indirect tables ──
     for (const spec of INDIRECT_TABLES) {
-      // Get parent IDs scoped to this etablissement
       let parentIds: string[] = [];
 
       if (spec.viaAuth) {
-        // managed_users.auth_user_id for this etablissement
         const { data: muRows } = await adminClient
           .from("managed_users")
           .select("auth_user_id")
@@ -294,7 +200,6 @@ Deno.serve(async (req: Request) => {
           .map((r: { auth_user_id: string | null }) => r.auth_user_id)
           .filter(Boolean) as string[];
       } else {
-        // Parent table IDs scoped by etablissement_id
         const { data: parentRows } = await adminClient
           .from(spec.parentTable)
           .select(spec.parentColumn)
@@ -304,45 +209,66 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      if (parentIds.length === 0) {
-        tableLog.push({ table: spec.table, rows: 0 });
-        continue;
+      let rows: Record<string, unknown>[] = [];
+      if (parentIds.length > 0) {
+        const { data, error } = await adminClient
+          .from(spec.table)
+          .select("*")
+          .in(spec.childColumn, parentIds);
+        if (error) {
+          console.error(`[export] ${spec.table}: ${error.message}`);
+          tableLog.push({ table: spec.table, rows: -1 });
+          continue;
+        }
+        rows = (data ?? []) as Record<string, unknown>[];
       }
-
-      const { data, error } = await adminClient
-        .from(spec.table)
-        .select("*")
-        .in(spec.childColumn, parentIds);
-
-      if (error) {
-        console.error(`[export] ${spec.table}: ${error.message}`);
-        tableLog.push({ table: spec.table, rows: -1 });
-        continue;
-      }
-      const rows = data ?? [];
-      if (rows.length > 0) {
-        csvFiles.push({
-          name: `${spec.table}.csv`,
-          content: rowsToCsv(rows as Record<string, unknown>[]),
-        });
-      }
+      allTables.push({ name: spec.table, rows });
       tableLog.push({ table: spec.table, rows: rows.length });
     }
 
-    // ── Build ZIP ──
-    const zipBytes = buildZip(csvFiles);
+    // ── Fetch column names for empty tables ──
+    const emptyTables = allTables.filter((t) => t.rows.length === 0).map((t) => t.name);
+    const headerMap = new Map<string, string[]>();
+    if (emptyTables.length > 0) {
+      const { data: colData } = await adminClient
+        .rpc("get_table_columns", { table_names: emptyTables })
+        .catch(() => ({ data: null, error: null }));
+      if (colData && Array.isArray(colData)) {
+        for (const row of colData as { table_name: string; column_name: string }[]) {
+          const cols = headerMap.get(row.table_name) ?? [];
+          cols.push(row.column_name);
+          headerMap.set(row.table_name, cols);
+        }
+      }
+    }
+
+    // ── Build workbook with one sheet per table ──
+    const wb = XLSX.utils.book_new();
+    let sheetCount = 0;
+
+    for (const t of allTables) {
+      const fallbackHeaders = headerMap.get(t.name) ?? [];
+      const sheetData = buildSheetData(t.rows, fallbackHeaders);
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      autoSizeColumns(ws, sheetData);
+      XLSX.utils.book_append_sheet(wb, ws, truncateSheetName(t.name));
+      sheetCount++;
+    }
+
+    // ── Generate xlsx buffer ──
+    const xlsxArrayBuffer = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const xlsxBytes = new Uint8Array(xlsxArrayBuffer);
 
     // ── Upload to storage bucket with 1h expiry ──
     const bucketName = "exports";
-    const objectPath = `${etablissement_id}/${zipName}`;
+    const objectPath = `${etablissement_id}/${fileName}`;
 
-    // Ensure bucket exists (idempotent)
     await adminClient.storage.createBucket(bucketName, { public: false }).catch(() => {});
 
     const { error: uploadErr } = await adminClient.storage
       .from(bucketName)
-      .upload(objectPath, zipBytes, {
-        contentType: "application/zip",
+      .upload(objectPath, xlsxBytes, {
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         upsert: true,
       });
 
@@ -363,11 +289,12 @@ Deno.serve(async (req: Request) => {
     return jsonResp({
       success: true,
       download_url: signedUrlData.signedUrl,
-      filename: zipName,
+      filename: fileName,
+      sheet_count: sheetCount,
       tables: tableLog,
     });
   } catch (err) {
-    console.error("[export] unhandled:", err);
-    return jsonResp({ error: "An error occurred" }, 500);
+    console.error("[export] unhandled:", err instanceof Error ? `${err.name}: ${err.message}\n${err.stack}` : String(err));
+    return jsonResp({ error: "An error occurred", detail: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
