@@ -48,6 +48,7 @@ import DocumentDetailPage from './mobile/pages/DocumentDetailPage';
 import AssistantIAPage from './mobile/pages/AssistantIAPage';
 import RegistreMobilePage from './mobile/pages/RegistreMobilePage';
 import FeedbackPage from './mobile/pages/FeedbackPage';
+import CarteProPage from './mobile/pages/CarteProPage';
 import StepEtablissement from './mobile/saisie/StepEtablissement';
 import StepEspace from './mobile/saisie/StepEspace';
 import StepZone from './mobile/saisie/StepZone';
@@ -254,6 +255,11 @@ export default function App() {
               <Route path="profil" element={<MobileProfilePage />} />
               <Route path="feedback" element={<FeedbackPage />} />
               <Route path="postes" element={<PostesMobilePage />} />
+              <Route path="carte-pro" element={
+                <RoleRoute allowedRoles={['Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                  <CarteProPage />
+                </RoleRoute>
+              } />
               <Route path="evenement/:id" element={<EventDetailPage />} />
               {/* ALL roles — content filtered inside the page for Serveur */}
               {/* TODO: filter documents by role inside DocumentsPage */}

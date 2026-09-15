@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, Maximize2, QrCode, Shield, MessageSquare } from 'lucide-react';
+import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, Maximize2, QrCode, Shield, MessageSquare, BadgeCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionActive } from '../../hooks/useSessionActive';
@@ -26,6 +26,7 @@ export default function ToolboxPage() {
   const navigate = useNavigate();
   const { isSuperAdmin, userFonction, session } = useAuth();
   const canAssign = userFonction === 'Direction' || userFonction === 'Chef de poste';
+  const canSeeCartePro = userFonction === 'Direction' || userFonction === 'Chef de poste' || userFonction === 'Agent de Sécurité';
   const canOpenExceptionnelle = userFonction === 'Direction';
   const canSeeJauge = !isSuperAdmin && userFonction === 'Direction';
 
@@ -169,6 +170,20 @@ export default function ToolboxPage() {
             </button>
           );
         })}
+
+        {canSeeCartePro && (
+          <button
+            type="button"
+            onClick={() => navigate('/mobile/carte-pro')}
+            className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
+          >
+            <div className="w-11 h-11 rounded-xl border flex items-center justify-center mb-3 bg-emerald-500/15 border-emerald-500/30">
+              <BadgeCheck className="w-5 h-5 text-emerald-400" strokeWidth={2.3} />
+            </div>
+            <p className="text-white font-semibold text-[14px] leading-tight">Carte PRO</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Carte professionnelle CNAPS</p>
+          </button>
+        )}
 
         {canAssign && (
           <button
