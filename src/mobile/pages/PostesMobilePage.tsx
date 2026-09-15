@@ -171,10 +171,11 @@ export default function PostesMobilePage() {
     const profMap: Record<string, { first_name: string; last_name: string }> = {};
     (profiles ?? []).forEach((p: { id: string; first_name: string; last_name: string }) => { profMap[p.id] = p; });
 
+    const RECOGNIZED_FONCTIONS = new Set(['Agent de Sécurité', 'Serveur', 'Chef de poste', 'Direction']);
     const list = ((managed ?? []) as { id: string; email: string; fonction: string; auth_user_id: string }[])
       .filter((u) => {
         if (alreadyHere.has(u.auth_user_id)) return false;
-        if (poste && poste.fonction !== 'Tous' && u.fonction !== poste.fonction) return false;
+        if (poste && poste.fonction !== 'Tous' && RECOGNIZED_FONCTIONS.has(poste.fonction) && u.fonction !== poste.fonction) return false;
         return true;
       })
       .map((u) => {
