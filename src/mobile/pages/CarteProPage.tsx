@@ -71,7 +71,8 @@ export default function CarteProPage() {
     if (isManager) {
       loadAgentList();
     } else {
-      // Agent: load own data directly
+      // Agent: load own data directly — loading is for the list view only
+      setLoading(false);
       loadAgentDetail(myAuthId);
     }
   }, [myAuthId, isManager]);
@@ -112,59 +113,52 @@ export default function CarteProPage() {
     setProfile(null);
     setFormations([]);
 
-    const [profRes, formRes] = await Promise.all([
-      supabase
-        .from('user_profiles')
-        .select('first_name, last_name, nationalite, carte_pro_numero, carte_pro_validite')
-        .eq('id', authUserId)
-        .maybeSingle(),
-      supabase
-        .from('user_formations')
-        .select('id, type_formation, date_formation, date_fin_validite')
-        .eq('user_id', authUserId)
-        .order('date_formation', { ascending: false }),
-    ]);
+    try {
+      const [profRes, formRes] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('first_name, last_name, nationalite, carte_pro_numero, carte_pro_validite')
+          .eq('id', authUserId)
+          .maybeSingle(),
+        supabase
+          .from('user_formations')
+          .select('id, type_formation, date_formation, date_fin_validite')
+          .eq('user_id', authUserId)
+          .order('date_formation', { ascending: false }),
+      ]);
 
-    // If date_fin_validite column doesn't exist yet, retry without it
-    if (formRes.error && formRes.error.message.includes('date_fin_validite')) {
-      const fallback = await supabase
-        .from('user_formations')
-        .select('id, type_formation, date_formation')
-        .eq('user_id', authUserId)
-        .order('date_formation', { ascending: false });
-      formRes.data = fallback.data;
-      formRes.error = fallback.error;
-    }
-
-    if (profRes.data) {
-      setProfile({
-        first_name: profRes.data.first_name ?? '',
-        last_name: profRes.data.last_name ?? '',
-        nationalite: profRes.data.nationalite ?? '',
-        carte_pro_numero: profRes.data.carte_pro_numero ?? '',
-        carte_pro_validite: profRes.data.carte_pro_validite ?? null,
-      });
-    }
-    setFormations((formRes.data ?? []) as Formation[]);
-
-    // Load etab info if not already loaded (agent viewing own card)
-    if (!etabInfo) {
-      const { data: mu } = await supabase
-        .from('managed_users')
-        .select('etablissement_id')
-        .eq('auth_user_id', myAuthId!)
-        .maybeSingle();
-      if (mu?.etablissement_id) {
-        const { data: etab } = await supabase
-          .from('etablissements')
-          .select('nom, enseigne, logo_url')
-          .eq('id', mu.etablissement_id)
-          .maybeSingle();
-        if (etab) setEtabInfo(etab as EtabInfo);
+      if (profRes.data) {
+        setProfile({
+          first_name: profRes.data.first_name ?? '',
+          last_name: profRes.data.last_name ?? '',
+          nationalite: profRes.data.nationalite ?? '',
+          carte_pro_numero: profRes.data.carte_pro_numero ?? '',
+          carte_pro_validite: profRes.data.carte_pro_validite ?? null,
+        });
       }
-    }
+      setFormations((formRes.data ?? []) as Formation[]);
 
-    setDetailLoading(false);
+      // Load etab info if not already loaded (agent viewing own card)
+      if (!etabInfo) {
+        const { data: mu } = await supabase
+          .from('managed_users')
+          .select('etablissement_id')
+          .eq('auth_user_id', myAuthId!)
+          .maybeSingle();
+        if (mu?.etablissement_id) {
+          const { data: etab } = await supabase
+            .from('etablissements')
+            .select('nom, enseigne, logo_url')
+            .eq('id', mu.etablissement_id)
+            .maybeSingle();
+          if (etab) setEtabInfo(etab as EtabInfo);
+        }
+      }
+    } catch (err) {
+      console.error('loadAgentDetail error:', err);
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   function handleSelectAgent(agent: Agent) {
