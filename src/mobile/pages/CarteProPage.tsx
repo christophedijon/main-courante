@@ -23,6 +23,7 @@ type Formation = {
   id: string;
   type_formation: string;
   date_formation: string;
+  date_fin_validite: string | null;
 };
 
 type EtabInfo = {
@@ -81,7 +82,7 @@ export default function CarteProPage() {
       .from('managed_users')
       .select('id, auth_user_id, email, fonction')
       .not('auth_user_id', 'is', null)
-      .in('fonction', ['Agent de Sécurité', 'Chef de poste', 'Direction'])
+      .in('fonction', ['Agent de Sécurité', 'Chef de poste'])
       .order('fonction', { ascending: true })
       .order('email', { ascending: true });
 
@@ -119,10 +120,21 @@ export default function CarteProPage() {
         .maybeSingle(),
       supabase
         .from('user_formations')
-        .select('id, type_formation, date_formation')
+        .select('id, type_formation, date_formation, date_fin_validite')
         .eq('user_id', authUserId)
         .order('date_formation', { ascending: false }),
     ]);
+
+    // If date_fin_validite column doesn't exist yet, retry without it
+    if (formRes.error && formRes.error.message.includes('date_fin_validite')) {
+      const fallback = await supabase
+        .from('user_formations')
+        .select('id, type_formation, date_formation')
+        .eq('user_id', authUserId)
+        .order('date_formation', { ascending: false });
+      formRes.data = fallback.data;
+      formRes.error = fallback.error;
+    }
 
     if (profRes.data) {
       setProfile({
@@ -339,14 +351,28 @@ export default function CarteProPage() {
                   <div className="rounded-xl border border-slate-800 overflow-hidden">
                     <div className="grid grid-cols-2 bg-slate-800/50">
                       <div className="px-3 py-2 text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Formation</div>
-                      <div className="px-3 py-2 text-[10px] text-slate-400 uppercase font-semibold tracking-wider text-right">Date</div>
+                      <div className="px-3 py-2 text-[10px] text-slate-400 uppercase font-semibold tracking-wider text-right">Fin de validité</div>
                     </div>
-                    {formations.map((f, i) => (
-                      <div key={f.id} className={`grid grid-cols-2 ${i % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/50'}`}>
-                        <div className="px-3 py-2.5 text-sm text-white">{f.type_formation}</div>
-                        <div className="px-3 py-2.5 text-sm text-slate-400 text-right">{formatDate(f.date_formation)}</div>
-                      </div>
-                    ))}
+                    {formations.map((f, i) => {
+                      const expired = isExpired(f.date_fin_validite);
+                      return (
+                        <div key={f.id} className={`grid grid-cols-2 ${i % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/50'}`}>
+                          <div className="px-3 py-2.5 text-sm text-white">{f.type_formation}</div>
+                          <div className="px-3 py-2.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <span className={`text-sm ${expired ? 'text-red-400 font-medium' : 'text-slate-400'}`}>
+                                {formatDate(f.date_fin_validite)}
+                              </span>
+                              {expired && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-red-400 font-semibold">
+                                  <AlertCircle className="w-3 h-3" />
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
