@@ -60,19 +60,22 @@ export default function VideoHelpButton({ pageKey, label = 'Voir la vidéo d\'ai
 
       {open && videoId && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-[env(safe-area-inset-top)]"
+          style={{ height: '100dvh' }}
           onClick={(e) => { if (e.target === e.currentTarget) close(); }}
         >
-          <div className="relative w-full max-w-3xl mx-4">
-            <button
-              type="button"
-              onClick={close}
-              aria-label="Fermer"
-              className="absolute -top-11 right-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-all"
-            >
-              <X className="w-4 h-4" />
-              <span className="text-xs font-medium">Fermer</span>
-            </button>
+          <div className="relative w-full max-w-3xl flex flex-col gap-3 max-h-full overflow-y-auto">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Fermer"
+                className="sticky top-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-all shadow-lg"
+              >
+                <X className="w-4 h-4" />
+                <span className="text-xs font-medium">Fermer</span>
+              </button>
+            </div>
             <div className="rounded-2xl overflow-hidden border border-slate-700 shadow-2xl bg-slate-900">
               <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                 <iframe
