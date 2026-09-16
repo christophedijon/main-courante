@@ -15,6 +15,7 @@ import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import RoleBadge from '../components/RoleBadge';
 import ImageViewer from '../components/ImageViewer';
 import CnapsInput, { isValidCnaps } from '../../components/CnapsInput';
+import VideoHelpButton from '../../components/VideoHelpButton';
 import {
   NATIONALITIES, EXEMPT_NATIONALITIES, TYPES_FORMATION,
   normalizeStr, isExpired, formatDateFR,
@@ -449,6 +450,7 @@ export default function MobileProfilePage() {
         <div className="flex-1 min-w-0">
           <h1 className="text-white text-2xl font-bold truncate">Mon profil</h1>
         </div>
+        <VideoHelpButton pageKey="profil" label="Aide vidéo" />
         <EntrepriseBadge />
         <button onClick={openEdit}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-white text-sm font-semibold">
