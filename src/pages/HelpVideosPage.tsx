@@ -69,6 +69,8 @@ export default function HelpVideosPage() {
     setSaving(true);
     setError(null);
 
+    let saveError: string | null = null;
+
     if (editing) {
       const { error: err } = await supabase
         .from('help_videos')
@@ -79,7 +81,7 @@ export default function HelpVideosPage() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', editing.id);
-      if (err) setError(err.message);
+      saveError = err?.message ?? null;
     } else {
       const { error: err } = await supabase
         .from('help_videos')
@@ -88,14 +90,17 @@ export default function HelpVideosPage() {
           video_id: form.video_id.trim(),
           titre: form.titre.trim() || null,
         });
-      if (err) setError(err.message);
+      saveError = err?.message ?? null;
     }
 
     setSaving(false);
-    if (!error) {
-      closeModal();
-      fetchVideos();
+    if (saveError) {
+      setError(saveError);
+      return;
     }
+
+    closeModal();
+    fetchVideos();
   }
 
   async function handleDelete(v: HelpVideo) {
