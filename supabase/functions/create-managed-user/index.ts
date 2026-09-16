@@ -234,7 +234,7 @@ Deno.serve(async (req: Request) => {
     let authUserId: string;
 
     if (invite) {
-      const appUrl = Deno.env.get("APP_URL") ?? "";
+      const appUrl = Deno.env.get("APP_URL") ?? "https://maincourante21.bolt.host";
       const resendKey = Deno.env.get("RESEND_API_KEY");
       const fromEmail = Deno.env.get("FROM_EMAIL") ?? "L'équipe Main Courante <noreply@send.maincourante.eu>";
 

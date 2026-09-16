@@ -3,3 +3,9 @@ verify_jwt = true
 
 [functions.create-managed-user]
 verify_jwt = true
+
+[functions.resend-invitation]
+verify_jwt = true
+
+[functions.send-credentials]
+verify_jwt = true

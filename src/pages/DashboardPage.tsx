@@ -263,7 +263,7 @@ export default function DashboardPage() {
         body: JSON.stringify({
           email: inviteSuccess.email,
           password: inviteSuccess.password,
-          appUrl: window.location.origin,
+          appUrl: import.meta.env.VITE_APP_URL ?? 'https://maincourante21.bolt.host',
         }),
       });
       setSentInviteMail(true);

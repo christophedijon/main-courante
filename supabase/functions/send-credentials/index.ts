@@ -13,11 +13,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { email, password, appUrl } = await req.json() as {
+    const { email, password, appUrl: clientAppUrl } = await req.json() as {
       email: string;
       password: string;
-      appUrl: string;
+      appUrl?: string;
     };
+    const appUrl = "https://maincourante21.bolt.host";
 
     if (!email || !password) {
       return new Response(
