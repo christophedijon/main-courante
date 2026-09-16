@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: frame-src 'self' https://www.loom.com https://*.loom.com;
