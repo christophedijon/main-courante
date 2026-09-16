@@ -116,7 +116,7 @@ export default function ToolboxPage() {
             <h1 className="text-white text-2xl font-bold truncate">Boîte à outils</h1>
             <p className="text-slate-500 text-sm">Procédures & aide IA terrain</p>
           </div>
-          <VideoHelpButton videoId="7baa2bdc5f5c4bb0964f5595e79177c4" label="Aide vidéo" />
+          <VideoHelpButton pageKey="toolbox" label="Aide vidéo" />
           <EntrepriseBadge />
         </div>
       </div>

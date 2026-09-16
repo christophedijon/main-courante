@@ -1,14 +1,33 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Clapperboard, X } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 type Props = {
-  videoId: string;
+  pageKey: string;
   label?: string;
   className?: string;
 };
 
-export default function VideoHelpButton({ videoId, label = 'Voir la vidéo d\'aide', className = '' }: Props) {
+export default function VideoHelpButton({ pageKey, label = 'Voir la vidéo d\'aide', className = '' }: Props) {
   const [open, setOpen] = useState(false);
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('help_videos')
+        .select('video_id')
+        .eq('page_key', pageKey)
+        .maybeSingle();
+      if (!cancelled) {
+        setVideoId(data?.video_id ?? null);
+        setLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pageKey]);
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -25,6 +44,8 @@ export default function VideoHelpButton({ videoId, label = 'Voir la vidéo d\'ai
     };
   }, [open, close]);
 
+  if (loaded && !videoId) return null;
+
   return (
     <>
       <button
@@ -37,7 +58,7 @@ export default function VideoHelpButton({ videoId, label = 'Voir la vidéo d\'ai
         <span className="text-xs font-medium">{label}</span>
       </button>
 
-      {open && (
+      {open && videoId && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) close(); }}

@@ -33,6 +33,7 @@ import EditorBackofficePage from './pages/EditorBackofficePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SetupPasswordPage from './pages/SetupPasswordPage';
 import ActivatePage from './pages/ActivatePage';
+import HelpVideosPage from './pages/HelpVideosPage';
 import { SaisieProvider } from './mobile/saisie/SaisieContext';
 import MobileLayout from './mobile/MobileLayout';
 import HomePage from './mobile/pages/HomePage';
@@ -364,6 +365,7 @@ export default function App() {
             <Route path="/expire" element={<PrivateRoute><ExpirePage /></PrivateRoute>} />
             <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
             <Route path="/clients" element={<SuperAdminRoute><ClientsPage /></SuperAdminRoute>} />
+            <Route path="/help-videos" element={<SuperAdminRoute><HelpVideosPage /></SuperAdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </SaisieProvider>
