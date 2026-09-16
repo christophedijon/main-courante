@@ -38,7 +38,6 @@ async function sendViaResend(
 }
 
 Deno.serve(async (req: Request) => {
-  // Log every invocation immediately — confirms this version is running
   console.log("[resend-invitation] INVOKED method:", req.method, "time:", new Date().toISOString());
 
   if (req.method === "OPTIONS") {
@@ -63,26 +62,65 @@ Deno.serve(async (req: Request) => {
     const { data: { user: caller } } = await callerClient.auth.getUser();
     if (!caller) return json({ error: "Unauthorized" }, 401);
 
+    // Check if caller is super_admin or Direction
     const { data: adminRow } = await adminClient
       .from("super_admins")
       .select("id")
       .eq("email", caller.email!)
       .maybeSingle();
-    if (!adminRow) return json({ error: "Forbidden" }, 403);
 
-    const { etablissement_id, action = "resend_invite" } = await req.json();
-    if (!etablissement_id) return json({ error: "Missing etablissement_id" }, 400);
-
-    const { data: managed, error: managedErr } = await adminClient
-      .from("managed_users")
-      .select("id, email, auth_user_id, first_login_at")
-      .eq("etablissement_id", etablissement_id)
-      .eq("fonction", "Direction")
-      .maybeSingle();
-
-    if (managedErr || !managed) {
-      return json({ error: "Direction user not found" }, 404);
+    let isDirection = false;
+    let callerEtabId: string | null = null;
+    if (!adminRow) {
+      const { data: callerManaged } = await adminClient
+        .from("managed_users")
+        .select("fonction, etablissement_id")
+        .eq("auth_user_id", caller.id)
+        .maybeSingle();
+      isDirection = callerManaged?.fonction === "Direction";
+      callerEtabId = callerManaged?.etablissement_id ?? null;
+      if (!isDirection) return json({ error: "Forbidden" }, 403);
     }
+
+    const { etablissement_id, action = "resend_invite", email: targetEmail } = await req.json();
+
+    // Resolve the target managed user
+    let managed: { id: string; email: string; auth_user_id: string | null; first_login_at: string | null; etablissement_id: string | null } | null = null;
+
+    if (targetEmail) {
+      // Target a specific user by email — used by the "resend invitation" button on each row
+      const { data, error: managedErr } = await adminClient
+        .from("managed_users")
+        .select("id, email, auth_user_id, first_login_at, etablissement_id")
+        .eq("email", targetEmail)
+        .maybeSingle();
+      if (managedErr || !data) {
+        return json({ error: "Utilisateur introuvable" }, 404);
+      }
+      managed = data;
+    } else {
+      // Original behaviour: target the Direction user of the given etablissement
+      if (!etablissement_id) return json({ error: "Missing etablissement_id or email" }, 400);
+      const { data, error: managedErr } = await adminClient
+        .from("managed_users")
+        .select("id, email, auth_user_id, first_login_at, etablissement_id")
+        .eq("etablissement_id", etablissement_id)
+        .eq("fonction", "Direction")
+        .maybeSingle();
+      if (managedErr || !data) {
+        return json({ error: "Direction user not found" }, 404);
+      }
+      managed = data;
+    }
+
+    // If caller is Direction (not super_admin), ensure they target a user in their own etablissement
+    if (!adminRow && isDirection && managed?.etablissement_id) {
+      if (managed.etablissement_id !== callerEtabId) {
+        return json({ error: "Forbidden: vous ne pouvez renvoyer une invitation qu'aux utilisateurs de votre établissement" }, 403);
+      }
+    }
+
+    if (!managed) return json({ error: "Utilisateur introuvable" }, 404);
 
     const appUrl = Deno.env.get("APP_URL") ?? "https://maincourante21.bolt.host";
     const resendKey = Deno.env.get("RESEND_API_KEY");

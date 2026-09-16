@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, UserPlus, Search, Trash2,
-  ChevronUp, ChevronDown, RefreshCw, Mail, Pencil,
+  ChevronUp, ChevronDown, RefreshCw, Mail, Pencil, Send,
   X, Copy, CheckCircle, AlertCircle, UserX, UserCheck, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -71,6 +71,7 @@ export default function DashboardPage() {
   const [sentInviteMail, setSentInviteMail] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [resendLoading, setResendLoading] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -246,6 +247,35 @@ export default function DashboardPage() {
     navigator.clipboard.writeText(`Email : ${inviteSuccess.email}\nMot de passe : ${inviteSuccess.password}`);
     setCopiedCredentials(true);
     setTimeout(() => setCopiedCredentials(false), 2000);
+  }
+
+  async function handleResendInvite(user: ManagedUser) {
+    setResendLoading(user.id);
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-invitation`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${s?.access_token}`,
+            'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ email: user.email }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setToast({ message: data.error ?? 'Erreur lors de l\'envoi de l\'invitation.', type: 'error' });
+      } else {
+        setToast({ message: `Invitation renvoyée à ${user.email}`, type: 'success' });
+        fetchUsers();
+      }
+    } catch {
+      setToast({ message: 'Erreur réseau. Réessayez.', type: 'error' });
+    }
+    setResendLoading(null);
   }
 
   async function sendInviteMail() {
@@ -496,6 +526,16 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={() => handleResendInvite(user)}
+                            disabled={resendLoading === user.id}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
+                            title="Renvoyer l'invitation"
+                          >
+                            {resendLoading === user.id
+                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                              : <Send className="w-4 h-4" />}
+                          </button>
                           <button
                             onClick={() => navigate(`/dashboard/users/${user.id}`)}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
