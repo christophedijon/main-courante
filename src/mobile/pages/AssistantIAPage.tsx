@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import VideoHelpButton from '../../components/VideoHelpButton';
 
 type Section = { title: string; content: string };
 
@@ -139,6 +140,7 @@ export default function AssistantIAPage() {
           <p className="text-white font-semibold text-[15px]">Assistant IA</p>
           <p className="text-slate-500 text-xs">Gestion sécurité personnes & incendie</p>
         </div>
+        <VideoHelpButton pageKey="assistant-ia" label="Aide vidéo" />
       </div>
 
       <div className="px-4 pt-5 space-y-4">
