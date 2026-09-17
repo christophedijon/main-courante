@@ -257,7 +257,7 @@ export default function App() {
               <Route path="feedback" element={<FeedbackPage />} />
               <Route path="postes" element={<PostesMobilePage />} />
               <Route path="carte-pro" element={
-                <RoleRoute allowedRoles={['Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur']}>
+                <RoleRoute allowedRoles={['Direction', 'Chef de poste', 'Agent de Sécurité']}>
                   <CarteProPage />
                 </RoleRoute>
               } />

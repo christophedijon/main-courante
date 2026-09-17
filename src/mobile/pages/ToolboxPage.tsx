@@ -26,6 +26,7 @@ const CAT_TO_ROUTE: Record<string, Categorie> = {
 export default function ToolboxPage() {
   const navigate = useNavigate();
   const { isSuperAdmin, userFonction, session } = useAuth();
+  const canSeeCartePro = userFonction === 'Direction' || userFonction === 'Chef de poste' || userFonction === 'Agent de Sécurité';
   const canSeeRegistre = userFonction === 'Direction';
   const canOpenExceptionnelle = userFonction === 'Direction';
   const canSeeJauge = !isSuperAdmin && userFonction === 'Direction';
@@ -172,9 +173,10 @@ export default function ToolboxPage() {
           );
         })}
 
-        <button
-          type="button"
-          onClick={() => navigate('/mobile/carte-pro')}
+        {canSeeCartePro && (
+          <button
+            type="button"
+            onClick={() => navigate('/mobile/carte-pro')}
             className="text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 transition-all active:scale-[0.98] min-h-[128px] flex flex-col"
           >
             <div className="w-11 h-11 rounded-xl border flex items-center justify-center mb-3 bg-emerald-500/15 border-emerald-500/30">
@@ -183,6 +185,7 @@ export default function ToolboxPage() {
             <p className="text-white font-semibold text-[14px] leading-tight">Carte PRO</p>
             <p className="text-slate-500 text-[11px] mt-0.5">Carte professionnelle CNAPS</p>
           </button>
+        )}
 
         {canSeeRegistre && (
           <button
