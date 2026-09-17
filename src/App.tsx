@@ -257,7 +257,7 @@ export default function App() {
               <Route path="feedback" element={<FeedbackPage />} />
               <Route path="postes" element={<PostesMobilePage />} />
               <Route path="carte-pro" element={
-                <RoleRoute allowedRoles={['Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                <RoleRoute allowedRoles={['Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur']}>
                   <CarteProPage />
                 </RoleRoute>
               } />
@@ -275,14 +275,14 @@ export default function App() {
               } />
               <Route path="assignation" element={<Navigate to="/mobile/postes" replace />} />
 
-              {/* SuperAdmin, Direction, Chef de poste, Agent de Sécurité */}
+              {/* SuperAdmin, Direction, Chef de poste, Agent de Sécurité, Serveur */}
               <Route path="assistant-ia" element={
-                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité', 'Serveur']}>
                   <AssistantIAPage />
                 </RoleRoute>
               } />
               <Route path="registre-securite" element={
-                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste', 'Agent de Sécurité']}>
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction']}>
                   <RegistreMobilePage />
                 </RoleRoute>
               } />
