@@ -9,3 +9,6 @@ verify_jwt = true
 
 [functions.send-credentials]
 verify_jwt = true
+
+[functions.clean-orphan-auth]
+verify_jwt = true

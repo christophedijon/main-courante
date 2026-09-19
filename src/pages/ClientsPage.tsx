@@ -5,7 +5,7 @@ import {
   MoreHorizontal, Play, Zap, Pause, CheckCircle2,
   Trash2, RefreshCw, ChevronDown, ChevronUp,
   Users, Clock, XCircle, FlaskConical, Mail, UserCheck, UserX,
-  Pencil, KeyRound, Eye, X, User, Calendar, Download,
+  Pencil, KeyRound, Eye, X, User, Calendar, Download, Ghost,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AppHeader from '../components/AppHeader';
@@ -80,6 +80,11 @@ export default function ClientsPage() {
   const [editFinEssaiEtab, setEditFinEssaiEtab] = useState<{ id: string; nom: string; date: string } | null>(null);
   const [detailsEtab, setDetailsEtab] = useState<Etablissement | null>(null);
   const [showNouveauModal, setShowNouveauModal] = useState(false);
+  const [orphanModal, setOrphanModal] = useState(false);
+  const [orphans, setOrphans] = useState<{ id: string; email: string; created_at: string; last_sign_in_at: string | null }[]>([]);
+  const [orphanLoading, setOrphanLoading] = useState(false);
+  const [orphanDeleting, setOrphanDeleting] = useState(false);
+  const [selectedOrphans, setSelectedOrphans] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!actionMenu) return;
@@ -221,6 +226,49 @@ export default function ClientsPage() {
     setActionMenu(null); setMenuAnchor(null);
   }
 
+  async function loadOrphans() {
+    setOrphanLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('clean-orphan-auth', {
+        body: { action: 'list' },
+      });
+      if (error || data?.error) {
+        showToast('error', data?.error ?? 'Erreur lors du chargement des orphelins');
+      } else {
+        setOrphans(data.orphans ?? []);
+        setSelectedOrphans(new Set());
+      }
+    } catch {
+      showToast('error', 'Erreur réseau');
+    }
+    setOrphanLoading(false);
+  }
+
+  async function deleteOrphans() {
+    setOrphanDeleting(true);
+    try {
+      const ids = Array.from(selectedOrphans);
+      const { data, error } = await supabase.functions.invoke('clean-orphan-auth', {
+        body: { action: 'delete', user_ids: ids },
+      });
+      if (error || data?.error) {
+        showToast('error', data?.error ?? 'Erreur lors de la suppression');
+      } else {
+        const deletedCount = data.deleted?.length ?? 0;
+        const failedCount = data.failed?.length ?? 0;
+        if (failedCount > 0) {
+          showToast('error', `${deletedCount} supprimé(s), ${failedCount} échec(s)`);
+        } else {
+          showToast('success', `${deletedCount} compte(s) orphelin(s) supprimé(s)`);
+        }
+        await loadOrphans();
+      }
+    } catch {
+      showToast('error', 'Erreur réseau');
+    }
+    setOrphanDeleting(false);
+  }
+
   async function supprimerEtablissement(id: string) {
     setActionLoading(id);
     const { data, error } = await supabase.functions.invoke('delete-etablissement', {
@@ -289,6 +337,14 @@ export default function ClientsPage() {
             <p className="text-sm text-slate-400 mt-0.5">Gérez vos établissements et leurs plans</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => { setOrphanModal(true); loadOrphans(); }}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition-all border border-slate-700"
+              title="Comptes auth.users sans ligne managed_users"
+            >
+              <Ghost className="w-4 h-4" />
+              Orphelins
+            </button>
             <button onClick={load} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all" title="Rafraîchir">
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -709,6 +765,104 @@ export default function ClientsPage() {
           onCreated={() => { setShowNouveauModal(false); load(); showToast('success', 'Client créé — invitation envoyée'); }}
           onError={(msg) => showToast('error', msg)}
         />
+      )}
+
+      {orphanModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={e => { if (e.target === e.currentTarget) setOrphanModal(false); }}>
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Ghost className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-white">Comptes orphelins</h2>
+                  <p className="text-xs text-slate-400">auth.users sans managed_users</p>
+                </div>
+              </div>
+              <button onClick={() => setOrphanModal(false)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+              {orphanLoading ? (
+                <div className="flex items-center justify-center py-8 gap-3">
+                  <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                  <span className="text-slate-400 text-sm">Chargement…</span>
+                </div>
+              ) : orphans.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                  <p className="text-sm text-slate-400">Aucun compte orphelin trouvé</p>
+                  <p className="text-xs text-slate-500">La base est propre</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-slate-400">{orphans.length} compte{orphans.length > 1 ? 's' : ''} orphelin{orphans.length > 1 ? 's' : ''}</p>
+                    <button
+                      onClick={() => {
+                        if (selectedOrphans.size === orphans.length) setSelectedOrphans(new Set());
+                        else setSelectedOrphans(new Set(orphans.map(o => o.id)));
+                      }}
+                      className="text-xs text-blue-400 hover:underline"
+                    >
+                      {selectedOrphans.size === orphans.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {orphans.map(o => (
+                      <label
+                        key={o.id}
+                        className="flex items-center gap-3 bg-slate-800/50 hover:bg-slate-800 rounded-xl px-4 py-3 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedOrphans.has(o.id)}
+                          onChange={() => {
+                            const next = new Set(selectedOrphans);
+                            if (next.has(o.id)) next.delete(o.id); else next.add(o.id);
+                            setSelectedOrphans(next);
+                          }}
+                          className="w-4 h-4 rounded accent-blue-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white font-medium truncate">{o.email}</p>
+                          <p className="text-xs text-slate-500">Créé le {formatDate(o.created_at)}</p>
+                        </div>
+                        {o.last_sign_in_at ? (
+                          <span className="text-xs text-slate-500 shrink-0">Connecté</span>
+                        ) : (
+                          <span className="text-xs text-slate-600 shrink-0">Jamais connecté</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {orphans.length > 0 && (
+              <div className="px-6 py-4 border-t border-slate-800 flex gap-3">
+                <button
+                  onClick={() => setOrphanModal(false)}
+                  className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-all"
+                >
+                  Fermer
+                </button>
+                <button
+                  onClick={deleteOrphans}
+                  disabled={selectedOrphans.size === 0 || orphanDeleting}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-all"
+                >
+                  {orphanDeleting
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Suppression…</>
+                    : <><Trash2 className="w-3.5 h-3.5" /> Supprimer ({selectedOrphans.size})</>
+                  }
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {toast && (
