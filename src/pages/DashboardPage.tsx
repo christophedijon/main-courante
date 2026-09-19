@@ -112,18 +112,38 @@ export default function DashboardPage() {
     // Delete the auth user via edge function if linked
     if (deleteTarget.auth_user_id) {
       const { data: { session: s } } = await supabase.auth.getSession();
-      await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-managed-user`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${s?.access_token}`,
-            'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({ auth_user_id: deleteTarget.auth_user_id }),
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-managed-user`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${s?.access_token}`,
+              'Apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({ auth_user_id: deleteTarget.auth_user_id }),
+          }
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setDeleteLoading(false);
+          setDeleteTarget(null);
+          setToast({
+            message: `Impossible de supprimer le compte d'authentification de ${deleteTarget.email}. ${body.error ?? 'Erreur inconnue.'} L'utilisateur a été conservé.`,
+            type: 'error'
+          });
+          return;
         }
-      );
+      } catch {
+        setDeleteLoading(false);
+        setDeleteTarget(null);
+        setToast({
+          message: `Erreur réseau lors de la suppression du compte de ${deleteTarget.email}. L'utilisateur a été conservé.`,
+          type: 'error'
+        });
+        return;
+      }
     }
 
     const { error } = await supabase.from('managed_users').delete().eq('id', deleteTarget.id);
