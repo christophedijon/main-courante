@@ -1,2 +1,2 @@
 /*
-  Content-Security-Policy: frame-src 'self' https://www.loom.com https://*.loom.com;
+  Content-Security-Policy: frame-src 'self' https://www.loom.com https://*.loom.com https://docs.google.com;
