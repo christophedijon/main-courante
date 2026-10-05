@@ -50,7 +50,8 @@ function footerBlock(recipientEmail: string) {
   </div>`;
 }
 
-const APP_URL = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
+const rawAppUrl = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
+const APP_URL = rawAppUrl.includes("bolt.host") ? "https://app.maincourante.eu" : rawAppUrl;
 
 function ctaButton(label: string, href: string, color = "#2563eb") {
   return `<a href="${href}" style="display:inline-block;background:${color};color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none;letter-spacing:0.01em">${label}</a>`;

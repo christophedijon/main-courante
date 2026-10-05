@@ -89,7 +89,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@send.maincourante.eu";
-    const APP_URL = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
+    const rawAppUrl = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
+    const APP_URL = rawAppUrl.includes("bolt.host") ? "https://app.maincourante.eu" : rawAppUrl;
 
     // Build HTML
     const nomEtab       = etab.nom ?? etab.enseigne ?? "Votre établissement";
