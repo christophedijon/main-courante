@@ -9,7 +9,8 @@ import { supabase } from '../lib/supabase';
 import type { ManagedUser } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEntreprise } from '../hooks/useEntreprise';
-import CreateUserModal from '../components/CreateUserModal';
+
+type EtablissementOption = { id: string; nom: string; enseigne: string | null };
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import Toast, { type ToastType } from '../components/Toast';
 import AppHeader from '../components/AppHeader';
@@ -42,9 +43,12 @@ function avatarLetter(email: string) {
 }
 
 export default function DashboardPage() {
-  const { session, signOut } = useAuth();
+  const { session, signOut, isSuperAdmin } = useAuth();
   const { id: etabId } = useEntreprise();
   const navigate = useNavigate();
+
+  const [etablissements, setEtablissements] = useState<EtablissementOption[]>([]);
+  const [selectedEtabId, setSelectedEtabId] = useState<string>('');
 
   const [users, setUsers] = useState<UserWithEtab[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +58,6 @@ export default function DashboardPage() {
   const [statsOpen, setStatsOpen] = useState(true);
   const [fonctionOpen, setFonctionOpen] = useState(true);
 
-  const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [suspendedOpen, setSuspendedOpen] = useState(false);
@@ -199,11 +202,6 @@ export default function DashboardPage() {
     }
   }
 
-  function handleCreated(user: ManagedUser) {    setUsers((prev) => [user, ...prev]);
-    setShowCreate(false);
-    setToast({ message: `${user.email} a été créé avec succès.`, type: 'success' });
-  }
-
   function generatePassword() {
     return Math.random().toString(36).slice(-8);
   }
@@ -215,7 +213,13 @@ export default function DashboardPage() {
     setInviteError(null);
     setInviteSuccess(null);
     setCopiedCredentials(false);
+    setSelectedEtabId('');
     setShowInvite(true);
+    if (isSuperAdmin) {
+      supabase.from('etablissements').select('id, nom, enseigne').order('nom').then(({ data }) => {
+        if (data) setEtablissements(data as EtablissementOption[]);
+      });
+    }
   }
 
   function closeInvite() {
@@ -246,7 +250,7 @@ export default function DashboardPage() {
             password: invitePassword,
             fonction: inviteFonction,
             invited_by: s?.user.id,
-            etablissement_id: etabId,
+            etablissement_id: isSuperAdmin ? (selectedEtabId || null) : etabId,
           }),
         }
       );
@@ -378,14 +382,6 @@ export default function DashboardPage() {
             >
               <UserPlus className="w-4 h-4" />
               Inviter un utilisateur
-            </button>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-medium
-                px-4 py-2 rounded-xl text-sm transition-all shadow-lg shadow-blue-900/30"
-            >
-              <UserPlus className="w-4 h-4" />
-              Nouvel utilisateur
             </button>
           </div>
         </div>
@@ -670,9 +666,6 @@ export default function DashboardPage() {
 
       </main>
 
-      {showCreate && (
-        <CreateUserModal onClose={() => setShowCreate(false)} onCreated={handleCreated} etablissementId={etabId} />
-      )}
       {deleteTarget && (
         <DeleteConfirmModal
           userName={deleteTarget.email}
@@ -784,12 +777,28 @@ export default function DashboardPage() {
                     </select>
                   </InviteField>
 
+                  {isSuperAdmin && (
+                    <InviteField label="Établissement *">
+                      <select
+                        value={selectedEtabId}
+                        onChange={(e) => setSelectedEtabId(e.target.value)}
+                        required
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
+                      >
+                        <option value="">— Choisir un établissement —</option>
+                        {etablissements.map((e) => (
+                          <option key={e.id} value={e.id}>{e.nom}{e.enseigne ? ` (${e.enseigne})` : ''}</option>
+                        ))}
+                      </select>
+                    </InviteField>
+                  )}
+
                   <div className="flex gap-3 pt-2">
                     <button type="button" onClick={closeInvite}
                       className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition-all">
                       Annuler
                     </button>
-                    <button type="submit" disabled={inviteLoading}
+                    <button type="submit" disabled={inviteLoading || (isSuperAdmin && !selectedEtabId)}
                       className="flex-1 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold transition-all flex items-center justify-center gap-2">
                       {inviteLoading
                         ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>Création…</>

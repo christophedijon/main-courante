@@ -21,3 +21,6 @@ verify_jwt = true
 
 [functions.check-trial-reminders]
 verify_jwt = true
+
+[functions.invite-user]
+verify_jwt = true

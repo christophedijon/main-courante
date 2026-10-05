@@ -207,7 +207,7 @@ Deno.serve(async (req: Request) => {
 
     // Auto-derive etablissement_id from the caller when not provided
     let resolvedEtabId = etablissement_id;
-    if (!resolvedEtabId && !isSuperAdmin) {
+    if (!isSuperAdmin) {
       const { data: callerManaged } = await adminClient
         .from("managed_users")
         .select("etablissement_id")
@@ -216,8 +216,8 @@ Deno.serve(async (req: Request) => {
       resolvedEtabId = callerManaged?.etablissement_id ?? null;
     }
 
-    if (!resolvedEtabId && !isSuperAdmin) {
-      return jsonResp({ error: "Aucun établissement associé. Impossible de créer un utilisateur orphelin." }, 400);
+    if (!resolvedEtabId) {
+      return jsonResp({ error: "Aucun établissement rattaché. Impossible de créer un utilisateur orphelin." }, 400);
     }
 
     // Check for existing email in managed_users before attempting auth creation

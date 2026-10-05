@@ -68,6 +68,21 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Champs manquants' }, 400);
     }
 
+    // Determine the caller's etablissement_id for Direction/Chef de poste
+    let resolvedEtabId = etablissement_id;
+    if (!callerAdmin) {
+      const { data: callerEtab } = await supabase
+        .from('managed_users')
+        .select('etablissement_id')
+        .eq('auth_user_id', caller.id)
+        .maybeSingle();
+      resolvedEtabId = callerEtab?.etablissement_id ?? null;
+    }
+
+    if (!resolvedEtabId) {
+      return json({ error: 'Aucun établissement rattaché. Impossible de créer un utilisateur orphelin.' }, 400);
+    }
+
     // Chef de poste ne peut inviter que des Agents de Sécurité
     if (isChefDePoste && fonction !== 'Agent de Sécurité') {
       return json({ error: 'Un Chef de poste ne peut inviter que des Agents de Sécurité' }, 403);
@@ -104,7 +119,7 @@ Deno.serve(async (req: Request) => {
         profile_completed: false,
         invited_by: invited_by ?? caller.id,
         invited_at: new Date().toISOString(),
-        ...(etablissement_id ? { etablissement_id } : {}),
+        ...(resolvedEtabId ? { etablissement_id: resolvedEtabId } : {}),
       })
       .select()
       .single();
