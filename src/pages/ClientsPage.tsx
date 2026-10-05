@@ -125,7 +125,11 @@ export default function ClientsPage() {
     if (!dirRes.error && dirRes.data) {
       const map: Record<string, DirectionActivation> = {};
       for (const row of dirRes.data as DirectionActivation[]) {
-        if (row.etablissement_id) map[row.etablissement_id] = row;
+        if (!row.etablissement_id) continue;
+        const prev = map[row.etablissement_id];
+        if (!prev || (row.first_login_at && !prev.first_login_at)) {
+          map[row.etablissement_id] = row;
+        }
       }
       setDirectionMap(map);
     }
