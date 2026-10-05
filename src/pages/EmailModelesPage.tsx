@@ -15,7 +15,7 @@ type Modele = {
   html: string;
 };
 
-const APP_URL = 'https://maincourante.eu';
+const APP_URL = 'https://app.maincourante.eu';
 
 function buildActivationHtml(displayName: string): string {
   return `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:32px;border-radius:16px">
