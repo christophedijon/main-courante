@@ -15,3 +15,9 @@ verify_jwt = true
 
 [functions.rappel-registre]
 verify_jwt = true
+
+[functions.send-welcome-email]
+verify_jwt = true
+
+[functions.check-trial-reminders]
+verify_jwt = true

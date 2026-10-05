@@ -89,6 +89,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@send.maincourante.eu";
+    const APP_URL = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
 
     // Build HTML
     const nomEtab       = etab.nom ?? etab.enseigne ?? "Votre établissement";
@@ -302,7 +303,7 @@ Deno.serve(async (req: Request) => {
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 20px">
           <path d="M12 2L22 6V13C22 18 17 22 12 23C7 22 2 18 2 13V6Z" fill="none" stroke="#2563eb" stroke-width="1.5"/>
         </svg>
-        <a href="https://maincourante.eu"
+        <a href="${APP_URL}"
            style="display:inline-block;border:1.5px solid #f59e0b;color:#f59e0b;font-size:13px;font-weight:700;
                   text-transform:uppercase;letter-spacing:0.1em;padding:14px 36px;border-radius:8px;text-decoration:none">
           Accéder à mon tableau de bord &nbsp;→
@@ -318,7 +319,7 @@ Deno.serve(async (req: Request) => {
   <tr><td style="padding:0 24px 40px;text-align:center">
     <p style="color:#334155;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;margin:0 0 6px">L'équipe Main Courante</p>
     <p style="color:#1e293b;font-size:11px;margin:0 0 6px">
-      <a href="https://maincourante.eu" style="color:#334155;text-decoration:none">maincourante.eu</a>
+      <a href="${APP_URL}" style="color:#334155;text-decoration:none">maincourante.eu</a>
       &nbsp;·&nbsp;
       <a href="mailto:contact@maincourante.eu" style="color:#334155;text-decoration:none">contact@maincourante.eu</a>
     </p>

@@ -493,7 +493,7 @@ function buildBienvenueHtml(): string {
         <text x="14" y="20" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="800" font-family="Arial,sans-serif">MC</text>
       </svg>
       <p style="color:#e2e8f0;font-size:15px;font-weight:600;margin:0 0 16px">Votre tableau de bord vous attend.</p>
-      <a href="https://maincourante.eu" style="display:inline-block;border:1.5px solid #f59e0b;color:#f59e0b;background:transparent;font-size:14px;font-weight:700;padding:12px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.04em">
+      <a href="${APP_URL}" style="display:inline-block;border:1.5px solid #f59e0b;color:#f59e0b;background:transparent;font-size:14px;font-weight:700;padding:12px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.04em">
         ACCÉDER À MON TABLEAU DE BORD →
       </a>
       <p style="color:#475569;font-size:11px;margin:16px 0 0">Des questions ? Écrivez-nous à <a href="mailto:contact@maincourante.eu" style="color:#64748b;text-decoration:underline">contact@maincourante.eu</a></p>
@@ -504,7 +504,7 @@ function buildBienvenueHtml(): string {
   <tr><td style="padding:20px 0;text-align:center">
     <p style="color:#334155;font-size:11px;margin:0 0 4px;font-weight:600">L'équipe Main Courante</p>
     <p style="color:#1e293b;font-size:11px;margin:0">
-      <a href="https://maincourante.eu" style="color:#334155;text-decoration:none">maincourante.eu</a>
+      <a href="${APP_URL}" style="color:#334155;text-decoration:none">maincourante.eu</a>
       &nbsp;·&nbsp;
       <a href="mailto:contact@maincourante.eu" style="color:#334155;text-decoration:none">contact@maincourante.eu</a>
     </p>
@@ -546,7 +546,7 @@ function buildEngagementPrecocePreviewHtml(planLabel: string, joursDepuis: numbe
     </ul>
   </div>
   <div style="padding:28px 24px;text-align:center">
-    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Voir les offres d'abonnement</a>
+    <a href="${APP_URL}/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Voir les offres d'abonnement</a>
   </div>
   <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
     <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
@@ -589,7 +589,7 @@ function buildEngagementTardifPreviewHtml(): string {
     </div>
   </div>
   <div style="padding:28px 24px;text-align:center">
-    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Choisir mon abonnement</a>
+    <a href="${APP_URL}/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Choisir mon abonnement</a>
   </div>
   <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
     <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
@@ -621,7 +621,7 @@ function buildUrgenceJ20PreviewHtml(): string {
     </ul>
   </div>
   <div style="padding:0 24px 28px;text-align:center">
-    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Voir les offres d'abonnement</a>
+    <a href="${APP_URL}/abonnement" style="display:inline-block;background:#ea580c;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Voir les offres d'abonnement</a>
   </div>
   <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
     <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
@@ -649,7 +649,7 @@ function buildUrgenceJ5PreviewHtml(): string {
     <p style="color:#475569;font-size:13px;margin:0">Abonnez-vous maintenant pour maintenir votre conformité réglementaire sans interruption.</p>
   </div>
   <div style="padding:0 24px 36px;text-align:center">
-    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#dc2626;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">S'abonner maintenant</a>
+    <a href="${APP_URL}/abonnement" style="display:inline-block;background:#dc2626;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">S'abonner maintenant</a>
   </div>
   <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
     <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>
@@ -677,7 +677,7 @@ function buildExpireClientPreviewHtml(): string {
     <p style="color:#475569;font-size:13px;line-height:1.7;margin:0">Toutes vos entrées main courante, vos rondes, vos registres et vos rapports sont conservés. Un abonnement vous redonne accès instantanément.</p>
   </div>
   <div style="padding:0 24px 28px;text-align:center">
-    <a href="https://maincourante.eu/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Réactiver mon compte</a>
+    <a href="${APP_URL}/abonnement" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none">Réactiver mon compte</a>
   </div>
   <div style="background:#f8fafc;padding:20px 24px;border-top:1px solid #e2e8f0;text-align:center">
     <p style="color:#94a3b8;font-size:12px;margin:0">Main Courante — <a href="mailto:contact@maincourante.eu" style="color:#94a3b8;text-decoration:none">contact@maincourante.eu</a></p>

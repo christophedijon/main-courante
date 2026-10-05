@@ -50,6 +50,8 @@ function footerBlock(recipientEmail: string) {
   </div>`;
 }
 
+const APP_URL = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
+
 function ctaButton(label: string, href: string, color = "#2563eb") {
   return `<a href="${href}" style="display:inline-block;background:${color};color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;text-decoration:none;letter-spacing:0.01em">${label}</a>`;
 }
@@ -101,7 +103,7 @@ function buildEngagementPrecoceHtml(opts: {
     <p style="color:#475569;font-size:14px;margin:0 0 20px">
       Passez à l'abonnement maintenant et continuez sans interruption.
     </p>
-    ${ctaButton("Voir les offres d'abonnement", "https://maincourante.eu/abonnement")}
+    ${ctaButton("Voir les offres d'abonnement", `${APP_URL}/abonnement`)}
   </div>
 
   ${footerBlock(opts.recipientEmail)}
@@ -183,7 +185,7 @@ function buildEngagementTardifHtml(opts: {
   </div>
 
   <div class="eml-cta" style="padding:28px 24px;text-align:center">
-    ${ctaButton("Choisir mon abonnement", "https://maincourante.eu/abonnement")}
+    ${ctaButton("Choisir mon abonnement", `${APP_URL}/abonnement`)}
   </div>
 
   ${footerBlock(opts.recipientEmail)}
@@ -233,7 +235,7 @@ function buildUrgenceJ20Html(opts: {
     <p style="color:#475569;font-size:14px;margin:0 0 20px">
       Souscrivez maintenant et continuez sans interruption.
     </p>
-    ${ctaButton("Voir les offres d'abonnement", "https://maincourante.eu/abonnement", "#ea580c")}
+    ${ctaButton("Voir les offres d'abonnement", `${APP_URL}/abonnement`, "#ea580c")}
   </div>
 
   ${footerBlock(opts.recipientEmail)}
@@ -282,7 +284,7 @@ function buildUrgenceJ5Html(opts: {
   </div>
 
   <div class="eml-cta" style="padding:0 24px 36px;text-align:center">
-    ${ctaButton("S'abonner maintenant", "https://maincourante.eu/abonnement", "#dc2626")}
+    ${ctaButton("S'abonner maintenant", `${APP_URL}/abonnement`, "#dc2626")}
   </div>
 
   ${footerBlock(opts.recipientEmail)}
@@ -327,7 +329,7 @@ function buildExpireClientHtml(opts: {
     <p style="color:#475569;font-size:14px;margin:0 0 20px">
       Reprenez votre activité sans délai.
     </p>
-    ${ctaButton("Réactiver mon compte", "https://maincourante.eu/abonnement")}
+    ${ctaButton("Réactiver mon compte", `${APP_URL}/abonnement`)}
     <p style="color:#94a3b8;font-size:12px;margin:20px 0 0">
       Ou contactez-nous : <a href="mailto:contact@maincourante.eu" style="color:#64748b;text-decoration:none">contact@maincourante.eu</a>
     </p>
