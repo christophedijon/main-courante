@@ -12,3 +12,6 @@ verify_jwt = true
 
 [functions.clean-orphan-auth]
 verify_jwt = true
+
+[functions.rappel-registre]
+verify_jwt = true

@@ -313,7 +313,7 @@ export default function DashboardPage() {
         body: JSON.stringify({
           email: inviteSuccess.email,
           password: inviteSuccess.password,
-          appUrl: import.meta.env.VITE_APP_URL ?? 'https://maincourante21.bolt.host',
+          appUrl: import.meta.env.VITE_APP_URL ?? 'https://app.maincourante.eu',
         }),
       });
       setSentInviteMail(true);

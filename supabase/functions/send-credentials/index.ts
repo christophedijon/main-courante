@@ -18,7 +18,7 @@ Deno.serve(async (req: Request) => {
       password: string;
       appUrl?: string;
     };
-    const appUrl = "https://maincourante21.bolt.host";
+    const appUrl = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
 
     if (!email || !password) {
       return new Response(

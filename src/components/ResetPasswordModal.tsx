@@ -20,7 +20,7 @@ export function ResetPasswordModal({ isOpen, onClose }: Props) {
     setError(null);
     setLoading(true);
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: `${import.meta.env.VITE_APP_URL ?? 'https://maincourante21.bolt.host'}/reset-password`,
+      redirectTo: `${import.meta.env.VITE_APP_URL ?? 'https://app.maincourante.eu'}/reset-password`,
     });
     setLoading(false);
     if (err) {

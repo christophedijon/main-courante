@@ -146,7 +146,7 @@ function buildOrganismeHtml(
       </p>
       ${entries.map((entry) => {
         const token = entry.item.confirmation_token;
-        const appUrl = Deno.env.get("APP_URL") ?? "https://maincourante21.bolt.host";
+        const appUrl = Deno.env.get("APP_URL") ?? "https://app.maincourante.eu";
         const confirmUrl = `${appUrl}/confirm-registre?token=${token}`;
         return `
       <div style="text-align: center; margin: 16px 0;">
