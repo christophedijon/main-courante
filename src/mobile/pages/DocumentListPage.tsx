@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronRight, FileX, PenLine, AlertCircle } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronRight, FileX, PenLine, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -14,7 +14,16 @@ type Doc = {
   destinataires: string[];
   signature_requise: boolean;
   categorie: string;
+  content_version: number;
 };
+
+type SignatureRow = {
+  document_id: string;
+  content_version: number;
+  signed_at: string;
+};
+
+type DocStatus = 'none' | 'unsigned' | 'signed';
 
 const META: Record<Categorie, {
   label: string;
@@ -38,8 +47,10 @@ const CAT_ICON: Record<string, { icon: React.ComponentType<{ className?: string 
 export default function DocumentListPage() {
   const { categorie } = useParams<{ categorie: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { userFonction, session } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [signedMap, setSignedMap] = useState<Record<string, SignatureRow>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,74 +58,96 @@ export default function DocumentListPage() {
   const isUnsignedMode = cat === ('a_signer' as unknown as Categorie);
   const meta = META[cat];
 
-  useEffect(() => {
+  const loadDocs = useCallback(async () => {
     if (!cat || (!meta && !isUnsignedMode)) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    (async () => {
-      if (isUnsignedMode) {
-        if (!session?.user || !userFonction) {
-          setDocs([]);
-          setLoading(false);
-          return;
-        }
-        const { data: allDocs, error: qErr } = await supabase
-          .from('toolbox_documents')
-          .select('id, titre, description, ordre, destinataires, signature_requise, categorie, content_version')
-          .eq('actif', true)
-          .eq('signature_requise', true)
-          .order('ordre', { ascending: true });
 
-        if (qErr) {
-          setError(qErr.message);
-          setLoading(false);
-          return;
-        }
-
-        const { data: sigs } = await supabase
-          .from('signatures')
-          .select('document_id, content_version')
-          .eq('agent_id', session.user.id);
-
-        const signedSet = new Set(
-          (sigs ?? []).map((s: { document_id: string; content_version: number }) => `${s.document_id}:${s.content_version}`)
-        );
-
-        const visible = (allDocs ?? []).filter(
-          (d: { destinataires: string[] | null; id: string; content_version: number }) =>
-            (!d.destinataires || d.destinataires.length === 0 || d.destinataires.includes(userFonction)) &&
-            !signedSet.has(`${d.id}:${d.content_version}`)
-        );
-        setDocs(visible as Doc[]);
+    if (isUnsignedMode) {
+      if (!session?.user || !userFonction) {
+        setDocs([]);
         setLoading(false);
         return;
       }
-
-      const { data, error: queryError } = await supabase
+      const { data: allDocs, error: qErr } = await supabase
         .from('toolbox_documents')
-        .select('id, titre, description, ordre, destinataires, signature_requise, categorie')
-        .eq('categorie', cat)
+        .select('id, titre, description, ordre, destinataires, signature_requise, categorie, content_version')
         .eq('actif', true)
+        .eq('signature_requise', true)
         .order('ordre', { ascending: true });
 
-      if (queryError) {
-        console.error('[DocumentListPage] Supabase error:', queryError);
-        setError(queryError.message);
+      if (qErr) {
+        setError(qErr.message);
         setLoading(false);
         return;
       }
 
-      const all = (data ?? []) as Doc[];
-      const visible = all.filter((doc) =>
-        !doc.destinataires || doc.destinataires.length === 0 || (userFonction && doc.destinataires.includes(userFonction))
+      const { data: sigs } = await supabase
+        .from('signatures')
+        .select('document_id, content_version, signed_at')
+        .eq('agent_id', session.user.id);
+
+      const signedSet = new Set(
+        (sigs ?? []).map((s: SignatureRow) => `${s.document_id}:${s.content_version}`)
       );
-      setDocs(visible);
+
+      const sigMap: Record<string, SignatureRow> = {};
+      for (const s of (sigs ?? [])) {
+        sigMap[`${s.document_id}:${s.content_version}`] = s;
+      }
+      setSignedMap(sigMap);
+
+      const visible = (allDocs ?? []).filter(
+        (d: { destinataires: string[] | null; id: string; content_version: number }) =>
+          (!d.destinataires || d.destinataires.length === 0 || d.destinataires.includes(userFonction)) &&
+          !signedSet.has(`${d.id}:${d.content_version}`)
+      );
+      setDocs(visible as Doc[]);
       setLoading(false);
-    })();
+      return;
+    }
+
+    const { data, error: queryError } = await supabase
+      .from('toolbox_documents')
+      .select('id, titre, description, ordre, destinataires, signature_requise, categorie, content_version')
+      .eq('categorie', cat)
+      .eq('actif', true)
+      .order('ordre', { ascending: true });
+
+    if (queryError) {
+      setError(queryError.message);
+      setLoading(false);
+      return;
+    }
+
+    const all = (data ?? []) as Doc[];
+    const visible = all.filter((doc) =>
+      !doc.destinataires || doc.destinataires.length === 0 || (userFonction && doc.destinataires.includes(userFonction))
+    );
+    setDocs(visible);
+
+    if (session?.user) {
+      const { data: sigs } = await supabase
+        .from('signatures')
+        .select('document_id, content_version, signed_at')
+        .eq('agent_id', session.user.id);
+
+      const sigMap: Record<string, SignatureRow> = {};
+      for (const s of (sigs ?? [])) {
+        sigMap[`${s.document_id}:${s.content_version}`] = s;
+      }
+      setSignedMap(sigMap);
+    }
+
+    setLoading(false);
   }, [cat, userFonction, session?.user?.id, isUnsignedMode, meta]);
+
+  useEffect(() => {
+    loadDocs();
+  }, [loadDocs, location.key]);
 
   if (!meta && !isUnsignedMode) {
     return (
@@ -129,9 +162,18 @@ export default function DocumentListPage() {
   const headerAccent = isUnsignedMode ? 'text-red-400' : meta.accent;
   const headerIconBg = isUnsignedMode ? 'bg-red-500/15 border-red-500/30' : meta.iconBg;
 
+  function getDocStatus(doc: Doc): DocStatus {
+    if (!doc.signature_requise) return 'none';
+    const sig = signedMap[`${doc.id}:${doc.content_version}`];
+    return sig ? 'signed' : 'unsigned';
+  }
+
+  function formatDateShort(iso: string): string {
+    return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  }
+
   return (
     <div className="pb-8">
-      {/* Sticky header */}
       <div className="sticky top-0 z-30 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center gap-3">
         <button
           onClick={() => navigate('/mobile/outils')}
@@ -188,6 +230,8 @@ export default function DocumentListPage() {
             {docs.map((doc) => {
               const catInfo = CAT_ICON[doc.categorie] ?? CAT_ICON.PROCEDURE;
               const CatIcon = catInfo.icon;
+              const status = getDocStatus(doc);
+              const sig = status === 'signed' ? signedMap[`${doc.id}:${doc.content_version}`] : null;
               return (
                 <button
                   key={doc.id}
@@ -201,10 +245,16 @@ export default function DocumentListPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-white font-semibold text-[14px] leading-tight">{doc.titre}</p>
-                      {doc.signature_requise && (
+                      {status === 'unsigned' && (
                         <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 font-semibold shrink-0">
                           <PenLine className="w-2.5 h-2.5" />
-                          Signature
+                          À signer
+                        </span>
+                      )}
+                      {status === 'signed' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold shrink-0">
+                          <CheckCircle className="w-2.5 h-2.5" />
+                          Signé{sig ? ` · ${formatDateShort(sig.signed_at)}` : ''}
                         </span>
                       )}
                     </div>
