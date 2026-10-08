@@ -70,13 +70,13 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Limite journalière atteinte (50 requêtes/jour)." }, 429);
   }
 
-  // Service-role client for privileged reads (ia_settings, entreprise, toolbox_documents)
+  // Service-role client for privileged reads (ia_settings only — global config)
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  // 5. Load IA settings (prompts + models only — no API key)
+  // 5. Load IA settings (prompts + models only — no API key, global config)
   const { data: iaSettings } = await serviceClient
     .from("ia_settings")
     .select("prompt, prompt_erp, prompt_bruit, prompt_router, gpt_model, gpt_model_erp, gpt_model_bruit, gpt_model_router")
@@ -87,15 +87,15 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Assistant IA non configuré." }, 400);
   }
 
-  // 6. Load establishment context and SSI documents
-  const { data: entreprise } = await serviceClient
+  // 6. Load establishment context via RLS-enforced caller client (isolates to caller's etab)
+  const { data: entreprise } = await userClient
     .from("etablissements")
     .select("nom, adresse, activite_principale, activites_complementaires, activites_reelles, licence_boissons, categorie_erp, effectif_public, effectif_personnel, questionnaire_reponses, horaires_ouverture, siret, code_ape")
-    .in("statut", ["essai", "actif"])
     .limit(1)
     .maybeSingle();
 
-  const { data: ssiDocs } = await serviceClient
+  // Load SSI documents via RLS-enforced caller client (isolates to caller's etab)
+  const { data: ssiDocs } = await userClient
     .from("toolbox_documents")
     .select("titre, contenu, categorie")
     .in("categorie", ["SSI", "PROCEDURE"])

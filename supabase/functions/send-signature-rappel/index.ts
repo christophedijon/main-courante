@@ -86,12 +86,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Get unsigned documents for the target user
+    // Get unsigned documents for the target user (filtered by caller's etablissement)
     const { data: docs } = await adminClient
       .from('toolbox_documents')
       .select('id, titre, destinataires, content_version')
       .eq('actif', true)
-      .eq('signature_requise', true);
+      .eq('signature_requise', true)
+      .eq('etablissement_id', targetUser.etablissement_id);
 
     if (!docs || docs.length === 0) {
       return json({ error: 'Aucun document à signer pour cet utilisateur' }, 400);

@@ -562,7 +562,13 @@ export default function EntreprisePage() {
     if (!logoFile) return undefined;
     setUploadLoading(true);
     const ext = logoFile.type === 'application/pdf' ? 'pdf' : 'png';
-    const path = `logo-${Date.now()}.${ext}`;
+    const folderId = rowId ?? onboardingEtabId;
+    if (!folderId) {
+      setLogoMsg({ type: 'error', text: "Aucun établissement rattaché." });
+      setUploadLoading(false);
+      return null;
+    }
+    const path = `${folderId}/logo-${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from('logos').upload(path, logoFile, { upsert: true });
     setUploadLoading(false);
     if (error) { setLogoMsg({ type: 'error', text: "Erreur lors de l'upload du logo." }); return null; }

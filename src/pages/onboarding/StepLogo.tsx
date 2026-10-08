@@ -54,7 +54,7 @@ export default function StepLogo({ etabId, onNext, onBack, saving }: Props) {
     setError(null);
 
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
-    const path = `etablissement_${etabId}/logo.${ext}`;
+    const path = `${etabId}/logo.${ext}`;
 
     const { error: upErr } = await supabase.storage
       .from('logos')

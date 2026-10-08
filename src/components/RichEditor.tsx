@@ -7,6 +7,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import { Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2, Heading3, List, ListOrdered, Minus, Image as ImageIcon, Paperclip, Link2, Loader2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useEntreprise } from '../hooks/useEntreprise';
 
 interface RichEditorProps {
   value: string;
@@ -15,20 +16,6 @@ interface RichEditorProps {
 }
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-
-async function uploadFile(file: File): Promise<{ url: string | null; errorMessage: string | null }> {
-  const ext = file.name.split('.').pop() ?? 'bin';
-  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await supabase.storage
-    .from('documents-media')
-    .upload(path, file, { contentType: file.type });
-  if (error) {
-    console.error('UPLOAD ERROR:', JSON.stringify(error));
-    return { url: null, errorMessage: error.message };
-  }
-  const { data } = supabase.storage.from('documents-media').getPublicUrl(path);
-  return { url: data.publicUrl, errorMessage: null };
-}
 
 // Mini-modal for PDF URL insertion
 function PdfUrlModal({
@@ -98,6 +85,23 @@ export default function RichEditor({ value, onChange, placeholder = 'Rédigez le
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+
+  const { id: etabId } = useEntreprise();
+
+  async function uploadFile(file: File): Promise<{ url: string | null; errorMessage: string | null }> {
+    if (!etabId) return { url: null, errorMessage: 'Établissement introuvable' };
+    const ext = file.name.split('.').pop() ?? 'bin';
+    const path = `${etabId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage
+      .from('documents-media')
+      .upload(path, file, { contentType: file.type });
+    if (error) {
+      console.error('UPLOAD ERROR:', JSON.stringify(error));
+      return { url: null, errorMessage: error.message };
+    }
+    const { data } = supabase.storage.from('documents-media').getPublicUrl(path);
+    return { url: data.publicUrl, errorMessage: null };
+  }
 
   const editor = useEditor({
     extensions: [
