@@ -65,13 +65,15 @@ Deno.serve(async (req: Request) => {
       }
 
       const zapData = await zapRes.json();
-      if (zapData.resultat !== "success" || !zapData.data) {
+      if (zapData.resultat !== "success") {
         throw new Error(`Zapsis résultat invalide: ${JSON.stringify(zapData)}`);
       }
 
-      const entrees = parseInt(zapData.data, 10);
+      // data peut etre une chaine vide quand l'etablissement est ferme (0 entrees)
+      const raw = zapData.data ?? "";
+      const entrees = raw === "" ? 0 : parseInt(raw, 10);
       if (isNaN(entrees) || entrees < 0) {
-        throw new Error(`Zapsis valeur non parseable: "${zapData.data}"`);
+        throw new Error(`Zapsis valeur non parseable: "${raw}"`);
       }
 
       // 2. Sync jauge — calcul absolu, toujours convergent vers la vérité Zapsis.
