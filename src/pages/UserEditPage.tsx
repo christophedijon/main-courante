@@ -302,7 +302,7 @@ export default function UserEditPage() {
     });
 
     setSaveLoading(false);
-    if (error) { setSaveMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' }); return; }
+    if (error) { setSaveMsg({ type: 'error', text: error.message || 'Erreur lors de la sauvegarde.' }); return; }
     setProfile((p) => ({
       ...p,
       carte_sejour_recto_url: needsCarte ? rectoUrl : null,
@@ -335,7 +335,7 @@ export default function UserEditPage() {
     });
     setCarteProSaving(false);
     if (error) {
-      setCarteProMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' });
+      setCarteProMsg({ type: 'error', text: error.message || 'Erreur lors de la sauvegarde.' });
     } else {
       setCarteProMsg({ type: 'success', text: 'Carte professionnelle enregistrée.' });
       setTimeout(() => navigate(fromMobile ? '/mobile' : '/dashboard'), 1200);
@@ -358,7 +358,7 @@ export default function UserEditPage() {
     const rows = valid.map((d) => ({ user_id: user.auth_user_id!, type_formation: d.type_formation, date_formation: d.date_formation }));
     const { data, error } = await supabase.from('user_formations').insert(rows).select();
     setFormationsLoading(false);
-    if (error) { setFormationsMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' }); return; }
+    if (error) { setFormationsMsg({ type: 'error', text: error.message || 'Erreur lors de la sauvegarde.' }); return; }
     setFormations((f) => [...(data as Formation[]), ...f]);
     setDrafts([{ type_formation: TYPES_FORMATION[0], date_formation: '' }]);
     setFormationsMsg({ type: 'success', text: `${valid.length} formation${valid.length > 1 ? 's' : ''} ajoutée${valid.length > 1 ? 's' : ''}.` });

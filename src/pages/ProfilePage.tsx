@@ -347,7 +347,7 @@ export default function ProfilePage() {
     });
 
     setSaveLoading(false);
-    if (error) { setSaveMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' }); return; }
+    if (error) { setSaveMsg({ type: 'error', text: error.message || 'Erreur lors de la sauvegarde.' }); return; }
 
     const updatedProfile = {
       ...profile,
@@ -387,7 +387,7 @@ export default function ProfilePage() {
     });
     setCarteProSaving(false);
     if (error) {
-      setCarteProMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' });
+      setCarteProMsg({ type: 'error', text: error.message || 'Erreur lors de la sauvegarde.' });
       return;
     }
     const allFilled = isValidCnaps(profile.carte_pro_numero) && profile.carte_pro_validite !== '';
@@ -433,7 +433,7 @@ export default function ProfilePage() {
     setFormationsLoading(false);
 
     if (error) {
-      setFormationsMsg({ type: 'error', text: 'Erreur lors de la sauvegarde.' });
+      setFormationsMsg({ type: 'error', text: error.message || 'Erreur lors de la sauvegarde.' });
       return;
     }
 
