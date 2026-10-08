@@ -290,7 +290,7 @@ export default function MobileProfilePage() {
     e.preventDefault();
     if (!session?.user.id) return;
     if (!isValidCnaps(prof.carte_pro_numero)) {
-      setCarteProMsg({ type: 'error', text: 'Numéro de carte professionnelle incomplet.' });
+      setCarteProMsg({ type: 'error', text: 'Format attendu : 021-2026-11-26-20210140455' });
       return;
     }
     setCarteProSaving(true); setCarteProMsg(null);
@@ -952,11 +952,11 @@ export default function MobileProfilePage() {
                   <form onSubmit={handleSaveCartePro} className="space-y-4">
                     {carteProMsg && <MsgBanner msg={carteProMsg} />}
                     <p className="text-xs text-slate-400">
-                      Format : <span className="font-mono text-slate-300">CAR-XX-XXXX-XX-XX-XXXXXXXX</span>
+                      Format : <span className="font-mono text-slate-300">CAR-021-2026-11-26-20210140455</span>
                     </p>
                     <MField label="N° Carte professionnelle CNAPS">
                       <CnapsInput
-                        value={prof.carte_pro_numero || 'CAR'}
+                        value={prof.carte_pro_numero || 'CAR-'}
                         onChange={(val) => setProf((p) => ({ ...p, carte_pro_numero: val }))}
                       />
                     </MField>

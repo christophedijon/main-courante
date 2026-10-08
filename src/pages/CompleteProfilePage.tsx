@@ -61,7 +61,7 @@ export default function CompleteProfilePage() {
       return;
     }
     if (needsCartePro && !isValidCnaps(carteProNumero)) {
-      setMsg({ type: 'error', text: 'Numéro de carte professionnelle CNAPS incomplet.' });
+      setMsg({ type: 'error', text: 'Format attendu : 021-2026-11-26-20210140455' });
       return;
     }
 
@@ -218,7 +218,7 @@ export default function CompleteProfilePage() {
                 Carte professionnelle CNAPS *
               </p>
               <p className="text-xs text-slate-500">
-                Format : <span className="font-mono text-slate-400">CAR-XX-XXXX-XX-XX-XXXXXXXX</span>
+                Format : <span className="font-mono text-slate-400">CAR-021-2026-11-26-20210140455</span>
               </p>
               <Field label="Numéro de carte">
                 <CnapsInput

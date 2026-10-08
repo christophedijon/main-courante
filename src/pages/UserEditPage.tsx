@@ -322,7 +322,7 @@ export default function UserEditPage() {
       return;
     }
     if (!isValidCnaps(profile.carte_pro_numero)) {
-      setCarteProMsg({ type: 'error', text: 'Numéro de carte professionnelle incomplet.' });
+      setCarteProMsg({ type: 'error', text: 'Format attendu : 021-2026-11-26-20210140455' });
       return;
     }
     setCarteProSaving(true);
