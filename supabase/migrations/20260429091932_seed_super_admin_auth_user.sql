@@ -4,9 +4,8 @@
   Creates the default super admin account in Supabase Auth so the back office
   can be accessed immediately.
 
-  Credentials:
-    - Email:    superadmin@backoffice.com
-    - Password: Admin@2024!
+  The account is created with a random unknown password. The first sign-in
+  must be done via the "forgot password" reset flow.
 
   The user is also added to the `super_admins` table (if not already present)
   so the `is_super_admin()` RLS check passes.
@@ -43,7 +42,7 @@ BEGIN
       new_user_id,
       '00000000-0000-0000-0000-000000000000',
       'superadmin@backoffice.com',
-      crypt('Admin@2024!', gen_salt('bf')),
+      crypt(encode(gen_random_bytes(32), 'hex'), gen_salt('bf')),
       now(),
       'authenticated',
       'authenticated',
