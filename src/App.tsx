@@ -181,6 +181,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ProfileRoute({ children }: { children: React.ReactNode }) {
+  const { session, loading, userMetaReady } = useAuth();
+  if (loading || !userMetaReady) return <Spinner />;
+  if (!session) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { session, loading, userMetaReady, hasAdminAccess, mustCompleteOnboarding, onboardingEtabId, etabStatut, mustCompleteProfile, isSuperAdmin } = useAuth();
   const [searchParams] = useSearchParams();
@@ -237,7 +244,7 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/setup-password" element={<SetupPasswordPage />} />
             <Route path="/activate" element={<ActivatePage />} />
-            <Route path="/complete-profile" element={<PrivateRoute><CompleteProfilePage /></PrivateRoute>} />
+            <Route path="/complete-profile" element={<ProfileRoute><CompleteProfilePage /></ProfileRoute>} />
             <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
             <Route path="/dashboard/users/:id" element={<AdminRoute><UserEditPage /></AdminRoute>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
