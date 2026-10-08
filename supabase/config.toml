@@ -30,3 +30,6 @@ verify_jwt = true
 
 [functions.ia-assistant]
 verify_jwt = true
+
+[functions.flic-jauge]
+verify_jwt = false

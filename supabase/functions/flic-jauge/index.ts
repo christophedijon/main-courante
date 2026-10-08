@@ -93,9 +93,13 @@ Deno.serve(async (req: Request) => {
 
     // An establishment in "automatique" mode is driven by Zapsis, not by Flic.
     // Ignore Flic actions to avoid corrupting the Zapsis-derived count.
+    // We also read force_session_type so we can write to the correct jauge_etat
+    // row (is_test=true when a test session is active, is_test=false otherwise).
+    // The frontend's useJauge hook filters by is_test based on the same column,
+    // so if we don't match, the counter on screen never moves.
     const { data: etab, error: etabErr } = await supabase
       .from("etablissements")
-      .select("mode_jauge")
+      .select("mode_jauge, force_session_active, force_session_type, force_session_expires_at")
       .eq("id", etablissementId)
       .maybeSingle();
 
@@ -111,10 +115,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const isTest = etab.force_session_active === true &&
+      etab.force_session_type === "test" &&
+      (!etab.force_session_expires_at || new Date(etab.force_session_expires_at) > new Date());
+
     if (action === "reset") {
       const { data, error } = await supabase.rpc("reset_jauge", {
         p_etablissement_id: etablissementId,
         p_user_id: null,
+        p_is_test: isTest,
       });
       if (error) {
         console.error("[flic-jauge] reset_jauge rpc error:", error);
@@ -130,6 +139,7 @@ Deno.serve(async (req: Request) => {
       p_delta: delta,
       p_source: source,
       p_user_id: null,
+      p_is_test: isTest,
     });
 
     if (error) {
