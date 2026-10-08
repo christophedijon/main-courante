@@ -108,12 +108,8 @@ Deno.serve(async (req: Request) => {
       return json({ success: false, error: "Service unavailable" }, 500);
     }
 
-    if (etab.mode_jauge === "automatique") {
-      return json(
-        { success: false, error: "Establishment is in automatic (Zapsis) mode; Flic actions ignored" },
-        409,
-      );
-    }
+    // En mode automatique (Zapsis): seules les sorties (-1) sont acceptees via Flic.
+    // Les entrees (+1) sont refusees car elles proviennent de la billetterie Zapsis.
 
     const isTest = etab.force_session_active === true &&
       etab.force_session_type === "test" &&
@@ -134,12 +130,21 @@ Deno.serve(async (req: Request) => {
 
     const delta = action === "entree" ? 1 : -1;
 
+    // En mode automatique, refuser les entrees bouton (viennent de Zapsis)
+    if (etab.mode_jauge === "automatique" && action === "entree") {
+      return json(
+        { success: false, error: "Entry via Flic button is not allowed in automatic (Zapsis) mode" },
+        409,
+      );
+    }
+
     const { data, error } = await supabase.rpc("increment_jauge", {
       p_etablissement_id: etablissementId,
       p_delta: delta,
       p_source: source,
       p_user_id: null,
       p_is_test: isTest,
+      p_mode_jauge: etab.mode_jauge,
     });
 
     if (error) {

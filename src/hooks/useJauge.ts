@@ -144,6 +144,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
       p_source: source,
       p_user_id: session.user.id,
       p_is_test: isTest,
+      p_mode_jauge: config.mode_jauge,
     });
   }
 
