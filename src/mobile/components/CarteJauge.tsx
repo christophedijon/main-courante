@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Gauge, AlertTriangle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { soireeDate } from '../../lib/jaugeDate';
+import { soireeDate, soireeStartISO } from '../../lib/jaugeDate';
 
 type Props = {
   count: number;
@@ -33,7 +33,7 @@ export default function CarteJauge({ count, Ep, entrepriseId, isTest = false, on
       .eq('action', 'entree')
       .eq('source', 'manuel')
       .eq('is_test', isTest)
-      .gte('created_at', soireeDate() + 'T00:00:00Z')
+      .gte('created_at', soireeStartISO())
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()

@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
 import { useSessionActive } from '../hooks/useSessionActive';
 import { useEntreprise } from '../hooks/useEntreprise';
-import { soireeDate } from '../lib/jaugeDate';
+import { soireeDate, soireeStartISO } from '../lib/jaugeDate';
 
 type ModeJauge = 'entree_sortie' | 'sortie' | 'automatique';
 
@@ -123,7 +123,7 @@ export default function JaugeConfigPage() {
         .eq('etablissement_id', entreprise!.id)
         .eq('action', 'sortie')
         .eq('is_test', false)
-        .gte('created_at', soireeDate() + 'T06:00:00+02:00');
+        .gte('created_at', soireeStartISO());
       if (!error) {
         const total = (data ?? []).reduce((sum, r) => sum + Math.abs(r.delta), 0);
         setTotalSorties(total);
@@ -138,7 +138,7 @@ export default function JaugeConfigPage() {
         .eq('action', 'entree')
         .in('source', ['app', 'manuel'])
         .eq('is_test', false)
-        .gte('created_at', soireeDate() + 'T06:00:00+02:00')
+        .gte('created_at', soireeStartISO())
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

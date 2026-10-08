@@ -33,3 +33,27 @@ export function soireeDate(): string {
 
   return dateStr;
 }
+
+/**
+ * Renvoie l'instant de debut de la soiree courante (6h00 Europe/Paris
+ * de la date renvoyee par soireeDate()) en ISO UTC, pour filtrer par
+ * created_at >= ... dans des requetes Supabase.
+ *
+ * Utilise Intl pour determiner le fuseau reel (gestion DST automatique).
+ */
+export function soireeStartISO(): string {
+  const sd = soireeDate();
+  const [y, m, d] = sd.split('-').map(Number);
+  const noonUTC = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const parisFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(noonUTC);
+  const [ph, pm] = parisFmt.split(':').map(Number);
+  const offsetMin = (ph * 60 + pm) - 12 * 60;
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const absMin = Math.abs(offsetMin);
+  const oh = String(Math.floor(absMin / 60)).padStart(2, '0');
+  const om = String(absMin % 60).padStart(2, '0');
+  return `${sd}T06:00:00${sign}${oh}:${om}`;
+}
