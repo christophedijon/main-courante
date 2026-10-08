@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { soireeDate } from '../lib/jaugeDate';
 
 type ModeJauge = 'entree_sortie' | 'sortie' | 'automatique';
 type Niveau = 'vert' | 'orange' | 'rouge';
@@ -25,7 +26,7 @@ export type UseJaugeReturn = {
   resetJauge: () => Promise<void>;
 };
 
-const TODAY = () => new Date().toISOString().split('T')[0];
+// Use the same soiree date logic as the SQL function (coupure 6h Paris)
 const POLL_INTERVAL_MS = 30_000;
 
 export function useJauge(isTest = false): UseJaugeReturn {
@@ -42,7 +43,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
       .from('jauge_etat')
       .select('count_actuel')
       .eq('etablissement_id', entrepriseId)
-      .eq('date_soiree', TODAY())
+      .eq('date_soiree', soireeDate())
       .eq('is_test', isTest)
       .maybeSingle();
     if (data != null) {
@@ -83,7 +84,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
           .from('jauge_etat')
           .select('count_actuel')
           .eq('etablissement_id', cfg.id)
-          .eq('date_soiree', TODAY())
+          .eq('date_soiree', soireeDate())
           .eq('is_test', isTest)
           .maybeSingle();
 

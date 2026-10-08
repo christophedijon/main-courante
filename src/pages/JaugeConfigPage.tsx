@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import AppHeader from '../components/AppHeader';
 import { useSessionActive } from '../hooks/useSessionActive';
 import { useEntreprise } from '../hooks/useEntreprise';
+import { soireeDate } from '../lib/jaugeDate';
 
 type ModeJauge = 'entree_sortie' | 'sortie' | 'automatique';
 
@@ -75,7 +76,7 @@ export default function JaugeConfigPage() {
         .from('jauge_etat')
         .select('count_actuel')
         .eq('etablissement_id', etablissementId ?? '')
-        .eq('date_soiree', new Date().toISOString().slice(0, 10))
+        .eq('date_soiree', soireeDate())
         .eq('is_test', false)
         .maybeSingle(),
       supabase
@@ -102,7 +103,7 @@ export default function JaugeConfigPage() {
           .from('jauge_etat')
           .select('count_actuel')
           .eq('etablissement_id', etablissementId ?? '')
-          .eq('date_soiree', new Date().toISOString().slice(0, 10))
+          .eq('date_soiree', soireeDate())
           .eq('is_test', false)
           .maybeSingle()
           .then(({ data }) => setJaugeEtat(data ?? { count_actuel: 0 }));
