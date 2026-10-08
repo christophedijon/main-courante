@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { soireeDate } from '../lib/jaugeDate';
 
 type JourHoraire = { ouvert: boolean; ouverture: string; fermeture: string };
 type HorairesOuverture = Record<string, JourHoraire>;
@@ -43,7 +44,7 @@ function parseTime(timeStr: string): { h: number; m: number } | null {
 }
 
 function computeNormalSession(horaires: HorairesOuverture | null): { active: boolean; dateSoiree: string } {
-  if (!horaires) return { active: false, dateSoiree: new Date().toISOString().slice(0, 10) };
+  if (!horaires) return { active: false, dateSoiree: soireeDate() };
 
   const now = new Date();
   const dayIdx = now.getDay();
@@ -64,7 +65,7 @@ function computeNormalSession(horaires: HorairesOuverture | null): { active: boo
         // We're in the post-midnight portion of yesterday's session
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
-        return { active: true, dateSoiree: yesterday.toISOString().slice(0, 10) };
+        return { active: true, dateSoiree: soireeDate() };
       }
     }
   }
@@ -80,18 +81,18 @@ function computeNormalSession(horaires: HorairesOuverture | null): { active: boo
       if (eMin > sMin) {
         // Same-day window
         if (currentMin >= sMin && currentMin < eMin) {
-          return { active: true, dateSoiree: now.toISOString().slice(0, 10) };
+          return { active: true, dateSoiree: soireeDate() };
         }
       } else {
         // Crosses midnight — we're in the pre-midnight portion
         if (currentMin >= sMin) {
-          return { active: true, dateSoiree: now.toISOString().slice(0, 10) };
+          return { active: true, dateSoiree: soireeDate() };
         }
       }
     }
   }
 
-  return { active: false, dateSoiree: now.toISOString().slice(0, 10) };
+  return { active: false, dateSoiree: soireeDate() };
 }
 
 function getTomorrow8h(): Date {
@@ -105,7 +106,7 @@ function resolveState(ent: EntrepriseSession | null): SessionState {
   if (!ent) {
     return {
       isActive: false, sessionType: null,
-      dateSoiree: new Date().toISOString().slice(0, 10),
+      dateSoiree: soireeDate(),
       isTest: false, expiresAt: null, entrepriseId: null, sessionOpenedAt: null,
     };
   }
@@ -126,7 +127,7 @@ function resolveState(ent: EntrepriseSession | null): SessionState {
     if (!expires || expires > new Date()) {
       return {
         isActive: true, sessionType: 'exceptionnelle',
-        dateSoiree: new Date().toISOString().slice(0, 10),
+        dateSoiree: soireeDate(),
         isTest: false, expiresAt: expires,
         entrepriseId: ent.id,
         sessionOpenedAt: ent.force_session_opened_at ? new Date(ent.force_session_opened_at) : null,
@@ -139,7 +140,7 @@ function resolveState(ent: EntrepriseSession | null): SessionState {
     if (!expires || expires > new Date()) {
       return {
         isActive: true, sessionType: 'test',
-        dateSoiree: new Date().toISOString().slice(0, 10),
+        dateSoiree: soireeDate(),
         isTest: true, expiresAt: expires,
         entrepriseId: ent.id,
         sessionOpenedAt: ent.force_session_opened_at ? new Date(ent.force_session_opened_at) : null,
@@ -149,7 +150,7 @@ function resolveState(ent: EntrepriseSession | null): SessionState {
 
   return {
     isActive: false, sessionType: null,
-    dateSoiree: new Date().toISOString().slice(0, 10),
+    dateSoiree: soireeDate(),
     isTest: false, expiresAt: null,
     entrepriseId: ent?.id ?? null, sessionOpenedAt: null,
   };

@@ -117,15 +117,13 @@ export default function JaugeConfigPage() {
     if (entreprise?.mode_jauge !== 'automatique') return;
 
     async function loadSorties() {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
       const { data, error } = await supabase
         .from('jauge_actions')
         .select('delta')
         .eq('etablissement_id', entreprise!.id)
         .eq('action', 'sortie')
         .eq('is_test', false)
-        .gte('created_at', startOfDay.toISOString());
+        .gte('created_at', soireeDate() + 'T06:00:00+02:00');
       if (!error) {
         const total = (data ?? []).reduce((sum, r) => sum + Math.abs(r.delta), 0);
         setTotalSorties(total);
@@ -133,8 +131,6 @@ export default function JaugeConfigPage() {
     }
 
     async function loadDernierAjout() {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
       const { data } = await supabase
         .from('jauge_actions')
         .select('delta, created_at')
@@ -142,7 +138,7 @@ export default function JaugeConfigPage() {
         .eq('action', 'entree')
         .in('source', ['app', 'manuel'])
         .eq('is_test', false)
-        .gte('created_at', startOfDay.toISOString())
+        .gte('created_at', soireeDate() + 'T06:00:00+02:00')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
