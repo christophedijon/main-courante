@@ -14,13 +14,13 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.rappel-registre]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-welcome-email]
 verify_jwt = true
 
 [functions.check-trial-reminders]
-verify_jwt = true
+verify_jwt = false
 
 [functions.invite-user]
 verify_jwt = true
@@ -33,3 +33,30 @@ verify_jwt = true
 
 [functions.flic-jauge]
 verify_jwt = false
+
+[functions.rapport-soiree]
+verify_jwt = false
+
+[functions.clean-provisoire]
+verify_jwt = false
+
+[functions.confirm-registre]
+verify_jwt = false
+
+[functions.rapport-session-test]
+verify_jwt = true
+
+[functions.delete-etablissement]
+verify_jwt = true
+
+[functions.poll-billetterie]
+verify_jwt = false
+
+[functions.billetterie-proxy]
+verify_jwt = true
+
+[functions.send-test-email]
+verify_jwt = true
+
+[functions.delete-orphan-auth]
+verify_jwt = true

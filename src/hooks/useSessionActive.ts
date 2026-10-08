@@ -217,14 +217,8 @@ export function useSessionActive(): UseSessionActiveReturn {
 
   async function triggerCloseTestSession(entrepriseId: string, openedAt: string | null) {
     try {
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rapport-session-test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ entreprise_id: entrepriseId, session_opened_at: openedAt }),
+      await supabase.functions.invoke('rapport-session-test', {
+        body: { entreprise_id: entrepriseId, session_opened_at: openedAt },
       });
     } catch (e) {
       console.warn('[SessionActive] rapport-session-test failed:', e);
