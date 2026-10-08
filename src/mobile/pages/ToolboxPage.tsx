@@ -4,10 +4,10 @@ import { Flame, Radio, Sparkles, FileText, UserCheck, BookOpen, Zap, X, Gauge, M
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useSessionActive } from '../../hooks/useSessionActive';
+import { useUnsignedDocs } from '../hooks/useUnsignedDocs';
 import EntrepriseBadge from '../components/EntrepriseBadge';
 import VideoHelpButton from '../../components/VideoHelpButton';
 
-type Categorie = 'fiches_metier' | 'SSI' | 'PROCEDURE' | 'RADIO';
 
 const colorMap: Record<string, { wrap: string; icon: string }> = {
   blue:  { wrap: 'bg-blue-500/15 border-blue-500/30',   icon: 'text-blue-400' },
@@ -16,16 +16,10 @@ const colorMap: Record<string, { wrap: string; icon: string }> = {
   teal:  { wrap: 'bg-teal-500/15 border-teal-500/30',   icon: 'text-teal-400' },
 };
 
-const CAT_TO_ROUTE: Record<string, Categorie> = {
-  ROLE:      'fiches_metier',
-  SSI:       'SSI',
-  PROCEDURE: 'PROCEDURE',
-  RADIO:     'RADIO',
-};
 
 export default function ToolboxPage() {
   const navigate = useNavigate();
-  const { isSuperAdmin, userFonction, session } = useAuth();
+  const { isSuperAdmin, userFonction } = useAuth();
   const canSeeCartePro = userFonction === 'Direction' || userFonction === 'Chef de poste' || userFonction === 'Agent de Sécurité';
   const canSeeRegistre = userFonction === 'Direction';
   const canOpenExceptionnelle = userFonction === 'Direction';
@@ -57,40 +51,7 @@ export default function ToolboxPage() {
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=e2e8f0&bgcolor=0f172a&data=${encodeURIComponent(publicJaugeUrl)}`
     : null;
 
-  const [unsignedByCat, setUnsignedByCat] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    if (!session?.user || !userFonction) return;
-    (async () => {
-      const { data: docs } = await supabase
-        .from('toolbox_documents')
-        .select('id, categorie, content_version, destinataires')
-        .eq('actif', true)
-        .eq('signature_requise', true);
-
-      if (!docs || docs.length === 0) return;
-
-      const relevant = docs.filter((d: { destinataires: string[] }) =>
-        !d.destinataires || d.destinataires.length === 0 || d.destinataires.includes(userFonction)
-      );
-      if (relevant.length === 0) return;
-
-      const { data: sigs } = await supabase
-        .from('signatures')
-        .select('document_id, content_version')
-        .eq('agent_id', session.user.id);
-
-      const signedSet = new Set((sigs ?? []).map((s: { document_id: string; content_version: number }) => `${s.document_id}:${s.content_version}`));
-
-      const counts: Record<string, number> = {};
-      for (const doc of relevant) {
-        if (!signedSet.has(`${doc.id}:${doc.content_version}`)) {
-          counts[doc.categorie] = (counts[doc.categorie] ?? 0) + 1;
-        }
-      }
-      setUnsignedByCat(counts);
-    })();
-  }, [session?.user?.id, userFonction]);
+  const { unsignedCount } = useUnsignedDocs();
 
   function Badge({ count }: { count: number }) {
     if (count === 0) return null;
@@ -153,7 +114,7 @@ export default function ToolboxPage() {
         )}
         {tools.map(({ Icon, title, desc, accent, cat, route }) => {
           const c = colorMap[accent];
-          const badgeCount = cat === 'ROLE' ? 0 : (unsignedByCat[CAT_TO_ROUTE[cat]] ?? 0);
+          const badgeCount = cat === 'PROCEDURE' ? unsignedCount : 0;
           return (
             <button
               key={title}

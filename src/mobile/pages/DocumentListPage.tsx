@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronRight, FileX, PenLine } from 'lucide-react';
+import { ArrowLeft, Shield, Flame, FileText, Radio, ChevronRight, FileX, PenLine, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -13,6 +13,7 @@ type Doc = {
   ordre: number;
   destinataires: string[];
   signature_requise: boolean;
+  categorie: string;
 };
 
 const META: Record<Categorie, {
@@ -27,28 +28,74 @@ const META: Record<Categorie, {
   RADIO:         { label: 'Radio',         icon: Radio,    accent: 'text-teal-400', iconBg: 'bg-teal-500/15 border-teal-500/30' },
 };
 
+const CAT_ICON: Record<string, { icon: React.ComponentType<{ className?: string }>; accent: string; iconBg: string }> = {
+  fiches_metier: { icon: Shield,   accent: 'text-blue-400',   iconBg: 'bg-blue-500/15 border-blue-500/30' },
+  SSI:           { icon: Flame,    accent: 'text-red-400',    iconBg: 'bg-red-500/15 border-red-500/30' },
+  PROCEDURE:     { icon: FileText, accent: 'text-slate-300',  iconBg: 'bg-slate-600/25 border-slate-500/30' },
+  RADIO:         { icon: Radio,    accent: 'text-teal-400',   iconBg: 'bg-teal-500/15 border-teal-500/30' },
+};
+
 export default function DocumentListPage() {
   const { categorie } = useParams<{ categorie: string }>();
   const navigate = useNavigate();
-  const { userFonction } = useAuth();
+  const { userFonction, session } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const cat = (categorie ?? '') as Categorie;
+  const isUnsignedMode = cat === ('a_signer' as unknown as Categorie);
   const meta = META[cat];
 
   useEffect(() => {
-    if (!cat || !meta) {
+    if (!cat || (!meta && !isUnsignedMode)) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     (async () => {
+      if (isUnsignedMode) {
+        if (!session?.user || !userFonction) {
+          setDocs([]);
+          setLoading(false);
+          return;
+        }
+        const { data: allDocs, error: qErr } = await supabase
+          .from('toolbox_documents')
+          .select('id, titre, description, ordre, destinataires, signature_requise, categorie, content_version')
+          .eq('actif', true)
+          .eq('signature_requise', true)
+          .order('ordre', { ascending: true });
+
+        if (qErr) {
+          setError(qErr.message);
+          setLoading(false);
+          return;
+        }
+
+        const { data: sigs } = await supabase
+          .from('signatures')
+          .select('document_id, content_version')
+          .eq('agent_id', session.user.id);
+
+        const signedSet = new Set(
+          (sigs ?? []).map((s: { document_id: string; content_version: number }) => `${s.document_id}:${s.content_version}`)
+        );
+
+        const visible = (allDocs ?? []).filter(
+          (d: { destinataires: string[] | null; id: string; content_version: number }) =>
+            (!d.destinataires || d.destinataires.length === 0 || d.destinataires.includes(userFonction)) &&
+            !signedSet.has(`${d.id}:${d.content_version}`)
+        );
+        setDocs(visible as Doc[]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error: queryError } = await supabase
         .from('toolbox_documents')
-        .select('id, titre, description, ordre, destinataires, signature_requise')
+        .select('id, titre, description, ordre, destinataires, signature_requise, categorie')
         .eq('categorie', cat)
         .eq('actif', true)
         .order('ordre', { ascending: true });
@@ -67,9 +114,9 @@ export default function DocumentListPage() {
       setDocs(visible);
       setLoading(false);
     })();
-  }, [cat, userFonction]);
+  }, [cat, userFonction, session?.user?.id, isUnsignedMode, meta]);
 
-  if (!meta) {
+  if (!meta && !isUnsignedMode) {
     return (
       <div className="px-5 py-10 text-center text-slate-400 text-sm">
         Catégorie inconnue.
@@ -77,7 +124,10 @@ export default function DocumentListPage() {
     );
   }
 
-  const Icon = meta.icon;
+  const headerLabel = isUnsignedMode ? 'Documents à signer' : meta.label;
+  const HeaderIcon = isUnsignedMode ? AlertCircle : meta.icon;
+  const headerAccent = isUnsignedMode ? 'text-red-400' : meta.accent;
+  const headerIconBg = isUnsignedMode ? 'bg-red-500/15 border-red-500/30' : meta.iconBg;
 
   return (
     <div className="pb-8">
@@ -89,11 +139,11 @@ export default function DocumentListPage() {
         >
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${meta.iconBg}`}>
-          <Icon className={`w-4 h-4 ${meta.accent}`} strokeWidth={2.3} />
+        <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${headerIconBg}`}>
+          <HeaderIcon className={`w-4 h-4 ${headerAccent}`} strokeWidth={2.3} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold text-[15px]">{meta.label}</p>
+          <p className="text-white font-semibold text-[15px]">{headerLabel}</p>
           {!loading && (
             <p className="text-slate-500 text-xs">
               {docs.length} document{docs.length !== 1 ? 's' : ''}
@@ -128,40 +178,44 @@ export default function DocumentListPage() {
             <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
               <FileX className="w-7 h-7 text-slate-600" />
             </div>
-            <p className="text-slate-300 font-semibold">Aucun document disponible</p>
-            <p className="text-slate-500 text-sm">Cette section n'a pas encore de contenu.</p>
+            <p className="text-slate-300 font-semibold">Aucun document à signer</p>
+            <p className="text-slate-500 text-sm">Tous les documents requis ont été signés.</p>
           </div>
         )}
 
         {!loading && docs.length > 0 && (
           <div className="space-y-2.5">
-            {docs.map((doc) => (
-              <button
-                key={doc.id}
-                type="button"
-                onClick={() => navigate(`/mobile/outils/documents/${cat}/${doc.id}`)}
-                className="w-full text-left rounded-2xl bg-slate-900 border border-slate-800 active:border-slate-700 active:scale-[0.99] p-4 flex items-center gap-3 transition-all"
-              >
-                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${meta.iconBg}`}>
-                  <Icon className={`w-4 h-4 ${meta.accent}`} strokeWidth={2.3} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-white font-semibold text-[14px] leading-tight">{doc.titre}</p>
-                    {doc.signature_requise && (
-                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 font-semibold shrink-0">
-                        <PenLine className="w-2.5 h-2.5" />
-                        Signature
-                      </span>
+            {docs.map((doc) => {
+              const catInfo = CAT_ICON[doc.categorie] ?? CAT_ICON.PROCEDURE;
+              const CatIcon = catInfo.icon;
+              return (
+                <button
+                  key={doc.id}
+                  type="button"
+                  onClick={() => navigate(`/mobile/outils/documents/${doc.categorie}/${doc.id}`)}
+                  className="w-full text-left rounded-2xl bg-slate-900 border border-slate-800 active:border-slate-700 active:scale-[0.99] p-4 flex items-center gap-3 transition-all"
+                >
+                  <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${catInfo.iconBg}`}>
+                    <CatIcon className={`w-4 h-4 ${catInfo.accent}`} strokeWidth={2.3} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-white font-semibold text-[14px] leading-tight">{doc.titre}</p>
+                      {doc.signature_requise && (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 font-semibold shrink-0">
+                          <PenLine className="w-2.5 h-2.5" />
+                          Signature
+                        </span>
+                      )}
+                    </div>
+                    {doc.description && (
+                      <p className="text-slate-500 text-[12px] mt-0.5 truncate">{doc.description}</p>
                     )}
                   </div>
-                  {doc.description && (
-                    <p className="text-slate-500 text-[12px] mt-0.5 truncate">{doc.description}</p>
-                  )}
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" />
-              </button>
-            ))}
+                  <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" />
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

@@ -39,6 +39,11 @@ import MobileLayout from './mobile/MobileLayout';
 import HomePage from './mobile/pages/HomePage';
 import ToolboxPage from './mobile/pages/ToolboxPage';
 import HistoryPage from './mobile/pages/HistoryPage';
+import HistoryEvenementsPage from './mobile/pages/HistoryEvenementsPage';
+import HistoryIaPage from './mobile/pages/HistoryIaPage';
+import HistoryRapportsPage from './mobile/pages/HistoryRapportsPage';
+import HistoryRegistrePage from './mobile/pages/HistoryRegistrePage';
+import HistorySignaturesPage from './mobile/pages/HistorySignaturesPage';
 import SearchPage from './mobile/pages/SearchPage';
 import MobileProfilePage from './mobile/pages/MobileProfilePage';
 import MobileAdminPage from './mobile/pages/MobileAdminPage';
@@ -254,6 +259,23 @@ export default function App() {
               <Route index element={<HomePage />} />
               <Route path="outils" element={<ToolboxPage />} />
               <Route path="historique" element={<HistoryPage />} />
+              <Route path="historique/evenements" element={<HistoryEvenementsPage />} />
+              <Route path="historique/ia" element={<HistoryIaPage />} />
+              <Route path="historique/rapports" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste']}>
+                  <HistoryRapportsPage />
+                </RoleRoute>
+              } />
+              <Route path="historique/registre" element={
+                <RoleRoute allowedRoles={['SuperAdmin', 'Direction', 'Chef de poste']}>
+                  <HistoryRegistrePage />
+                </RoleRoute>
+              } />
+              <Route path="historique/signatures" element={
+                <RoleRoute allowedRoles={['Direction', 'Chef de poste']}>
+                  <HistorySignaturesPage />
+                </RoleRoute>
+              } />
               <Route path="recherche" element={<SearchPage />} />
               <Route path="profil" element={<MobileProfilePage />} />
               <Route path="feedback" element={<FeedbackPage />} />

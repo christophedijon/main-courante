@@ -240,7 +240,7 @@ export default function EventDetailPage() {
       <div className="px-5 py-10">
         <p className="text-slate-400 text-center">Événement introuvable.</p>
         <button
-          onClick={() => navigate('/mobile/historique')}
+          onClick={() => navigate('/mobile/historique/evenements')}
           className="mt-4 mx-auto block text-blue-400 text-sm font-semibold"
         >
           Retour à l'historique

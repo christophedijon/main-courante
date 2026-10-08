@@ -122,7 +122,7 @@ export default function DocumentDetailPage() {
         markScrolledToBottom();
       }
     }, 500);
-  }, [doc, session, markAsRead]);
+  }, [doc, session, markScrolledToBottom]);
 
   // Scroll detection for plain HTML content (window scroll)
   useEffect(() => {
