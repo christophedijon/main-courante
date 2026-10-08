@@ -69,9 +69,14 @@ export default function SetupPasswordPage() {
       setFirstName(profileResult.data?.first_name ?? '');
       setEtabNom((managedResult.data?.etablissements as { nom: string } | null)?.nom ?? '');
 
-      // If already activated, go straight to mobile
+      // If already activated, check if profile is complete
       if (managedResult.data?.first_login_at) {
-        navigate('/mobile', { replace: true });
+        const { data: prof } = await supabase.from('user_profiles')
+          .select('first_name, last_name')
+          .eq('id', s.user.id)
+          .maybeSingle();
+        const hasName = prof?.first_name?.trim() && prof?.last_name?.trim();
+        navigate(hasName ? '/mobile' : '/complete-profile', { replace: true });
         return;
       }
       setLoading(false);
@@ -126,7 +131,7 @@ export default function SetupPasswordPage() {
     await supabase.rpc('mark_first_login');
 
     setSuccess(true);
-    setTimeout(() => navigate('/mobile', { replace: true }), 2000);
+    setTimeout(() => navigate('/complete-profile', { replace: true }), 2000);
   }
 
   if (loading) {

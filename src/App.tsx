@@ -174,18 +174,20 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
-  if (loading) return <Spinner />;
+  const { session, loading, userMetaReady, mustCompleteProfile, isSuperAdmin } = useAuth();
+  if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
+  if (!isSuperAdmin && mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
   return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, userMetaReady, hasAdminAccess, mustCompleteOnboarding, onboardingEtabId, etabStatut } = useAuth();
+  const { session, loading, userMetaReady, hasAdminAccess, mustCompleteOnboarding, onboardingEtabId, etabStatut, mustCompleteProfile, isSuperAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const isOnboardingStep = searchParams.get('onboarding') === 'true';
   if (loading || !userMetaReady) return <Spinner />;
   if (!session) return <Navigate to="/" replace />;
+  if (!isSuperAdmin && mustCompleteProfile) return <Navigate to="/complete-profile" replace />;
   if (!hasAdminAccess) return <Navigate to="/mobile" replace />;
   if (etabStatut === 'expire') return <Navigate to="/expire" replace />;
   if (mustCompleteOnboarding && onboardingEtabId && !isOnboardingStep) return <Navigate to={`/onboarding?etabId=${onboardingEtabId}`} replace />;

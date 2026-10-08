@@ -46,11 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadUserMeta(userEmail: string, userId: string) {
     try {
-      const [adminRes, managedRes] = await Promise.all([
+      const [adminRes, managedRes, profileRes] = await Promise.all([
         supabase.from('super_admins').select('id, is_mega_admin').eq('email', userEmail).maybeSingle(),
         supabase.from('managed_users')
           .select('fonction, is_provisoire, profile_completed, etablissement_id')
           .eq('auth_user_id', userId)
+          .maybeSingle(),
+        supabase.from('user_profiles')
+          .select('first_name, last_name')
+          .eq('id', userId)
           .maybeSingle(),
       ]);
       const isMega = !!(adminRes.data?.is_mega_admin);
@@ -59,7 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserFonction(managedRes.data?.fonction ?? null);
 
       const mu = managedRes.data;
-      if (mu?.is_provisoire === true && mu?.profile_completed === false) {
+      const hasEmptyName = !profileRes.data?.first_name?.trim() || !profileRes.data?.last_name?.trim();
+      if (!isMega && mu && (mu.is_provisoire === true && mu.profile_completed === false || hasEmptyName)) {
         setMustCompleteProfile(true);
       } else {
         setMustCompleteProfile(false);

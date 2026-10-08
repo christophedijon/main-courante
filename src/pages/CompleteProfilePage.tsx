@@ -48,7 +48,11 @@ export default function CompleteProfilePage() {
     e.preventDefault();
     setMsg(null);
 
-    if (!firstName.trim() || !lastName.trim() || !telephone.trim() || !nationalite.trim()) {
+    if (!firstName.trim() || !lastName.trim()) {
+      setMsg({ type: 'error', text: 'Le prénom et le nom sont obligatoires.' });
+      return;
+    }
+    if (!telephone.trim() || !nationalite.trim()) {
       setMsg({ type: 'error', text: 'Tous les champs obligatoires doivent être remplis.' });
       return;
     }

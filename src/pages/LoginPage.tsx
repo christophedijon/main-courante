@@ -46,21 +46,13 @@ export default function LoginPage() {
     setLoading(false);
 
     const toAdmin = !!adminRes.data || managedRes.data?.fonction === 'Direction';
+    const hasName = profileRes.data?.first_name?.trim() && profileRes.data?.last_name?.trim();
     if (toAdmin) {
-      navigate('/dashboard');
+      navigate(hasName ? '/dashboard' : '/complete-profile');
       return;
     }
 
-    // Mobile users: redirect to profile if any required field is missing
-    const p = profileRes.data;
-    const profileComplete = p &&
-      p.first_name?.trim() &&
-      p.last_name?.trim() &&
-      p.telephone?.trim() &&
-      cleanEmail &&
-      p.nationalite?.trim();
-
-    navigate(profileComplete ? '/mobile' : '/mobile/profil');
+    navigate(hasName ? '/mobile' : '/complete-profile');
   }
 
   return (
