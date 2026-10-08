@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp as ChevronUpIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useEntreprise } from '../../hooks/useEntreprise';
+import { useDisplayNames, resolveDisplayName } from '../hooks/useDisplayNames';
 import EmptyState from '../components/EmptyState';
 
 type SignatureUser = {
@@ -24,6 +25,7 @@ export default function HistorySignaturesPage() {
   const [rappelLoading, setRappelLoading] = useState<string | null>(null);
   const [rappelConfirm, setRappelConfirm] = useState<string | null>(null);
   const [sigToast, setSigToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [displayNameMap, setDisplayNameMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!etabId) return;
@@ -54,6 +56,16 @@ export default function HistorySignaturesPage() {
       });
       setSigUsers(result);
       setSigLoading(false);
+
+      // Resolve display names
+      if (authIds.length > 0) {
+        const { data: nameRows } = await supabase.rpc('get_display_names', { p_auth_ids: authIds });
+        const nm: Record<string, string> = {};
+        for (const row of (nameRows ?? []) as { auth_user_id: string; display_name: string }[]) {
+          nm[row.auth_user_id] = row.display_name;
+        }
+        setDisplayNameMap(nm);
+      }
     })();
   }, [etabId]);
 
@@ -71,7 +83,7 @@ export default function HistorySignaturesPage() {
       if (!res.ok || data.error) {
         setSigToast({ msg: data.error ?? 'Erreur lors de l\'envoi.', type: 'error' });
       } else {
-        setSigToast({ msg: `Rappel envoyé à ${user.email}`, type: 'success' });
+        setSigToast({ msg: `Rappel envoyé à ${user.auth_user_id ? (displayNameMap[user.auth_user_id] ?? user.email) : user.email}`, type: 'success' });
       }
     } catch {
       setSigToast({ msg: 'Erreur réseau.', type: 'error' });
@@ -111,7 +123,7 @@ export default function HistorySignaturesPage() {
               <button type="button" onClick={() => setExpandedSigUser(isExpanded ? null : user.id)} className="w-full px-4 py-3.5 flex items-center gap-3 text-left">
                 <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${hasUnsigned ? 'bg-red-500' : 'bg-emerald-500'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm truncate ${hasUnsigned ? 'text-red-400' : 'text-emerald-400'}`}>{user.email}</p>
+                  <p className={`font-semibold text-sm truncate ${hasUnsigned ? 'text-red-400' : 'text-emerald-400'}`}>{user.auth_user_id ? (displayNameMap[user.auth_user_id] ?? user.email) : user.email}</p>
                   <p className="text-slate-500 text-[11px] mt-0.5">{user.fonction}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

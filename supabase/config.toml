@@ -27,3 +27,6 @@ verify_jwt = true
 
 [functions.send-signature-rappel]
 verify_jwt = true
+
+[functions.ia-assistant]
+verify_jwt = true

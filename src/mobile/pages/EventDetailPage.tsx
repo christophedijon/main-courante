@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useDisplayNames, resolveDisplayName } from '../hooks/useDisplayNames';
 
 type EventCommentaire = {
   id: string;
@@ -130,6 +131,10 @@ export default function EventDetailPage() {
   const [commentOpen, setCommentOpen] = useState(false);
   const [savingComment, setSavingComment] = useState(false);
   const [userNom, setUserNom] = useState('');
+
+  const createdByAuthId = event?.created_by ?? null;
+  const { nameMap } = useDisplayNames(createdByAuthId ? [createdByAuthId] : []);
+  const creatorDisplayName = resolveDisplayName(nameMap, createdByAuthId, event?.created_by_email ?? '');
 
   useEffect(() => {
     if (!id) return;
@@ -304,7 +309,7 @@ export default function EventDetailPage() {
               <Row icon={Hash} label="Numéro" value={event.numero} />
               <Row icon={Calendar} label="Date" value={dateStr} />
               <Row icon={Clock} label="Heure" value={timeStr} />
-              <Row icon={UserIcon} label="Utilisateur" value={`${event.created_by_email}${event.user_fonction ? ` · ${event.user_fonction}` : ''}`} />
+              <Row icon={UserIcon} label="Utilisateur" value={`${creatorDisplayName}${event.user_fonction ? ` · ${event.user_fonction}` : ''}`} />
               <Row icon={Building2} label="Établissement" value={event.etablissement_nom || '—'} />
               {!ssi && <Row icon={MapPin} label="Espace" value={event.espace_nom || '—'} />}
               <Row icon={MapPin} label="Zone" value={event.zone_nom || '—'} />

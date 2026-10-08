@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck, Loader2, ChevronRight, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useDisplayNames, resolveDisplayName } from '../hooks/useDisplayNames';
 
 type Agent = {
   managed_id: string;
@@ -62,6 +63,7 @@ export default function CarteProPage() {
   const [formations, setFormations] = useState<Formation[]>([]);
   const [etabInfo, setEtabInfo] = useState<EtabInfo | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [displayNameMap, setDisplayNameMap] = useState<Record<string, string>>({});
 
   // For agents: load their own profile directly
   // For managers: load list of agents, then load selected agent's profile
@@ -88,6 +90,17 @@ export default function CarteProPage() {
       .order('email', { ascending: true });
 
     setAgents((data ?? []) as Agent[]);
+
+    // Resolve display names for agents
+    const agentAuthIds = (data ?? []).map((a: { auth_user_id: string | null }) => a.auth_user_id).filter(Boolean) as string[];
+    if (agentAuthIds.length > 0) {
+      const { data: nameRows } = await supabase.rpc('get_display_names', { p_auth_ids: agentAuthIds });
+      const nm: Record<string, string> = {};
+      for (const row of (nameRows ?? []) as { auth_user_id: string; display_name: string }[]) {
+        nm[row.auth_user_id] = row.display_name;
+      }
+      setDisplayNameMap(nm);
+    }
 
     // Load etablissement info
     const { data: mu } = await supabase
@@ -215,11 +228,11 @@ export default function CarteProPage() {
                 >
                   <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
                     <span className="text-sm font-bold text-slate-300">
-                      {(agent.email.charAt(0) || '?').toUpperCase()}
+                      {((displayNameMap[agent.auth_user_id] ?? agent.email).charAt(0) || '?').toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{agent.email}</p>
+                    <p className="text-white font-semibold text-sm truncate">{displayNameMap[agent.auth_user_id] ?? agent.email}</p>
                     <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${badge}`}>
                       {agent.fonction}
                     </span>

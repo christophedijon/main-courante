@@ -189,7 +189,15 @@ export default function DocumentDetailPage() {
       .eq('auth_user_id', session.user.id)
       .maybeSingle();
 
-    const agentNom = session.user.email ?? '';
+    const { data: prof } = await supabase
+      .from('user_profiles')
+      .select('first_name, last_name')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    const agentNom = prof && (prof.first_name || prof.last_name)
+      ? `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim()
+      : (managed?.email ?? session.user.email ?? '');
     const agentRole = managed?.fonction ?? userFonction ?? '';
 
     const { data: newSig, error: insertError } = await supabase

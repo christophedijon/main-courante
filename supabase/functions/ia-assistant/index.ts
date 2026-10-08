@@ -254,10 +254,20 @@ ${ssiDocs.map((doc: { categorie: string; titre: string; contenu: string }) =>
 
     const content = openaiData.choices?.[0]?.message?.content || "";
 
-    // 10. Log to ia_historique (fire-and-forget, don't block response)
+    // 10. Resolve agent display name from user_profiles
+    const { data: agentProfile } = await serviceClient
+      .from("user_profiles")
+      .select("first_name, last_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    const agentNom = agentProfile && (agentProfile.first_name || agentProfile.last_name)
+      ? `${agentProfile.first_name ?? ""} ${agentProfile.last_name ?? ""}`.trim()
+      : (user.email ?? "");
+
+    // 11. Log to ia_historique (fire-and-forget, don't block response)
     serviceClient.from("ia_historique").insert({
       agent_id: user.id,
-      agent_nom: user.email ?? "",
+      agent_nom: agentNom,
       question: message,
       reponse_complete: content,
       sections: [],
