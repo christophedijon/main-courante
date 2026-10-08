@@ -24,3 +24,6 @@ verify_jwt = true
 
 [functions.invite-user]
 verify_jwt = true
+
+[functions.send-signature-rappel]
+verify_jwt = true

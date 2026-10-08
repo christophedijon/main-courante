@@ -56,7 +56,9 @@ export default function DocumentDetailPage() {
   const [signature, setSignature] = useState<Signature | null>(null);
 
   const [hasRead, setHasRead] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [readProgress, setReadProgress] = useState(0);
+  const [checkboxChecked, setCheckboxChecked] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const [password, setPassword] = useState('');
@@ -67,11 +69,11 @@ export default function DocumentDetailPage() {
   const cat = (categorie ?? '') as Categorie;
   const meta = META[cat];
 
-  const markAsRead = useCallback(() => {
+  const markScrolledToBottom = useCallback(() => {
     if (!doc || !session) return;
     const storageKey = `doc_read_${doc.id}_${session.user.id}`;
     localStorage.setItem(storageKey, 'true');
-    setHasRead(true);
+    setHasScrolledToBottom(true);
     setReadProgress(100);
   }, [doc, session]);
 
@@ -107,7 +109,7 @@ export default function DocumentDetailPage() {
     const alreadyRead = localStorage.getItem(storageKey) === 'true';
 
     if (alreadyRead) {
-      setHasRead(true);
+      setHasScrolledToBottom(true);
       setReadProgress(100);
       return;
     }
@@ -117,14 +119,14 @@ export default function DocumentDetailPage() {
       const el = contentRef.current;
       if (!el) return;
       if (el.scrollHeight <= el.clientHeight + 50) {
-        markAsRead();
+        markScrolledToBottom();
       }
     }, 500);
   }, [doc, session, markAsRead]);
 
   // Scroll detection for plain HTML content (window scroll)
   useEffect(() => {
-    if (hasRead) return;
+    if (hasScrolledToBottom) return;
 
     function handleScroll() {
       const scrollTop = window.scrollY;
@@ -135,13 +137,13 @@ export default function DocumentDetailPage() {
       const progress = (scrollTop / scrollable) * 100;
       setReadProgress(Math.min(progress, 100));
       if (progress >= 90) {
-        markAsRead();
+        markScrolledToBottom();
       }
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [hasRead, markAsRead]);
+  }, [hasScrolledToBottom, markScrolledToBottom]);
 
   // postMessage handler for iframe height + scroll progress
   useEffect(() => {
@@ -150,20 +152,22 @@ export default function DocumentDetailPage() {
         setIframeHeight(e.data.height + 48);
       }
       if (e.data?.type === 'iframeScroll') {
-        if (hasRead) return;
+        if (hasScrolledToBottom) return;
         const progress = e.data.progress as number;
         setReadProgress(Math.min(progress, 100));
         if (progress >= 90) {
-          markAsRead();
+          markScrolledToBottom();
         }
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [hasRead, markAsRead]);
+  }, [hasScrolledToBottom, markScrolledToBottom]);
+
+  const canSign = hasScrolledToBottom && checkboxChecked && password.length > 0;
 
   async function handleSign() {
-    if (!doc || !session || !password) return;
+    if (!doc || !session || !password || !hasScrolledToBottom || !checkboxChecked) return;
     setSigning(true);
     setSignError(null);
 
@@ -197,6 +201,7 @@ export default function DocumentDetailPage() {
         agent_role: agentRole,
         content_version: doc.content_version,
         etablissement_id: etablissementId,
+        read_at: new Date().toISOString(),
       })
       .select('id, signed_at, content_version')
       .maybeSingle();
@@ -401,7 +406,7 @@ new ResizeObserver(notifyHeight).observe(document.body);
         <div className="px-4 pb-6 mt-4 space-y-3">
 
           {/* Read progress bar */}
-          {!hasRead && (
+          {!hasScrolledToBottom && (
             <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-400 text-xs font-semibold">Progression de lecture</p>
@@ -414,21 +419,21 @@ new ResizeObserver(notifyHeight).observe(document.body);
                 />
               </div>
               <p className="text-slate-500 text-xs mt-2 text-center">
-                Lisez le document jusqu'à la fin pour pouvoir signer
+                Faites défiler jusqu'en bas pour pouvoir signer
               </p>
             </div>
           )}
 
-          {/* Password + sign button */}
+          {/* Checkbox + password + sign button */}
           <div className={`rounded-2xl border p-4 space-y-3 transition-all
-            ${hasRead
+            ${hasScrolledToBottom
               ? 'bg-slate-900 border-slate-700'
               : 'bg-slate-900/50 border-slate-800 opacity-50 pointer-events-none'
             }`}>
             <p className="text-white font-semibold text-sm">Signature requise</p>
             <p className="text-slate-400 text-xs">
-              {hasRead
-                ? 'Saisissez votre mot de passe pour confirmer que vous avez lu ce document.'
+              {hasScrolledToBottom
+                ? 'Cochez la case et saisissez votre mot de passe pour confirmer.'
                 : 'Terminez la lecture du document pour signer.'
               }
             </p>
@@ -437,29 +442,47 @@ new ResizeObserver(notifyHeight).observe(document.body);
               <p className="text-red-400 text-xs font-medium">{signError}</p>
             )}
 
+            {/* Checkbox "J'ai lu et compris" */}
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={checkboxChecked}
+                onChange={(e) => setCheckboxChecked(e.target.checked)}
+                disabled={!hasScrolledToBottom}
+                className="mt-0.5 w-5 h-5 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500/40 disabled:opacity-40"
+              />
+              <span className="text-slate-300 text-sm leading-snug">
+                J'ai lu et compris le document
+              </span>
+            </label>
+
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Votre mot de passe"
-              disabled={!hasRead}
+              disabled={!hasScrolledToBottom || !checkboxChecked}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-40 disabled:cursor-not-allowed"
             />
             <button
               type="button"
-              disabled={!hasRead || !password || signing}
+              disabled={!canSign || signing}
               onClick={handleSign}
               className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all
-                ${hasRead && password
+                ${canSign
                   ? 'bg-blue-600 hover:bg-blue-500 text-white active:scale-[0.98]'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}
             >
               {signing
                 ? 'Signature en cours…'
-                : hasRead
+                : canSign
                   ? "J'ai lu et j'approuve ce document"
-                  : 'Terminez la lecture pour signer'
+                  : !hasScrolledToBottom
+                    ? 'Terminez la lecture pour signer'
+                    : !checkboxChecked
+                      ? 'Cochez la case pour signer'
+                      : 'Saisissez votre mot de passe'
               }
             </button>
           </div>
