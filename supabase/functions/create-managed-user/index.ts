@@ -45,6 +45,7 @@ async function assertCanModify(
   targetAuthUserId: string,
   operatorIsSuperAdmin: boolean,
   operatorFonction: string | null,
+  operatorAuthUserId: string,
 ) {
   if (operatorIsSuperAdmin) return; // super-admins can modify anyone
 
@@ -64,15 +65,27 @@ async function assertCanModify(
     throw new Error("Forbidden: cannot modify a super-admin");
   }
 
-  // Resolve target's fonction in managed_users
+  // Resolve target's fonction and etablissement_id in managed_users
   const { data: targetManaged } = await adminClient
     .from("managed_users")
-    .select("fonction")
+    .select("fonction, etablissement_id")
     .eq("auth_user_id", targetAuthUserId)
     .maybeSingle();
 
   if (!targetManaged) {
     throw new Error("Target user not found in managed_users");
+  }
+
+  // Resolve operator's etablissement_id
+  const { data: operatorManaged } = await adminClient
+    .from("managed_users")
+    .select("etablissement_id")
+    .eq("auth_user_id", operatorAuthUserId)
+    .maybeSingle();
+
+  // Cross-establishment check: non-super-admins can only modify users in their own etablissement
+  if (operatorManaged?.etablissement_id !== targetManaged.etablissement_id) {
+    throw new Error("Forbidden: cannot modify users outside your establishment");
   }
 
   // Direction cannot modify another Direction
@@ -141,7 +154,7 @@ Deno.serve(async (req: Request) => {
         return jsonResp({ error: "Missing auth_user_id" }, 400);
       }
 
-      await assertCanModify(adminClient, auth_user_id, isSuperAdmin, operatorFonction);
+      await assertCanModify(adminClient, auth_user_id, isSuperAdmin, operatorFonction, caller.id);
 
       const { error: delErr } = await adminClient.auth.admin.deleteUser(auth_user_id);
       if (delErr) {
@@ -158,7 +171,7 @@ Deno.serve(async (req: Request) => {
         return jsonResp({ error: "Missing auth_user_id" }, 400);
       }
 
-      await assertCanModify(adminClient, auth_user_id, isSuperAdmin, operatorFonction);
+      await assertCanModify(adminClient, auth_user_id, isSuperAdmin, operatorFonction, caller.id);
 
       // Only Direction can change the fonction field — not even SuperAdmin
       if (fonction !== undefined && operatorFonction !== "Direction") {
