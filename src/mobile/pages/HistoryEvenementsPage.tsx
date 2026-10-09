@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Filter, X, ChevronUp as ChevronUpIcon, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useEntreprise } from '../../hooks/useEntreprise';
+import { soireeDate, soireeDateOf, soireeStartISOForDate, soireeEndISOForDate, formatSoireeLabel } from '../../lib/jaugeDate';
 import EventCard, { EventItem } from '../components/EventCard';
 import EmptyState from '../components/EmptyState';
 
@@ -22,40 +23,41 @@ type TableRow = {
 
 const INITIAL: Filters = { type: 'all', date: 'today', dateFrom: '', dateTo: '' };
 
-function toDateStr(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
-
-function getDateRange(filters: Filters, drillDate: string | null, lastSoireeDate: string | null) {
+function getSoireeDateRange(filters: Filters, drillDate: string | null) {
   if (drillDate) {
-    return { fromISO: drillDate + 'T00:00:00.000Z', toISO: drillDate + 'T23:59:59.999Z', fromDate: drillDate, toDate: drillDate };
+    return {
+      fromISO: soireeStartISOForDate(drillDate),
+      toISO: soireeEndISOForDate(drillDate),
+      fromDate: drillDate,
+      toDate: drillDate,
+    };
   }
-  const now = new Date();
-  let from = new Date(now);
-  let to = new Date(now);
-  to.setHours(23, 59, 59, 999);
+  const sd = soireeDate();
   switch (filters.date) {
     case 'today': {
-      const d = lastSoireeDate ?? toDateStr(now);
-      from = new Date(d + 'T00:00:00');
-      to = new Date(d + 'T23:59:59');
-      break;
+      return { fromISO: soireeStartISOForDate(sd), toISO: soireeEndISOForDate(sd), fromDate: sd, toDate: sd };
     }
-    case '7d':
-      from.setDate(from.getDate() - 6); from.setHours(0, 0, 0, 0); break;
-    case '30d':
-      from.setDate(from.getDate() - 29); from.setHours(0, 0, 0, 0); break;
-    case 'custom':
-      from = filters.dateFrom ? new Date(filters.dateFrom + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1);
-      to = filters.dateTo ? new Date(filters.dateTo + 'T23:59:59') : to; break;
-    default:
-      from.setDate(from.getDate() - 89); from.setHours(0, 0, 0, 0);
+    case '7d': {
+      const start = new Date(sd + 'T12:00:00');
+      start.setDate(start.getDate() - 6);
+      const startStr = start.toISOString().slice(0, 10);
+      return { fromISO: soireeStartISOForDate(startStr), toISO: soireeEndISOForDate(sd), fromDate: startStr, toDate: sd };
+    }
+    case '30d': {
+      const start = new Date(sd + 'T12:00:00');
+      start.setDate(start.getDate() - 29);
+      const startStr = start.toISOString().slice(0, 10);
+      return { fromISO: soireeStartISOForDate(startStr), toISO: soireeEndISOForDate(sd), fromDate: startStr, toDate: sd };
+    }
+    case 'custom': {
+      const from = filters.dateFrom || sd;
+      const to = filters.dateTo || sd;
+      return { fromISO: soireeStartISOForDate(from), toISO: soireeEndISOForDate(to), fromDate: from, toDate: to };
+    }
+    default: {
+      return { fromISO: '', toISO: '', fromDate: '', toDate: '' };
+    }
   }
-  return { fromISO: from.toISOString(), toISO: to.toISOString(), fromDate: toDateStr(from), toDate: toDateStr(to) };
-}
-
-function formatDateFR(d: string) {
-  return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 export default function HistoryEvenementsPage() {
@@ -65,7 +67,6 @@ export default function HistoryEvenementsPage() {
   const [filters, setFilters] = useState<Filters>(INITIAL);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [drillDate, setDrillDate] = useState<string | null>(null);
-  const [lastSoireeDate, setLastSoireeDate] = useState<string | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [tableRows, setTableRows] = useState<TableRow[]>([]);
@@ -74,64 +75,52 @@ export default function HistoryEvenementsPage() {
   const showTable = drillDate === null && filters.type === 'all' && filters.date !== 'today';
 
   useEffect(() => {
-    if (!etabId) return;
-    supabase
-      .from('jauge_etat')
-      .select('date_soiree')
-      .eq('etablissement_id', etabId)
-      .eq('is_test', false)
-      .gt('count_actuel', 0)
-      .order('date_soiree', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => { if (data?.date_soiree) setLastSoireeDate(data.date_soiree as string); });
-  }, [etabId]);
-
-  useEffect(() => {
     if (showTable) return;
     (async () => {
       setLoading(true);
-      const { fromISO, toISO } = getDateRange(filters, drillDate, lastSoireeDate);
+      const { fromISO, toISO } = getSoireeDateRange(filters, drillDate);
       let q = supabase
         .from('evenements')
         .select('id, numero, type, espace_nom, zone_nom, niveau_label, date_evenement, created_by_email')
         .order('date_evenement', { ascending: false })
         .limit(100);
-      if (drillDate) {
-        q = q.gte('date_evenement', fromISO).lte('date_evenement', toISO);
-      } else if (filters.date === 'custom') {
-        if (filters.dateFrom) q = q.gte('date_evenement', filters.dateFrom + 'T00:00:00.000Z');
-        if (filters.dateTo) q = q.lte('date_evenement', filters.dateTo + 'T23:59:59.999Z');
+      if (fromISO) {
+        q = q.gte('date_evenement', fromISO);
+        q = q.lt('date_evenement', toISO);
         if (filters.type !== 'all') q = q.eq('type', filters.type);
       } else {
         if (filters.type !== 'all') q = q.eq('type', filters.type);
-        if (filters.date !== 'all') q = q.gte('date_evenement', fromISO);
       }
       const { data } = await q;
       setEvents((data ?? []) as EventItem[]);
       setLoading(false);
     })();
-  }, [filters, showTable, drillDate, lastSoireeDate]);
+  }, [filters, showTable, drillDate]);
 
   useEffect(() => {
     if (!showTable || !etabId) return;
     (async () => {
       setTableLoading(true);
-      const { fromISO, toISO, fromDate, toDate } = getDateRange(filters, null, lastSoireeDate);
+      const { fromISO, toISO, fromDate, toDate } = getSoireeDateRange(filters, null);
       const [jaugeRes, evRes] = await Promise.all([
         supabase.from('jauge_etat').select('date_soiree, count_actuel').eq('etablissement_id', etabId).eq('is_test', false).gte('date_soiree', fromDate).lte('date_soiree', toDate),
-        supabase.from('evenements').select('date_evenement, type').eq('etablissement_id', etabId).gte('date_evenement', fromISO).lte('date_evenement', toISO),
+        supabase.from('evenements').select('date_evenement, type').eq('etablissement_id', etabId).gte('date_evenement', fromISO).lt('date_evenement', toISO),
       ]);
       const jaugeByDate: Record<string, number> = {};
       for (const row of jaugeRes.data ?? []) { const d = row.date_soiree as string; jaugeByDate[d] = Math.max(jaugeByDate[d] ?? 0, (row.count_actuel as number) ?? 0); }
       const evByDate: Record<string, { ssi: number; personnes: number }> = {};
-      for (const row of evRes.data ?? []) { const d = new Date(row.date_evenement as string).toISOString().split('T')[0]; if (!evByDate[d]) evByDate[d] = { ssi: 0, personnes: 0 }; if (row.type === 'ssi') evByDate[d].ssi++; if (row.type === 'securite_personnes') evByDate[d].personnes++; }
+      for (const row of evRes.data ?? []) {
+        const d = soireeDateOf(row.date_evenement as string);
+        if (!evByDate[d]) evByDate[d] = { ssi: 0, personnes: 0 };
+        if (row.type === 'ssi') evByDate[d].ssi++;
+        if (row.type === 'securite_personnes') evByDate[d].personnes++;
+      }
       const allDates = new Set([...Object.keys(jaugeByDate), ...Object.keys(evByDate)]);
       const rows: TableRow[] = Array.from(allDates).sort((a, b) => b.localeCompare(a)).map((date) => ({ date, entrees_max: jaugeByDate[date] ?? 0, nb_ssi: evByDate[date]?.ssi ?? 0, nb_personnes: evByDate[date]?.personnes ?? 0 }));
       setTableRows(rows);
       setTableLoading(false);
     })();
-  }, [filters, etabId, showTable, lastSoireeDate]);
+  }, [filters, etabId, showTable]);
 
   const activeFiltersCount =
     Number(filters.type !== 'all') + Number(filters.date !== 'today') + Number(!!filters.dateFrom || !!filters.dateTo);
@@ -166,7 +155,7 @@ export default function HistoryEvenementsPage() {
       <div className="px-5 py-4">
         {drillDate && (
           <button type="button" onClick={() => setDrillDate(null)} className="flex items-center gap-2 text-blue-400 text-sm font-medium mb-4 hover:text-blue-300 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Retour au tableau — {formatDateFR(drillDate)}
+            <ArrowLeft className="w-4 h-4" /> Retour au tableau — {formatSoireeLabel(drillDate)}
           </button>
         )}
 
@@ -180,7 +169,7 @@ export default function HistoryEvenementsPage() {
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="border-b border-slate-800">
-                        <th className="text-left py-3 px-3 text-[11px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Date</th>
+                        <th className="text-left py-3 px-3 text-[11px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Soirée</th>
                         <th className="text-center py-3 px-2 text-[11px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Entrées max</th>
                         <th className="text-center py-3 px-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">SSI</th>
                         <th className="text-center py-3 px-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Personnes</th>
@@ -189,7 +178,7 @@ export default function HistoryEvenementsPage() {
                     <tbody>
                       {tableRows.map((row, i) => (
                         <tr key={row.date} onClick={() => setDrillDate(row.date)} className={`border-b border-slate-800/50 cursor-pointer transition-colors active:bg-slate-700/50 hover:bg-slate-800/50 ${i % 2 === 1 ? 'bg-slate-800/20' : ''}`}>
-                          <td className="py-3 px-3 text-slate-200 font-medium whitespace-nowrap">{formatDateFR(row.date)}</td>
+                          <td className="py-3 px-3 text-slate-200 font-medium whitespace-nowrap">{formatSoireeLabel(row.date)}</td>
                           <td className="py-3 px-2 text-center text-slate-300">{row.entrees_max > 0 ? row.entrees_max : <span className="text-slate-700">—</span>}</td>
                           <td className={`py-3 px-2 text-center font-semibold ${row.nb_ssi > 0 ? 'text-orange-400' : 'text-slate-700'}`}>{row.nb_ssi > 0 ? row.nb_ssi : '—'}</td>
                           <td className={`py-3 px-2 text-center font-semibold ${row.nb_personnes > 0 ? 'text-blue-400' : 'text-slate-700'}`}>{row.nb_personnes > 0 ? row.nb_personnes : '—'}</td>
@@ -211,7 +200,7 @@ export default function HistoryEvenementsPage() {
         ) : (
           <div className="space-y-2.5">
             {loading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
-            {!loading && events.length === 0 && <EmptyState text="Aucun événement trouvé" hint={drillDate ? `Aucun événement le ${formatDateFR(drillDate)}` : "Essayez d'ajuster vos filtres"} />}
+            {!loading && events.length === 0 && <EmptyState text="Aucun événement trouvé" hint={drillDate ? `Aucun événement pour la ${formatSoireeLabel(drillDate)}` : "Essayez d'ajuster vos filtres"} />}
             {events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
           </div>
         )}
@@ -226,15 +215,15 @@ export default function HistoryEvenementsPage() {
             </div>
             <div className="space-y-5">
               <FilterGroup label="Type" options={[{ v: 'all', l: 'Tous' }, { v: 'ssi', l: 'SSI' }, { v: 'securite_personnes', l: 'Personnes' }]} value={filters.type} onChange={(v) => { setDrillDate(null); setFilters((f) => ({ ...f, type: v as Filters['type'] })); }} />
-              <FilterGroup label="Période" options={[{ v: 'all', l: 'Tout' }, { v: 'today', l: "Aujourd'hui" }, { v: '7d', l: '7 jours' }, { v: '30d', l: '30 jours' }, { v: 'custom', l: 'Période' }]} value={filters.date} onChange={(v) => { setDrillDate(null); setFilters((f) => ({ ...f, date: v as Filters['date'] })); }} />
+              <FilterGroup label="Période" options={[{ v: 'all', l: 'Tout' }, { v: 'today', l: "Soirée en cours" }, { v: '7d', l: '7 jours' }, { v: '30d', l: '30 jours' }, { v: 'custom', l: 'Période' }]} value={filters.date} onChange={(v) => { setDrillDate(null); setFilters((f) => ({ ...f, date: v as Filters['date'] })); }} />
               {filters.date === 'custom' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Du</label>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Du (soirée)</label>
                     <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors" />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Au</label>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Au (soirée)</label>
                     <input type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors" />
                   </div>
                 </div>

@@ -89,3 +89,46 @@ export function soireeEndISOForDate(dateStr: string): string {
   const nextStr = next.toISOString().slice(0, 10);
   return soireeStartISOForDate(nextStr);
 }
+
+/**
+ * Calcule la date de soirée d'un instant quelconque (UTC ISO string ou Date).
+ * Même logique que soireeDate() mais pour un horodatage arbitraire.
+ * Doit retourner la même valeur que la fonction SQL public.soiree_date_of(ts).
+ */
+export function soireeDateOf(ts: string | Date): string {
+  const date = typeof ts === 'string' ? new Date(ts) : ts;
+  const parisTime = new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Europe/Paris',
+    hour: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const parts: Record<string, string> = {};
+  for (const p of parisTime) {
+    if (p.type !== 'literal') parts[p.type] = p.value;
+  }
+
+  const hour = parseInt(parts.hour, 10);
+  const dateStr = `${parts.year}-${parts.month}-${parts.day}`;
+
+  if (hour < 6) {
+    const d = new Date(`${dateStr}T00:00:00`);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  return dateStr;
+}
+
+/**
+ * Formate une date de soirée pour l'affichage en français.
+ * Ex: "2026-10-08" → "Soirée du 8 octobre"
+ */
+export function formatSoireeLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  const jour = d.toLocaleDateString('fr-FR', { day: 'numeric' });
+  const mois = d.toLocaleDateString('fr-FR', { month: 'long' });
+  return `Soirée du ${jour} ${mois}`;
+}
