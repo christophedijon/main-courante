@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { invalidateEntrepriseCache, setEntrepriseMegaAdmin } from '../hooks/useEntreprise';
+import { invalidateJaugeCache } from '../hooks/useJauge';
 
 type AuthContextType = {
   session: Session | null;
@@ -111,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       invalidateEntrepriseCache();
+      invalidateJaugeCache();
       setSession(session);
       if (session?.user) {
         (async () => {

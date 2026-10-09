@@ -34,6 +34,11 @@ type CachedCount = { value: number; _ts: number };
 const configCache = new Map<string, CachedConfig>();
 const countCache = new Map<string, CachedCount>();
 
+export function invalidateJaugeCache() {
+  configCache.clear();
+  countCache.clear();
+}
+
 export function useJauge(isTest = false): UseJaugeReturn {
   const { session } = useAuth();
 
@@ -47,7 +52,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
     ? false
     : config.mode_jauge === 'automatique' ? false : isTest;
 
-  const cacheKey = (id: string, tst: boolean) => `${id}:${tst}`;
+  const cacheKey = (id: string, tst: boolean) => `${id}:${tst}:${soireeDate()}`;
 
   const fetchCount = useCallback(async (entrepriseId: string) => {
     const { data } = await supabase
