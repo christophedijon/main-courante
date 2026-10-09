@@ -26,25 +26,28 @@ export type UseJaugeReturn = {
   resetJauge: () => Promise<void>;
 };
 
-// Use the same soiree date logic as the SQL function (coupure 6h Paris)
 const POLL_INTERVAL_MS = 30_000;
+
+type CachedConfig = EntrepriseJaugeConfig & { _ts: number };
+type CachedCount = { value: number; _ts: number };
+
+const configCache = new Map<string, CachedConfig>();
+const countCache = new Map<string, CachedCount>();
 
 export function useJauge(isTest = false): UseJaugeReturn {
   const { session } = useAuth();
 
   const [config, setConfig] = useState<EntrepriseJaugeConfig | null>(null);
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   const entrepriseIdRef = useRef<string | null>(null);
 
-  // In automatique mode, always read the real line (is_test=false) because
-  // poll-billetterie only syncs the real line. Test sessions are meaningless
-  // when the jauge is driven by ZAPSIS. Default to false while config is loading
-  // to avoid reading the is_test=true line (count=0) before we know the mode.
   const effectiveIsTest = config === null
     ? false
     : config.mode_jauge === 'automatique' ? false : isTest;
+
+  const cacheKey = (id: string, tst: boolean) => `${id}:${tst}`;
 
   const fetchCount = useCallback(async (entrepriseId: string) => {
     const { data } = await supabase
@@ -56,17 +59,43 @@ export function useJauge(isTest = false): UseJaugeReturn {
       .maybeSingle();
     if (data != null) {
       setCount(data.count_actuel);
+      countCache.set(cacheKey(entrepriseId, effectiveIsTest), {
+        value: data.count_actuel,
+        _ts: Date.now(),
+      });
     }
   }, [effectiveIsTest]);
 
-  // Initial load — use RPC to get the exact entreprise for this user.
-  // Avoids returning random rows for super admins who can read all entreprises.
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
 
     async function load() {
-      const { data: myEntrepriseId } = await supabase.rpc('get_my_entreprise_id');
+      let cachedId: string | null = null;
 
+      if (config) {
+        cachedId = config.id;
+      } else {
+        for (const [id, _] of configCache) {
+          cachedId = id;
+          break;
+        }
+      }
+
+      const cachedCfg = cachedId ? configCache.get(cachedId) : null;
+      if (cachedCfg && !cancelled) {
+        setConfig(cachedCfg);
+        entrepriseIdRef.current = cachedCfg.id;
+
+        const ck = cacheKey(cachedCfg.id, cachedCfg.mode_jauge === 'automatique' ? false : isTest);
+        const cachedCount = countCache.get(ck);
+        if (cachedCount && !cancelled) {
+          setCount(cachedCount.value);
+          setLoading(false);
+        }
+      }
+
+      const { data: myEntrepriseId } = await supabase.rpc('get_my_entreprise_id');
       if (cancelled) return;
 
       if (!myEntrepriseId) {
@@ -83,30 +112,42 @@ export function useJauge(isTest = false): UseJaugeReturn {
       if (cancelled) return;
 
       if (cfg) {
-        setConfig(cfg as EntrepriseJaugeConfig);
-        entrepriseIdRef.current = cfg.id;
+        const newCfg = cfg as EntrepriseJaugeConfig;
+        setConfig(newCfg);
+        entrepriseIdRef.current = newCfg.id;
+        configCache.set(newCfg.id, { ...newCfg, _ts: Date.now() });
+
+        const tst = newCfg.mode_jauge === 'automatique' ? false : isTest;
+        const ck = cacheKey(newCfg.id, tst);
+        const cachedCount = countCache.get(ck);
+        if (cachedCount && !cancelled) {
+          setCount(cachedCount.value);
+          setLoading(false);
+        }
 
         const { data: etat } = await supabase
           .from('jauge_etat')
           .select('count_actuel')
-          .eq('etablissement_id', cfg.id)
+          .eq('etablissement_id', newCfg.id)
           .eq('date_soiree', soireeDate())
-          .eq('is_test', cfg.mode_jauge === 'automatique' ? false : isTest)
+          .eq('is_test', tst)
           .maybeSingle();
 
         if (!cancelled) {
-          setCount(etat?.count_actuel ?? 0);
+          const val = etat?.count_actuel ?? 0;
+          setCount(val);
+          countCache.set(ck, { value: val, _ts: Date.now() });
+          setLoading(false);
         }
+      } else {
+        if (!cancelled) setLoading(false);
       }
-
-      if (!cancelled) setLoading(false);
     }
 
     load();
     return () => { cancelled = true; };
   }, [isTest]);
 
-  // Realtime subscription + continuous polling (mobile-reliable)
   useEffect(() => {
     if (!config) return;
 
@@ -123,6 +164,10 @@ export function useJauge(isTest = false): UseJaugeReturn {
           if (row.is_test !== effectiveIsTest) return;
           if (typeof row.count_actuel === 'number') {
             setCount(row.count_actuel);
+            countCache.set(cacheKey(entrepriseId, effectiveIsTest), {
+              value: row.count_actuel,
+              _ts: Date.now(),
+            });
           }
         }
       )
@@ -144,7 +189,12 @@ export function useJauge(isTest = false): UseJaugeReturn {
 
   async function incrementJauge(delta: number, source: 'app' | 'flic' | 'manuel') {
     if (!config || !session?.user) return;
-    setCount(prev => Math.max(0, prev + delta));
+    const newCount = Math.max(0, count + delta);
+    setCount(newCount);
+    countCache.set(cacheKey(config.id, effectiveIsTest), {
+      value: newCount,
+      _ts: Date.now(),
+    });
     await supabase.rpc('increment_jauge', {
       p_etablissement_id: config.id,
       p_delta: delta,
@@ -158,6 +208,10 @@ export function useJauge(isTest = false): UseJaugeReturn {
   async function resetJauge() {
     if (!config || !session?.user) return;
     setCount(0);
+    countCache.set(cacheKey(config.id, effectiveIsTest), {
+      value: 0,
+      _ts: Date.now(),
+    });
     await supabase.rpc('reset_jauge', {
       p_etablissement_id: config.id,
       p_user_id: session.user.id,
