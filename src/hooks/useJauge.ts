@@ -40,8 +40,11 @@ export function useJauge(isTest = false): UseJaugeReturn {
 
   // In automatique mode, always read the real line (is_test=false) because
   // poll-billetterie only syncs the real line. Test sessions are meaningless
-  // when the jauge is driven by ZAPSIS.
-  const effectiveIsTest = config?.mode_jauge === 'automatique' ? false : isTest;
+  // when the jauge is driven by ZAPSIS. Default to false while config is loading
+  // to avoid reading the is_test=true line (count=0) before we know the mode.
+  const effectiveIsTest = config === null
+    ? false
+    : config.mode_jauge === 'automatique' ? false : isTest;
 
   const fetchCount = useCallback(async (entrepriseId: string) => {
     const { data } = await supabase
@@ -53,8 +56,6 @@ export function useJauge(isTest = false): UseJaugeReturn {
       .maybeSingle();
     if (data != null) {
       setCount(data.count_actuel);
-    } else {
-      setCount(0);
     }
   }, [effectiveIsTest]);
 
