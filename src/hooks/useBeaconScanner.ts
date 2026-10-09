@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { soireeDate } from '../lib/jaugeDate';
 
 declare global {
   interface BluetoothDevice {
@@ -169,7 +170,7 @@ export function useBeaconScanner() {
       }
 
       if (beacon.is_entree) {
-        const dateNuit = now.toISOString().slice(0, 10);
+        const dateNuit = soireeDate();
         const { data: existing } = await supabase
           .from('rondes_rapports')
           .select('id')

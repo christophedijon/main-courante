@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { soireeStartISO } from '../../lib/jaugeDate';
 import EntrepriseBadge from '../components/EntrepriseBadge';
 
 const SHORTCUTS = [
@@ -32,12 +33,11 @@ export default function MobileAdminPage() {
 
   useEffect(() => {
     if (!hasAdminAccess) return;
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const start = soireeStartISO();
     (async () => {
       const [allRes, todayRes, ssiRes, pRes] = await Promise.all([
         supabase.from('evenements').select('id', { count: 'exact', head: true }),
-        supabase.from('evenements').select('id', { count: 'exact', head: true }).gte('date_evenement', start.toISOString()),
+        supabase.from('evenements').select('id', { count: 'exact', head: true }).gte('date_evenement', start),
         supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('type', 'ssi'),
         supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('type', 'securite_personnes'),
       ]);

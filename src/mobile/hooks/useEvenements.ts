@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
+import { soireeStartISO } from '../../lib/jaugeDate';
 import type { EventItem } from '../components/EventCard';
 
 export function useRecentEvents(limit = 5) {
@@ -26,12 +27,11 @@ export function useTodayEventsCount() {
   const [count, setCount] = useState<number>(0);
 
   useEffect(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const start = soireeStartISO();
     supabase
       .from('evenements')
       .select('id', { count: 'exact', head: true })
-      .gte('date_evenement', start.toISOString())
+      .gte('date_evenement', start)
       .then(({ count: c }) => setCount(c ?? 0));
   }, []);
 

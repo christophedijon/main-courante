@@ -25,6 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEntreprise } from '../hooks/useEntreprise';
+import { soireeDate, soireeStartISOForDate, soireeEndISOForDate } from '../lib/jaugeDate';
 import AppHeader from '../components/AppHeader';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1019,7 +1020,7 @@ function fmt(ts: string) {
 }
 
 function RapportTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => void }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = soireeDate();
   const [date, setDate] = useState(today);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [selectedAgent, setSelectedAgent] = useState('');
@@ -1041,14 +1042,14 @@ function RapportTab({ notify }: { notify: (t: ToastMsg['type'], msg: string) => 
     setLoading(true);
     setRapports([]);
 
-    const start = `${date}T00:00:00.000Z`;
-    const end = `${date}T23:59:59.999Z`;
+    const start = soireeStartISOForDate(date);
+    const end = soireeEndISOForDate(date);
 
     let query = supabase
       .from('rondes_passages')
       .select('agent_id, beacon_id, rssi, timestamp, beacons(nom, is_entree, zones(nom))')
       .gte('timestamp', start)
-      .lte('timestamp', end)
+      .lt('timestamp', end)
       .order('timestamp', { ascending: true });
 
     if (selectedAgent) query = query.eq('agent_id', selectedAgent);

@@ -57,3 +57,35 @@ export function soireeStartISO(): string {
   const om = String(absMin % 60).padStart(2, '0');
   return `${sd}T06:00:00${sign}${oh}:${om}`;
 }
+
+/**
+ * Renvoie l'instant de debut (06h00 Europe/Paris) d'une soiree donnee
+ * par sa date (format YYYY-MM-DD), en ISO UTC avec offset.
+ */
+export function soireeStartISOForDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const noonUTC = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const parisFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(noonUTC);
+  const [ph, pm] = parisFmt.split(':').map(Number);
+  const offsetMin = (ph * 60 + pm) - 12 * 60;
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const absMin = Math.abs(offsetMin);
+  const oh = String(Math.floor(absMin / 60)).padStart(2, '0');
+  const om = String(absMin % 60).padStart(2, '0');
+  return `${dateStr}T06:00:00${sign}${oh}:${om}`;
+}
+
+/**
+ * Renvoie l'instant de fin (06h00 Europe/Paris du lendemain) d'une soiree
+ * donnee par sa date (format YYYY-MM-DD), en ISO UTC avec offset.
+ */
+export function soireeEndISOForDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d));
+  next.setUTCDate(next.getUTCDate() + 1);
+  const nextStr = next.toISOString().slice(0, 10);
+  return soireeStartISOForDate(nextStr);
+}
