@@ -38,20 +38,25 @@ export function useJauge(isTest = false): UseJaugeReturn {
 
   const entrepriseIdRef = useRef<string | null>(null);
 
+  // In automatique mode, always read the real line (is_test=false) because
+  // poll-billetterie only syncs the real line. Test sessions are meaningless
+  // when the jauge is driven by ZAPSIS.
+  const effectiveIsTest = config?.mode_jauge === 'automatique' ? false : isTest;
+
   const fetchCount = useCallback(async (entrepriseId: string) => {
     const { data } = await supabase
       .from('jauge_etat')
       .select('count_actuel')
       .eq('etablissement_id', entrepriseId)
       .eq('date_soiree', soireeDate())
-      .eq('is_test', isTest)
+      .eq('is_test', effectiveIsTest)
       .maybeSingle();
     if (data != null) {
       setCount(data.count_actuel);
     } else {
       setCount(0);
     }
-  }, [isTest]);
+  }, [effectiveIsTest]);
 
   // Initial load — use RPC to get the exact entreprise for this user.
   // Avoids returning random rows for super admins who can read all entreprises.
@@ -85,7 +90,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
           .select('count_actuel')
           .eq('etablissement_id', cfg.id)
           .eq('date_soiree', soireeDate())
-          .eq('is_test', isTest)
+          .eq('is_test', cfg.mode_jauge === 'automatique' ? false : isTest)
           .maybeSingle();
 
         if (!cancelled) {
@@ -107,14 +112,14 @@ export function useJauge(isTest = false): UseJaugeReturn {
     const entrepriseId = config.id;
 
     const channel = supabase
-      .channel(`jauge_etat_${entrepriseId}_${isTest ? 'test' : 'real'}`)
+      .channel(`jauge_etat_${entrepriseId}_${effectiveIsTest ? 'test' : 'real'}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'jauge_etat' },
         (payload) => {
           const row = payload.new as { count_actuel?: number; etablissement_id?: string; is_test?: boolean };
           if (row.etablissement_id !== entrepriseId) return;
-          if (row.is_test !== isTest) return;
+          if (row.is_test !== effectiveIsTest) return;
           if (typeof row.count_actuel === 'number') {
             setCount(row.count_actuel);
           }
@@ -134,7 +139,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
       document.removeEventListener('visibilitychange', handleVisibility);
       supabase.removeChannel(channel);
     };
-  }, [config, fetchCount, isTest]);
+  }, [config, fetchCount, effectiveIsTest]);
 
   async function incrementJauge(delta: number, source: 'app' | 'flic' | 'manuel') {
     if (!config || !session?.user) return;
@@ -144,7 +149,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
       p_delta: delta,
       p_source: source,
       p_user_id: session.user.id,
-      p_is_test: isTest,
+      p_is_test: effectiveIsTest,
       p_mode_jauge: config.mode_jauge,
     });
   }
@@ -155,7 +160,7 @@ export function useJauge(isTest = false): UseJaugeReturn {
     await supabase.rpc('reset_jauge', {
       p_etablissement_id: config.id,
       p_user_id: session.user.id,
-      p_is_test: isTest,
+      p_is_test: effectiveIsTest,
     });
   }
 
