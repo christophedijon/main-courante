@@ -166,6 +166,7 @@ Deno.serve(async (req: Request) => {
       // --- Statistics: Visiteurs, Max en salle, Heure de pointe ---
       let totalVisiteurs = 0;
       let countMax = 0;
+      let heureMaxEnSalle = "—";
       let heurePointe = "—";
 
       const isAuto = etab.mode_jauge === "automatique";
@@ -195,7 +196,7 @@ Deno.serve(async (req: Request) => {
           for (const s of snapshots as any[]) {
             if (s.count_actuel > countMax) {
               countMax = s.count_actuel;
-              heurePointe = new Date(s.snapshot_at).toLocaleTimeString("fr-FR", {
+              heureMaxEnSalle = new Date(s.snapshot_at).toLocaleTimeString("fr-FR", {
                 hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
               }).replace(":", "h");
             }
@@ -264,6 +265,7 @@ Deno.serve(async (req: Request) => {
             heurePointe = heurePointeDate.toLocaleTimeString("fr-FR", {
               hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
             }).replace(":", "h");
+            heureMaxEnSalle = heurePointe;
           }
         }
       }
@@ -315,17 +317,25 @@ Deno.serve(async (req: Request) => {
       const nomEntreprise = etab.nom ?? "Rapport de soirée";
 
       // --- Statistics: 3 cards per row ---
-      const statCard = (value: string | number, label: string, color: string) => `
-        <div style="display:inline-block;width:31%;vertical-align:top;margin:0 1%;background:#ffffff;border-radius:10px;padding:14px 8px;text-align:center;box-sizing:border-box;">
-          <div style="font-size:24px;font-weight:700;color:${color};line-height:1;">${value}</div>
-          <div style="font-size:11px;color:#6b7280;margin-top:5px;">${label}</div>
-        </div>`;
+      const statCell = (value: string | number, label: string, color: string, width: string) => `
+        <td width="${width}" valign="top" style="width:${width};padding:0 2px;">
+          <div style="background:#ffffff;border-radius:10px;padding:12px 4px;text-align:center;">
+            <div class="stat-value" style="font-size:22px;font-weight:700;color:${color};line-height:1.1;">${value}</div>
+            <div class="stat-label" style="font-size:11px;color:#6b7280;margin-top:5px;line-height:1.3;">${label}</div>
+          </div>
+        </td>`;
 
       const contenuHtml = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <style>
+    @media (min-width: 600px) {
+      .stat-value { font-size: 28px !important; }
+      .stat-label { font-size: 12px !important; }
+    }
+  </style>
   <title>Rapport de soirée — ${dateSoireeLabel}</title>
 </head>
 <body style="margin:0;padding:24px 12px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif">
@@ -344,21 +354,29 @@ Deno.serve(async (req: Request) => {
       <p style="color:#475569;font-size:12px;margin:0">${heureDebut} → ${heureFin} (heure de Paris)</p>
     </div>
 
-    <!-- Stats: 3 cards per row, two rows -->
-    <div style="background:#f1f5f9;padding:16px 12px;border-bottom:1px solid #e2e8f0;">
-      <div style="margin-bottom:8px;">
-        ${statCard(evenements.length, "Événements", "#1e293b")}
-        ${statCard(nbSSI, "SSI", "#ef4444")}
-        ${statCard(nbPersonnes, "Sécurité", "#3b82f6")}
-      </div>
-      <div style="margin-bottom:8px;">
-        ${statCard(agentIds.length, "Agents", "#22c55e")}
-        ${statCard(totalVisiteurs, "Visiteurs", "#22c55e")}
-        ${statCard(countMax, "Max en salle", "#f59e0b")}
-      </div>
-      <div>
-        ${statCard(heurePointe, "Heure de pointe", "#60a5fa")}
-      </div>
+    <!-- Stats: Fréquentation (3 cartes) -->
+    <div style="background:#f1f5f9;padding:16px 12px 14px;border-bottom:1px solid #e2e8f0;">
+      <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr>
+          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "33%")}
+          ${statCell(countMax, `Max en salle${heureMaxEnSalle !== "—" ? ` (${heureMaxEnSalle})` : ""}`, "#f59e0b", "34%")}
+          ${statCell(heurePointe, "Heure de pointe", "#60a5fa", "33%")}
+        </tr>
+      </table>
+    </div>
+
+    <!-- Stats: Activité (4 cartes) -->
+    <div style="background:#f1f5f9;padding:0 12px 16px;border-bottom:1px solid #e2e8f0;">
+      <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Activité</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr>
+          ${statCell(evenements.length, "Événements", "#1e293b", "25%")}
+          ${statCell(nbSSI, "SSI", "#ef4444", "25%")}
+          ${statCell(nbPersonnes, "Sécu", "#3b82f6", "25%")}
+          ${statCell(agentIds.length, "Agents", "#22c55e", "25%")}
+        </tr>
+      </table>
     </div>
 
     <!-- Cartes des événements -->
