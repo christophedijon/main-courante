@@ -389,6 +389,7 @@ Deno.serve(async (req: Request) => {
     <div style="padding:16px 0;text-align:center;">
       <p style="font-size:11px;color:#94a3b8;margin:0">Généré automatiquement par Main Courante (version test)</p>
       <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric", timeZone: "Europe/Paris" })}</p>
+      <p style="font-size:11px;color:#94a3b8;margin:8px 0 0"><a href="mailto:contact@maincourante.eu?subject=Désinscription%20rapport%20de%20soirée" style="color:#94a3b8;text-decoration:underline;">Se désinscrire du rapport de soirée</a></p>
     </div>
 
   </div>
@@ -422,6 +423,7 @@ Deno.serve(async (req: Request) => {
         await resend.emails.send({
           from: FROM_EMAIL,
           to: FIXED_RECIPIENT,
+          replyTo: "contact@maincourante.eu",
           subject: `[TEST] Rapport de soirée — ${nomEntreprise} — ${dateSoireeLabel}`,
           html: contenuHtml,
         });

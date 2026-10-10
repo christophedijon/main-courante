@@ -407,6 +407,10 @@ export default function EmailsPage() {
                         {(draft.dest_emails_libres ?? []).length === 0 && (
                           <p className="text-xs text-slate-600">Aucune adresse supplémentaire.</p>
                         )}
+                        <p className="text-xs text-slate-500 mt-2">
+                          Maximum 5 adresses. Les doublons et les adresses invalides sont automatiquement filtrés.
+                          {draft.type === 'rapport_soiree' && ' Seule la Direction peut modifier ces réglages.'}
+                        </p>
                       </div>
 
                       {/* Paramètres spécifiques registre */}
