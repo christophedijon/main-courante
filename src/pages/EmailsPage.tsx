@@ -89,9 +89,20 @@ export default function EmailsPage() {
 
   function addEmail(id: string) {
     const val = (newEmail[id] ?? '').trim();
-    if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return;
+    if (!val) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      setToast({ msg: 'Adresse e-mail invalide.', type: 'error' });
+      return;
+    }
     const current = drafts[id]?.dest_emails_libres ?? [];
-    if (current.includes(val)) return;
+    if (current.some((e) => e.toLowerCase() === val.toLowerCase())) {
+      setToast({ msg: 'Cette adresse est déjà dans la liste.', type: 'error' });
+      return;
+    }
+    if (current.length >= 5) {
+      setToast({ msg: '5 adresses maximum.', type: 'error' });
+      return;
+    }
     updateDraft(id, { dest_emails_libres: [...current, val] });
     setNewEmail((prev) => ({ ...prev, [id]: '' }));
   }
@@ -121,7 +132,11 @@ export default function EmailsPage() {
       .eq('id', id);
     setSaving((prev) => ({ ...prev, [id]: false }));
     if (error) {
-      setToast({ msg: 'Erreur lors de la sauvegarde.', type: 'error' });
+      const pgMsg = error.message ?? '';
+      let msg = 'Erreur lors de la sauvegarde.';
+      if (pgMsg.includes('invalide')) msg = 'Adresse e-mail invalide.';
+      else if (pgMsg.includes('Maximum 5')) msg = '5 adresses e-mail maximum.';
+      setToast({ msg, type: 'error' });
       return;
     }
     setRules((prev) => prev.map((r) => r.id === id ? { ...r, ...draft } : r));
