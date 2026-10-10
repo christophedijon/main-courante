@@ -57,3 +57,6 @@ verify_jwt = true
 
 [functions.send-test-email]
 verify_jwt = true
+
+[functions.rapport-soiree-test]
+verify_jwt = false
