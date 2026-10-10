@@ -164,9 +164,11 @@ export function useJauge(isTest = false): UseJaugeReturn {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'jauge_etat' },
         (payload) => {
-          const row = payload.new as { count_actuel?: number; etablissement_id?: string; is_test?: boolean };
+          const row = payload.new as { count_actuel?: number; etablissement_id?: string; is_test?: boolean; date_soiree?: string };
           if (row.etablissement_id !== entrepriseId) return;
           if (row.is_test !== effectiveIsTest) return;
+          const currentSoiree = soireeDate();
+          if (row.date_soiree !== currentSoiree) return;
           if (typeof row.count_actuel === 'number') {
             setCount(row.count_actuel);
             countCache.set(cacheKey(entrepriseId, effectiveIsTest), {

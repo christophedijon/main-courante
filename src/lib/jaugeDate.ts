@@ -26,9 +26,10 @@ export function soireeDate(): string {
   const dateStr = `${parts.year}-${parts.month}-${parts.day}`;
 
   if (hour < 6) {
-    const d = new Date(`${dateStr}T00:00:00`);
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const prev = new Date(Date.UTC(y, m - 1, d));
+    prev.setUTCDate(prev.getUTCDate() - 1);
+    return prev.toISOString().slice(0, 10);
   }
 
   return dateStr;
@@ -114,9 +115,10 @@ export function soireeDateOf(ts: string | Date): string {
   const dateStr = `${parts.year}-${parts.month}-${parts.day}`;
 
   if (hour < 6) {
-    const d = new Date(`${dateStr}T00:00:00`);
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const prev = new Date(Date.UTC(y, m - 1, d));
+    prev.setUTCDate(prev.getUTCDate() - 1);
+    return prev.toISOString().slice(0, 10);
   }
 
   return dateStr;
