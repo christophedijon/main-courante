@@ -38,14 +38,16 @@ function getSoireeDateRange(filters: Filters, drillDate: string | null) {
       return { fromISO: soireeStartISOForDate(sd), toISO: soireeEndISOForDate(sd), fromDate: sd, toDate: sd };
     }
     case '7d': {
-      const start = new Date(sd + 'T12:00:00');
-      start.setDate(start.getDate() - 6);
+      const [py, pm, pd] = sd.split('-').map(Number);
+      const start = new Date(Date.UTC(py, pm - 1, pd));
+      start.setUTCDate(start.getUTCDate() - 6);
       const startStr = start.toISOString().slice(0, 10);
       return { fromISO: soireeStartISOForDate(startStr), toISO: soireeEndISOForDate(sd), fromDate: startStr, toDate: sd };
     }
     case '30d': {
-      const start = new Date(sd + 'T12:00:00');
-      start.setDate(start.getDate() - 29);
+      const [py, pm, pd] = sd.split('-').map(Number);
+      const start = new Date(Date.UTC(py, pm - 1, pd));
+      start.setUTCDate(start.getUTCDate() - 29);
       const startStr = start.toISOString().slice(0, 10);
       return { fromISO: soireeStartISOForDate(startStr), toISO: soireeEndISOForDate(sd), fromDate: startStr, toDate: sd };
     }

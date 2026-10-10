@@ -43,15 +43,34 @@ function parseTime(timeStr: string): { h: number; m: number } | null {
   return { h: parseInt(match[1]), m: parseInt(match[2]) };
 }
 
+function getParisNowParts(): { dayIdx: number; currentMin: number } {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const map: Record<string, string> = {};
+  for (const p of parts) { if (p.type !== 'literal') map[p.type] = p.value; }
+  const weekdayMap: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  const dayIdx = weekdayMap[map.weekday] ?? 0;
+  let hour = parseInt(map.hour, 10);
+  if (hour === 24) hour = 0;
+  const minute = parseInt(map.minute, 10);
+  return { dayIdx, currentMin: hour * 60 + minute };
+}
+
 function computeNormalSession(horaires: HorairesOuverture | null): { active: boolean; dateSoiree: string } {
   if (!horaires) return { active: false, dateSoiree: soireeDate() };
 
-  const now = new Date();
-  const dayIdx = now.getDay();
+  const { dayIdx, currentMin } = getParisNowParts();
   const yesterdayIdx = (dayIdx + 6) % 7;
   const todayKey = JOURS_MAP[dayIdx];
   const yesterdayKey = JOURS_MAP[yesterdayIdx];
-  const currentMin = now.getHours() * 60 + now.getMinutes();
 
   // Check if current time is within today's scheduled window (post-midnight leg)
   const ySchedule = horaires[yesterdayKey];
@@ -62,9 +81,6 @@ function computeNormalSession(horaires: HorairesOuverture | null): { active: boo
       const sMin = s.h * 60 + s.m;
       const eMin = e.h * 60 + e.m;
       if (eMin < sMin && currentMin < eMin) {
-        // We're in the post-midnight portion of yesterday's session
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
         return { active: true, dateSoiree: soireeDate() };
       }
     }
@@ -95,11 +111,29 @@ function computeNormalSession(horaires: HorairesOuverture | null): { active: boo
   return { active: false, dateSoiree: soireeDate() };
 }
 
-function getTomorrow8h(): Date {
-  const t = new Date();
-  t.setDate(t.getDate() + 1);
-  t.setHours(8, 0, 0, 0);
-  return t;
+function getTomorrow8hParis(): Date {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const map: Record<string, string> = {};
+  for (const p of parts) { if (p.type !== 'literal') map[p.type] = p.value; }
+  const [y, m, d] = [parseInt(map.year), parseInt(map.month), parseInt(map.day)];
+  const tomorrow = new Date(Date.UTC(y, m - 1, d));
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const ty = tomorrow.getUTCFullYear();
+  const tm = tomorrow.getUTCMonth();
+  const td = tomorrow.getUTCDate();
+  const noonUTC = new Date(Date.UTC(ty, tm, td, 12, 0, 0));
+  const parisFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(noonUTC);
+  const [ph, pm] = parisFmt.split(':').map(Number);
+  const offsetMin = (ph * 60 + pm) - 12 * 60;
+  const offsetMs = offsetMin * 60 * 1000;
+  return new Date(Date.UTC(ty, tm, td, 8, 0, 0) - offsetMs);
 }
 
 function resolveState(ent: EntrepriseSession | null): SessionState {
@@ -229,7 +263,7 @@ export function useSessionActive(): UseSessionActiveReturn {
 
   async function openTestSession() {
     if (!entreprise) return;
-    const expires = getTomorrow8h();
+    const expires = getTomorrow8hParis();
     await supabase
       .from('etablissements')
       .update({
@@ -259,7 +293,7 @@ export function useSessionActive(): UseSessionActiveReturn {
     if (entreprise.force_session_active && entreprise.force_session_type === 'test') {
       await triggerCloseTestSession(entreprise.id, entreprise.force_session_opened_at);
     }
-    const expires = getTomorrow8h();
+    const expires = getTomorrow8hParis();
     await supabase
       .from('etablissements')
       .update({

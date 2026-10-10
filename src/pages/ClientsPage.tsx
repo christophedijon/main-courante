@@ -154,10 +154,10 @@ export default function ClientsPage() {
     const baseDate = etab?.date_activation ? new Date(etab.date_activation) : new Date();
     let date_fin_essai: string | null = null;
     if (plan === 'testeur') {
-      const d = new Date(baseDate); d.setDate(d.getDate() + 180);
+      const d = new Date(baseDate.getTime()); d.setUTCDate(d.getUTCDate() + 180);
       date_fin_essai = d.toISOString().slice(0, 10);
     } else if (plan === 'light') {
-      const d = new Date(baseDate); d.setDate(d.getDate() + 30);
+      const d = new Date(baseDate.getTime()); d.setUTCDate(d.getUTCDate() + 30);
       date_fin_essai = d.toISOString().slice(0, 10);
     }
     const { error } = await supabase.from('etablissements').update({ plan, date_fin_essai }).eq('id', id);
