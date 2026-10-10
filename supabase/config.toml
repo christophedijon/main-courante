@@ -60,3 +60,4 @@ verify_jwt = true
 
 [functions.rapport-soiree-test]
 verify_jwt = false
+
