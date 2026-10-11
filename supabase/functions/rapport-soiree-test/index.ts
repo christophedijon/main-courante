@@ -203,17 +203,21 @@ Deno.serve(async (req: Request) => {
           }
 
           // Heure de pointe = tranche d'1h avec le plus d'entrées
-          // Group snapshots by Paris hour, compute delta in entrees_billetterie per hour
-          const hourlyEntrees: Record<string, number> = {};
-          let prevEntrees = snapshots[0].entrees_billetterie;
-          let prevHour = new Date(snapshots[0].snapshot_at).toLocaleString("fr-FR", {
+          // Group snapshots by Paris hour (numeric, via formatToParts), compute delta in entrees_billetterie per hour
+          const parisHourFmt = new Intl.DateTimeFormat("fr-FR", {
             hour: "2-digit", timeZone: "Europe/Paris", hour12: false,
           });
+          const parisHourOf = (d: Date): string => {
+            const parts = parisHourFmt.formatToParts(d);
+            const h = parts.find((p) => p.type === "hour")?.value ?? "00";
+            return String(parseInt(h, 10)).padStart(2, "0");
+          };
+          const hourlyEntrees: Record<string, number> = {};
+          let prevEntrees = snapshots[0].entrees_billetterie;
+          let prevHour = parisHourOf(new Date(snapshots[0].snapshot_at));
           for (let i = 1; i < snapshots.length; i++) {
             const s = snapshots[i] as any;
-            const sHour = new Date(s.snapshot_at).toLocaleString("fr-FR", {
-              hour: "2-digit", timeZone: "Europe/Paris", hour12: false,
-            });
+            const sHour = parisHourOf(new Date(s.snapshot_at));
             const delta = (s.entrees_billetterie ?? 0) - prevEntrees;
             if (delta > 0) {
               hourlyEntrees[prevHour] = (hourlyEntrees[prevHour] ?? 0) + delta;
@@ -396,26 +400,7 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-      // --- Save to rapports_soiree (upsert, same table) ---
-      const { error: insertErr } = await supabase
-        .from("rapports_soiree")
-        .upsert({
-          date_soiree: dateSoireeStr,
-          etablissement_id: etab.id,
-          debut_soiree: debutSoireeISO,
-          fin_soiree: finSoireeISO,
-          nb_evenements: evenements.length,
-          nb_agents: agentIds.length,
-          contenu_html: contenuHtml,
-        }, { onConflict: "etablissement_id,date_soiree" });
-
-      if (insertErr) {
-        console.error(`[rapport-soiree-test] upsert error for ${etab.nom}:`, insertErr.message);
-        results.push({ etab_id: etab.id, nom: etab.nom, skipped: `upsert_error: ${insertErr.message}` });
-        continue;
-      }
-
-      // --- Send email to the fixed test recipient only ---
+      // --- Send email to the fixed test recipient only (no DB write) ---
       let emailSent = false;
       try {
         const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
