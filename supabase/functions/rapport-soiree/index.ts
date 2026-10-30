@@ -77,6 +77,17 @@ function maskEmail(email: string): string {
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type DecisionRapport = "absent" | "reprise" | "ignore";
+
+// Avant cette date le journal d'envois n'existait pas : un rapport sans ligne est alors un ancien rapport.
+const REPRISE_DEPUIS = new Date("2026-10-31T00:00:00Z");
+
+function decisionRapportExistant(rapport: { created_at: string }, statuts: string[]): DecisionRapport {
+  if (statuts.includes("envoye")) return "ignore";
+  if (statuts.length > 0) return "reprise";
+  return new Date(rapport.created_at) >= REPRISE_DEPUIS ? "reprise" : "ignore";
+}
+
 async function evaluerRegle(supabase: SupabaseClient, etab: any, nbEvenements: number, dateSoireeStr: string) {
   const { data: jaugeEtat, error: jaugeErr } = await supabase
     .from("jauge_etat")
@@ -471,11 +482,11 @@ Deno.serve(async (req: Request) => {
       }
 
       let rapportExistant: { id: string } | null = null;
-      let reprise = false;
-      if (testRecipients === null && !dryRun) {
+      let decisionRapport: DecisionRapport = "absent";
+      if (testRecipients === null) {
         const { data: existant, error: existErr } = await supabase
           .from("rapports_soiree")
-          .select("id")
+          .select("id, created_at")
           .eq("etablissement_id", etab.id)
           .eq("date_soiree", dateSoireeStr)
           .maybeSingle();
@@ -483,8 +494,7 @@ Deno.serve(async (req: Request) => {
           results.push({ etab_id: etab.id, nom: etab.nom, skipped: `rapport_check_error: ${existErr.message}` });
           continue;
         }
-        rapportExistant = existant;
-        if (existant && !force) {
+        if (existant) {
           const { data: journal, error: journalErr } = await supabase
             .from("rapport_envois")
             .select("statut")
@@ -495,14 +505,15 @@ Deno.serve(async (req: Request) => {
             results.push({ etab_id: etab.id, nom: etab.nom, skipped: `journal_error: ${journalErr.message}` });
             continue;
           }
-          const tentatives = journal ?? [];
-          if (tentatives.length === 0 || tentatives.some((j) => j.statut === "envoye")) {
+          decisionRapport = decisionRapportExistant(existant, (journal ?? []).map((j) => j.statut));
+          rapportExistant = { id: existant.id };
+          if (decisionRapport === "ignore" && !force && !dryRun) {
             results.push({ etab_id: etab.id, nom: etab.nom, skipped: "rapport_deja_existant" });
             continue;
           }
-          reprise = true;
         }
       }
+      const reprise = decisionRapport === "reprise" && !force && !dryRun;
 
       const { data: evenementsBruts, error: evErr } = await supabase
         .from("evenements")
@@ -550,6 +561,7 @@ Deno.serve(async (req: Request) => {
           })),
           max_en_salle: regle.maxEnSalle,
           source_max: regle.sourceMax,
+          rapport: decisionRapport,
           visiteurs: stats.totalVisiteurs,
           nb_destinataires: destinataires.length,
           destinataires: destinataires.map(maskEmail),

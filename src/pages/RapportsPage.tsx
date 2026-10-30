@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText, ChevronDown, ChevronUp, RefreshCw, Calendar, Users,
-  AlertTriangle, Play, Mail, ToggleLeft, ToggleRight, Save, CheckCircle,
+  AlertTriangle, Mail, ToggleLeft, ToggleRight, Save, CheckCircle,
   AlertCircle, Settings, X, TrendingUp, Clock, UserCheck,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -178,7 +178,6 @@ export default function RapportsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [entrepriseId, setEntrepriseId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   // Email settings state
@@ -231,29 +230,6 @@ export default function RapportsPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  async function handleGenerate() {
-    setGenerating(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rapport-soiree`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ test: true }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'Erreur inconnue');
-      setToast({ msg: json.message ?? 'Rapport généré avec succès.', type: 'success' });
-      await load();
-    } catch (err: any) {
-      setToast({ msg: err.message, type: 'error' });
-    }
-    setGenerating(false);
-  }
-
   async function handleSaveEmail(e: FormEvent) {
     e.preventDefault();
     if (!emailSettings) return;
@@ -305,16 +281,6 @@ export default function RapportsPage() {
               <span className="hidden sm:inline">Actualiser</span>
             </button>
 
-            {isSuperAdmin && (
-              <button
-                onClick={handleGenerate}
-                disabled={generating}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
-              >
-                <Play className={`w-4 h-4 ${generating ? 'animate-pulse' : ''}`} />
-                {generating ? 'Génération…' : 'Générer maintenant'}
-              </button>
-            )}
           </div>
         </div>
 
