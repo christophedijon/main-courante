@@ -287,6 +287,11 @@ export default function App() {
                   <HistorySignaturesPage />
                 </RoleRoute>
               } />
+              <Route path="statistiques" element={
+                <RoleRoute allowedRoles={['Direction']}>
+                  <StatistiquesPage />
+                </RoleRoute>
+              } />
               <Route path="recherche" element={<SearchPage />} />
               <Route path="profil" element={<MobileProfilePage />} />
               <Route path="feedback" element={<FeedbackPage />} />

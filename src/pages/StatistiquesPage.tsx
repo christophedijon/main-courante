@@ -162,11 +162,12 @@ export default function StatistiquesPage() {
 
   const courantes = periode ? filterSoirees(soirees, periode, mode, jours) : [];
   const precedentes = precedente ? filterSoirees(soirees, precedente, mode, jours) : [];
-  const rCourant = resume(courantes);
-  const rPrec = resume(precedentes);
-  const profil = profilHoraire(heures, new Set(courantes.map(s => s.date_soiree)));
-  const cats = categories(courantes);
-  const moyJours = moyenneParJour(courantes, jours);
+  const comptees = courantes.filter(s => s.visiteurs > 0);
+  const rCourant = resume(comptees);
+  const rPrec = resume(precedentes.filter(s => s.visiteurs > 0));
+  const profil = profilHoraire(heures, new Set(comptees.map(s => s.date_soiree)));
+  const cats = categories(comptees);
+  const moyJours = moyenneParJour(comptees, jours);
 
   function changerMode(nouveau: Mode) {
     setMode(nouveau);
@@ -314,7 +315,7 @@ export default function StatistiquesPage() {
                 <Panneau titre="Visiteurs par soirée">
                   <BarChart
                     minWidthParBarre={28}
-                    items={courantes.map(s => ({
+                    items={comptees.map(s => ({
                       key: s.date_soiree,
                       label: formatDateCourte(s.date_soiree),
                       value: s.visiteurs,
@@ -402,7 +403,9 @@ export default function StatistiquesPage() {
                               </span>
                             </td>
                             <td className="px-3 py-3 text-slate-400">{JOURS[s.jour_semaine - 1]}</td>
-                            <td className="px-3 py-3 text-right text-white tabular-nums">{formatNombre(s.visiteurs)}</td>
+                            <td className="px-3 py-3 text-right tabular-nums">
+                              {s.visiteurs > 0 ? <span className="text-white">{formatNombre(s.visiteurs)}</span> : <span className="text-slate-500 italic text-xs">aucune entrée</span>}
+                            </td>
                             <td className="px-3 py-3 text-slate-400 tabular-nums">{formatPic(s)}</td>
                             <td className="px-4 sm:px-6 py-3 text-right text-white tabular-nums">{formatNombre(s.nb_evenements)}</td>
                           </tr>
