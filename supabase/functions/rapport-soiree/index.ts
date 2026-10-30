@@ -19,10 +19,14 @@ const COLONNES_EVENEMENTS = `
 
 type Statistiques = {
   totalVisiteurs: number;
-  countMax: number;
-  heureMaxEnSalle: string;
-  heurePointe: string;
+  pic: { plage: string; entrees: number } | null;
+  noteSaut: string | null;
 };
+
+const HEURE_MS = 60 * 60 * 1000;
+const PIC_MIN_INSTANTANES = 10;
+const SAUT_SEUIL_ENTREES = 100;
+const SAUT_INTERVALLE_MS = 4 * 60 * 1000;
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -88,37 +92,43 @@ function decisionRapportExistant(rapport: { created_at: string }, statuts: strin
   return new Date(rapport.created_at) >= REPRISE_DEPUIS ? "reprise" : "ignore";
 }
 
-async function evaluerRegle(supabase: SupabaseClient, etab: any, nbEvenements: number, dateSoireeStr: string) {
-  const { data: jaugeEtat, error: jaugeErr } = await supabase
-    .from("jauge_etat")
-    .select("entrees_billetterie, count_actuel")
-    .eq("etablissement_id", etab.id)
-    .eq("date_soiree", dateSoireeStr)
-    .eq("is_test", false)
-    .maybeSingle();
-  if (jaugeErr) throw jaugeErr;
-
-  let snapshotsMax: number | null = null;
-  if (jaugeEtat) {
-    const { data: snapshots, error: snapErr } = await supabase
-      .from("jauge_snapshots")
-      .select("count_actuel")
-      .eq("etablissement_id", etab.id)
-      .eq("date_soiree", dateSoireeStr);
-    if (snapErr) throw snapErr;
-    if (snapshots && snapshots.length > 0) {
-      snapshotsMax = Math.max(...snapshots.map((s: any) => s.count_actuel ?? 0));
-    }
-  }
-
-  const maxEnSalle = snapshotsMax ?? jaugeEtat?.count_actuel ?? 0;
-  const sourceMax = snapshotsMax !== null ? "snapshots" : jaugeEtat ? "repli_jauge_etat" : "aucune_donnee";
-  const envoyer = nbEvenements >= 1 || maxEnSalle > 1;
+function evaluerRegle(nbEvenements: number, visiteurs: number) {
+  const envoyer = nbEvenements >= 1 || visiteurs > 1;
   const motif = nbEvenements >= 1
     ? "au moins 1 événement"
-    : maxEnSalle > 1 ? "max en salle > 1" : "aucune activité";
+    : visiteurs > 1 ? "plus d'un visiteur" : "aucune activité";
 
-  return { maxEnSalle, sourceMax, envoyer, motif };
+  return { envoyer, motif };
+}
+
+function calculerPic(points: { t: number; e: number }[]): Statistiques["pic"] {
+  if (points.length < PIC_MIN_INSTANTANES) return null;
+  const finDernier = points[points.length - 1].t;
+  let meilleur: { debut: number; entrees: number } | null = null;
+  let j = 0;
+  for (let i = 0; i < points.length; i++) {
+    const fin = points[i].t + HEURE_MS;
+    if (fin > finDernier) break;
+    while (j + 1 < points.length && points[j + 1].t <= fin) j++;
+    const entrees = points[j].e - points[i].e;
+    if (!meilleur || entrees > meilleur.entrees) meilleur = { debut: points[i].t, entrees };
+  }
+  if (!meilleur) return null;
+  const versHeure = (t: number) => heureCourte(new Date(t).toISOString()).replace(":", "h");
+  return {
+    plage: `${versHeure(meilleur.debut)} - ${versHeure(meilleur.debut + HEURE_MS)}`,
+    entrees: meilleur.entrees,
+  };
+}
+
+function detecterSaut(points: { t: number; e: number }[]): string | null {
+  for (let i = 1; i < points.length; i++) {
+    const ecart = points[i].e - points[i - 1].e;
+    if (ecart > SAUT_SEUIL_ENTREES && points[i].t - points[i - 1].t <= SAUT_INTERVALLE_MS) {
+      return heureCourte(new Date(points[i].t).toISOString());
+    }
+  }
+  return null;
 }
 
 async function resoudreDestinataires(supabase: SupabaseClient, etab: any, rule: any): Promise<string[]> {
@@ -149,11 +159,6 @@ async function calculerStatistiques(
   debutISO: string,
   finISO: string,
 ): Promise<Statistiques> {
-  let totalVisiteurs = 0;
-  let countMax = 0;
-  let heureMaxEnSalle = "—";
-  let heurePointe = "—";
-
   if (etab.mode_jauge === "automatique") {
     const { data: jaugeEtat, error: jaugeErr } = await supabase
       .from("jauge_etat")
@@ -163,86 +168,37 @@ async function calculerStatistiques(
       .eq("is_test", false)
       .maybeSingle();
     if (jaugeErr) throw jaugeErr;
-    totalVisiteurs = jaugeEtat?.entrees_billetterie ?? 0;
 
     const { data: snapshots, error: snapErr } = await supabase
       .from("jauge_snapshots")
-      .select("snapshot_at, count_actuel, entrees_billetterie")
+      .select("snapshot_at, entrees_billetterie")
       .eq("etablissement_id", etab.id)
       .eq("date_soiree", dateSoireeStr)
       .order("snapshot_at", { ascending: true });
     if (snapErr) throw snapErr;
 
-    if (snapshots && snapshots.length > 0) {
-      for (const s of snapshots as any[]) {
-        if (s.count_actuel > countMax) {
-          countMax = s.count_actuel;
-          heureMaxEnSalle = heureCourte(s.snapshot_at).replace(":", "h");
-        }
-      }
-
-      const parisHourFmt = new Intl.DateTimeFormat("fr-FR", {
-        hour: "2-digit", timeZone: "Europe/Paris", hour12: false,
-      });
-      const parisHourOf = (d: Date): string => {
-        const h = parisHourFmt.formatToParts(d).find((p) => p.type === "hour")?.value ?? "00";
-        return String(parseInt(h, 10)).padStart(2, "0");
-      };
-      const hourlyEntrees: Record<string, number> = {};
-      let prevEntrees = snapshots[0].entrees_billetterie;
-      let prevHour = parisHourOf(new Date(snapshots[0].snapshot_at));
-      for (let i = 1; i < snapshots.length; i++) {
-        const s = snapshots[i] as any;
-        const delta = (s.entrees_billetterie ?? 0) - prevEntrees;
-        if (delta > 0) {
-          hourlyEntrees[prevHour] = (hourlyEntrees[prevHour] ?? 0) + delta;
-        }
-        prevHour = parisHourOf(new Date(s.snapshot_at));
-        prevEntrees = s.entrees_billetterie;
-      }
-
-      let maxEntrees = 0;
-      let maxHour = "—";
-      for (const [hour, entrees] of Object.entries(hourlyEntrees)) {
-        if (entrees > maxEntrees) {
-          maxEntrees = entrees;
-          maxHour = hour + "h";
-        }
-      }
-      if (maxEntrees > 0) heurePointe = maxHour;
-    }
-  } else {
-    const { data: jaugeActions, error: actionsErr } = await supabase
-      .from("jauge_actions")
-      .select("action, delta, created_at")
-      .eq("etablissement_id", etab.id)
-      .gte("created_at", debutISO)
-      .lt("created_at", finISO)
-      .order("created_at", { ascending: true });
-    if (actionsErr) throw actionsErr;
-
-    if (jaugeActions && jaugeActions.length > 0) {
-      totalVisiteurs = (jaugeActions as any[])
-        .filter((a) => a.action === "entree")
-        .reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
-
-      let running = 0;
-      let heurePointeDate: Date | null = null;
-      for (const a of jaugeActions as any[]) {
-        running = Math.max(0, running + (a.delta ?? 0));
-        if (running > countMax) {
-          countMax = running;
-          heurePointeDate = new Date(a.created_at);
-        }
-      }
-      if (heurePointeDate) {
-        heurePointe = heureCourte(heurePointeDate.toISOString()).replace(":", "h");
-        heureMaxEnSalle = heurePointe;
-      }
-    }
+    const points = ((snapshots ?? []) as any[]).map((s) => ({
+      t: new Date(s.snapshot_at).getTime(),
+      e: s.entrees_billetterie ?? 0,
+    }));
+    return {
+      totalVisiteurs: jaugeEtat?.entrees_billetterie ?? 0,
+      pic: calculerPic(points),
+      noteSaut: detecterSaut(points),
+    };
   }
 
-  return { totalVisiteurs, countMax, heureMaxEnSalle, heurePointe };
+  const { data: jaugeActions, error: actionsErr } = await supabase
+    .from("jauge_actions")
+    .select("action, delta")
+    .eq("etablissement_id", etab.id)
+    .eq("action", "entree")
+    .gte("created_at", debutISO)
+    .lt("created_at", finISO);
+  if (actionsErr) throw actionsErr;
+
+  const totalVisiteurs = (jaugeActions ?? []).reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
+  return { totalVisiteurs, pic: null, noteSaut: null };
 }
 
 function construireHtml(p: {
@@ -286,6 +242,9 @@ function construireHtml(p: {
         </div>`;
   }).join("");
 
+  const picValeur = p.stats.pic
+    ? `${p.stats.pic.plage}<div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${p.stats.pic.entrees} ${p.stats.pic.entrees > 1 ? "entrées" : "entrée"}</div>`
+    : "—";
   const logoHtml = p.etab.logo_url
     ? `<img src="${p.etab.logo_url}" style="height:44px;width:auto;border-radius:8px;margin-bottom:10px;display:block" alt="Logo">`
     : "";
@@ -330,11 +289,11 @@ function construireHtml(p: {
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
         <tr>
-          ${statCell(p.stats.totalVisiteurs, "Visiteurs", "#22c55e", "33%")}
-          ${statCell(p.stats.countMax, `Max en salle${p.stats.heureMaxEnSalle !== "—" ? ` (${p.stats.heureMaxEnSalle})` : ""}`, "#f59e0b", "34%")}
-          ${statCell(p.stats.heurePointe, "Heure de pointe", "#60a5fa", "33%")}
+          ${statCell(p.stats.totalVisiteurs, "Visiteurs", "#22c55e", "50%")}
+          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
         </tr>
       </table>
+      ${p.stats.noteSaut ? `<p style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Relevé billetterie interrompu puis rétabli vers ${p.stats.noteSaut}, le rythme d'arrivées avant cette heure peut être sous-estimé.</p>` : ""}
     </div>
 
     <div style="background:#f1f5f9;padding:0 12px 16px;border-bottom:1px solid #e2e8f0;">
@@ -351,7 +310,7 @@ function construireHtml(p: {
 
     <div style="background:#ffffff;border-radius:0 0 14px 14px;padding:18px 16px 14px;">
       <h2 style="font-size:14px;font-weight:700;color:#0f172a;margin:0 0 12px">Journal des événements</h2>
-      ${cartesEvenements}
+      ${p.evenements.length === 0 ? `<p style="font-size:13px;color:#64748b;margin:0;">Aucun événement</p>` : cartesEvenements}
     </div>
 
     <div style="padding:16px 0;text-align:center;">
@@ -528,7 +487,8 @@ Deno.serve(async (req: Request) => {
       }
       const evenements = evenementsBruts ?? [];
 
-      const regle = await evaluerRegle(supabase, etab, evenements.length, dateSoireeStr);
+      const stats = await calculerStatistiques(supabase, etab, dateSoireeStr, statsDebutISO, statsFinISO);
+      const regle = evaluerRegle(evenements.length, stats.totalVisiteurs);
       if (!regle.envoyer && !dryRun) {
         results.push({
           etab_id: etab.id,
@@ -536,7 +496,7 @@ Deno.serve(async (req: Request) => {
           skipped: "aucune_activite",
           motif: regle.motif,
           nb_evenements: evenements.length,
-          max_en_salle: regle.maxEnSalle,
+          visiteurs: stats.totalVisiteurs,
         });
         continue;
       }
@@ -544,8 +504,6 @@ Deno.serve(async (req: Request) => {
       const destinataires = testRecipients !== null
         ? testRecipients
         : await resoudreDestinataires(supabase, etab, rule);
-      const stats = await calculerStatistiques(supabase, etab, dateSoireeStr, statsDebutISO, statsFinISO);
-
       if (dryRun) {
         results.push({
           etab_id: etab.id,
@@ -559,10 +517,10 @@ Deno.serve(async (req: Request) => {
             espace: e.espace_nom ?? null,
             zone: e.zone_nom ?? null,
           })),
-          max_en_salle: regle.maxEnSalle,
-          source_max: regle.sourceMax,
-          rapport: decisionRapport,
           visiteurs: stats.totalVisiteurs,
+          pic: stats.pic,
+          note_saut: stats.noteSaut,
+          rapport: decisionRapport,
           nb_destinataires: destinataires.length,
           destinataires: destinataires.map(maskEmail),
         });
@@ -678,7 +636,6 @@ Deno.serve(async (req: Request) => {
         motif: regle.motif,
         nb_evenements: evenements.length,
         nb_agents: agentIds.length,
-        max_en_salle: regle.maxEnSalle,
         envois_reussis: envois.filter((e) => e.statut === "envoye").length,
         envois_en_erreur: envois.filter((e) => e.statut === "erreur").length,
         envois,

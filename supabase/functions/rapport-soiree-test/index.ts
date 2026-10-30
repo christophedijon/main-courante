@@ -63,6 +63,47 @@ function maskEmail(email: string): string {
   return `${local.slice(0, 2)}***@${domain}`;
 }
 
+const HEURE_MS = 60 * 60 * 1000;
+const PIC_MIN_INSTANTANES = 10;
+const SAUT_SEUIL_ENTREES = 100;
+const SAUT_INTERVALLE_MS = 4 * 60 * 1000;
+
+function heureCourte(iso: string): string {
+  return new Date(iso).toLocaleTimeString("fr-FR", {
+    hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
+  });
+}
+
+function calculerPic(points: { t: number; e: number }[]): { plage: string; entrees: number } | null {
+  if (points.length < PIC_MIN_INSTANTANES) return null;
+  const finDernier = points[points.length - 1].t;
+  let meilleur: { debut: number; entrees: number } | null = null;
+  let j = 0;
+  for (let i = 0; i < points.length; i++) {
+    const fin = points[i].t + HEURE_MS;
+    if (fin > finDernier) break;
+    while (j + 1 < points.length && points[j + 1].t <= fin) j++;
+    const entrees = points[j].e - points[i].e;
+    if (!meilleur || entrees > meilleur.entrees) meilleur = { debut: points[i].t, entrees };
+  }
+  if (!meilleur) return null;
+  const versHeure = (t: number) => heureCourte(new Date(t).toISOString()).replace(":", "h");
+  return {
+    plage: `${versHeure(meilleur.debut)} - ${versHeure(meilleur.debut + HEURE_MS)}`,
+    entrees: meilleur.entrees,
+  };
+}
+
+function detecterSaut(points: { t: number; e: number }[]): string | null {
+  for (let i = 1; i < points.length; i++) {
+    const ecart = points[i].e - points[i - 1].e;
+    if (ecart > SAUT_SEUIL_ENTREES && points[i].t - points[i - 1].t <= SAUT_INTERVALLE_MS) {
+      return heureCourte(new Date(points[i].t).toISOString());
+    }
+  }
+  return null;
+}
+
 async function evaluerSoiree(
   supabase: SupabaseClient,
   etab: any,
@@ -74,27 +115,12 @@ async function evaluerSoiree(
 ) {
   const { data: jaugeEtat, error: jaugeErr } = await supabase
     .from("jauge_etat")
-    .select("entrees_billetterie, count_actuel")
+    .select("entrees_billetterie")
     .eq("etablissement_id", etab.id)
     .eq("date_soiree", dateSoireeStr)
     .eq("is_test", false)
     .maybeSingle();
   if (jaugeErr) throw jaugeErr;
-
-  let snapshotsMax: number | null = null;
-  if (jaugeEtat) {
-    const { data: snapshots, error: snapErr } = await supabase
-      .from("jauge_snapshots")
-      .select("count_actuel")
-      .eq("etablissement_id", etab.id)
-      .eq("date_soiree", dateSoireeStr);
-    if (snapErr) throw snapErr;
-    if (snapshots && snapshots.length > 0) {
-      snapshotsMax = Math.max(...snapshots.map((s: any) => s.count_actuel ?? 0));
-    }
-  }
-  const maxEnSalle = snapshotsMax ?? jaugeEtat?.count_actuel ?? 0;
-  const sourceMax = snapshotsMax !== null ? "snapshots" : jaugeEtat ? "repli_jauge_etat" : "aucune_donnee";
 
   let visiteurs = 0;
   if (etab.mode_jauge === "automatique") {
@@ -112,10 +138,10 @@ async function evaluerSoiree(
   }
 
   const nbEvenements = evenements.length;
-  const envoyer = nbEvenements >= 1 || maxEnSalle > 1;
+  const envoyer = nbEvenements >= 1 || visiteurs > 1;
   const motif = nbEvenements >= 1
     ? "au moins 1 événement"
-    : maxEnSalle > 1 ? "max en salle > 1" : "aucune activité";
+    : visiteurs > 1 ? "plus d'un visiteur" : "aucune activité";
 
   const destinataires = new Set<string>((rule.dest_emails_libres ?? []).filter(Boolean));
   const fonctions: string[] = [];
@@ -135,8 +161,6 @@ async function evaluerSoiree(
 
   return {
     nbEvenements,
-    maxEnSalle,
-    sourceMax,
     visiteurs,
     envoyer,
     motif,
@@ -255,8 +279,6 @@ Deno.serve(async (req: Request) => {
           nom: etab.nom,
           date_soiree: dateSoireeStr,
           nb_evenements: evaluation.nbEvenements,
-          max_en_salle: evaluation.maxEnSalle,
-          source_max: evaluation.sourceMax,
           visiteurs: evaluation.visiteurs,
           decision: evaluation.envoyer ? "envoyer" : "ne_pas_envoyer",
           motif: evaluation.motif,
@@ -286,116 +308,30 @@ Deno.serve(async (req: Request) => {
       const nbSSI = evenements.filter((e: any) => e.type === "ssi").length;
       const nbPersonnes = evenements.filter((e: any) => e.type !== "ssi").length;
 
-      // --- Statistics: Visiteurs, Max en salle, Heure de pointe ---
-      let totalVisiteurs = 0;
-      let countMax = 0;
-      let heureMaxEnSalle = "—";
-      let heurePointe = "—";
+      // --- Statistics: Visiteurs, Pic d'arrivées ---
+      const totalVisiteurs = evaluation.visiteurs;
+      let pic: { plage: string; entrees: number } | null = null;
+      let noteSaut: string | null = null;
 
-      const isAuto = etab.mode_jauge === "automatique";
-
-      if (isAuto) {
-        // Visiteurs = entrees_billetterie from jauge_etat
-        const { data: jaugeEtat } = await supabase
-          .from("jauge_etat")
-          .select("entrees_billetterie, sorties_boutons, count_actuel")
-          .eq("etablissement_id", etab.id)
-          .eq("date_soiree", dateSoireeStr)
-          .eq("is_test", false)
-          .maybeSingle();
-
-        totalVisiteurs = jaugeEtat?.entrees_billetterie ?? 0;
-
-        // Max en salle + Heure de pointe from jauge_snapshots
+      if (etab.mode_jauge === "automatique") {
         const { data: snapshots } = await supabase
           .from("jauge_snapshots")
-          .select("snapshot_at, count_actuel, entrees_billetterie, sorties_boutons")
+          .select("snapshot_at, entrees_billetterie")
           .eq("etablissement_id", etab.id)
           .eq("date_soiree", dateSoireeStr)
           .order("snapshot_at", { ascending: true });
 
-        if (snapshots && snapshots.length > 0) {
-          // Max en salle = highest count_actuel
-          for (const s of snapshots as any[]) {
-            if (s.count_actuel > countMax) {
-              countMax = s.count_actuel;
-              heureMaxEnSalle = new Date(s.snapshot_at).toLocaleTimeString("fr-FR", {
-                hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
-              }).replace(":", "h");
-            }
-          }
-
-          // Heure de pointe = tranche d'1h avec le plus d'entrées
-          // Group snapshots by Paris hour (numeric, via formatToParts), compute delta in entrees_billetterie per hour
-          const parisHourFmt = new Intl.DateTimeFormat("fr-FR", {
-            hour: "2-digit", timeZone: "Europe/Paris", hour12: false,
-          });
-          const parisHourOf = (d: Date): string => {
-            const parts = parisHourFmt.formatToParts(d);
-            const h = parts.find((p) => p.type === "hour")?.value ?? "00";
-            return String(parseInt(h, 10)).padStart(2, "0");
-          };
-          const hourlyEntrees: Record<string, number> = {};
-          let prevEntrees = snapshots[0].entrees_billetterie;
-          let prevHour = parisHourOf(new Date(snapshots[0].snapshot_at));
-          for (let i = 1; i < snapshots.length; i++) {
-            const s = snapshots[i] as any;
-            const sHour = parisHourOf(new Date(s.snapshot_at));
-            const delta = (s.entrees_billetterie ?? 0) - prevEntrees;
-            if (delta > 0) {
-              hourlyEntrees[prevHour] = (hourlyEntrees[prevHour] ?? 0) + delta;
-            }
-            if (sHour !== prevHour) {
-              prevHour = sHour;
-            }
-            prevEntrees = s.entrees_billetterie;
-          }
-
-          // Find the hour with the most entries
-          let maxEntrees = 0;
-          let maxHour = "—";
-          for (const [hour, entrees] of Object.entries(hourlyEntrees)) {
-            if (entrees > maxEntrees) {
-              maxEntrees = entrees;
-              maxHour = hour + "h";
-            }
-          }
-          if (maxEntrees > 0) {
-            heurePointe = maxHour;
-          }
-        }
-      } else {
-        // Manual mode: use jauge_actions like the original
-        const { data: jaugeActions } = await supabase
-          .from("jauge_actions")
-          .select("action, delta, created_at")
-          .eq("etablissement_id", etab.id)
-          .gte("created_at", debutSoireeISO)
-          .lt("created_at", finSoireeISO)
-          .order("created_at", { ascending: true });
-
-        if (jaugeActions && jaugeActions.length > 0) {
-          totalVisiteurs = (jaugeActions as any[])
-            .filter((a) => a.action === "entree")
-            .reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
-
-          let running = 0;
-          let heurePointeDate: Date | null = null;
-          for (const a of jaugeActions as any[]) {
-            running = Math.max(0, running + (a.delta ?? 0));
-            if (running > countMax) {
-              countMax = running;
-              heurePointeDate = new Date(a.created_at);
-            }
-          }
-          if (heurePointeDate) {
-            heurePointe = heurePointeDate.toLocaleTimeString("fr-FR", {
-              hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
-            }).replace(":", "h");
-            heureMaxEnSalle = heurePointe;
-          }
-        }
+        const points = ((snapshots ?? []) as any[]).map((s) => ({
+          t: new Date(s.snapshot_at).getTime(),
+          e: s.entrees_billetterie ?? 0,
+        }));
+        pic = calculerPic(points);
+        noteSaut = detecterSaut(points);
       }
+
+      const picValeur = pic
+        ? `${pic.plage}<div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${pic.entrees} ${pic.entrees > 1 ? "entrées" : "entrée"}</div>`
+        : "—";
 
       // --- Date/heure labels in Paris TZ ---
       const parisOpts: Intl.DateTimeFormatOptions = { timeZone: "Europe/Paris" };
@@ -486,11 +422,11 @@ Deno.serve(async (req: Request) => {
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
         <tr>
-          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "33%")}
-          ${statCell(countMax, `Max en salle${heureMaxEnSalle !== "—" ? ` (${heureMaxEnSalle})` : ""}`, "#f59e0b", "34%")}
-          ${statCell(heurePointe, "Heure de pointe", "#60a5fa", "33%")}
+          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "50%")}
+          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
         </tr>
       </table>
+      ${noteSaut ? `<p style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Relevé billetterie interrompu puis rétabli vers ${noteSaut}, le rythme d'arrivées avant cette heure peut être sous-estimé.</p>` : ""}
     </div>
 
     <!-- Stats: Activité (4 cartes) -->
@@ -509,7 +445,7 @@ Deno.serve(async (req: Request) => {
     <!-- Cartes des événements -->
     <div style="background:#ffffff;border-radius:0 0 14px 14px;padding:18px 16px 14px;">
       <h2 style="font-size:14px;font-weight:700;color:#0f172a;margin:0 0 12px">Journal des événements</h2>
-      ${cartesEvenements}
+      ${evenements.length === 0 ? `<p style="font-size:13px;color:#64748b;margin:0;">Aucun événement</p>` : cartesEvenements}
     </div>
 
     <!-- Pied de page -->
@@ -548,8 +484,8 @@ Deno.serve(async (req: Request) => {
         email_sent: emailSent,
         recipient: FIXED_RECIPIENT,
         totalVisiteurs,
-        countMax,
-        heurePointe,
+        pic,
+        noteSaut,
       });
     }
 
