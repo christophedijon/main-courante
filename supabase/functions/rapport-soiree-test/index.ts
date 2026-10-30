@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 
 const corsHeaders = {
@@ -55,6 +55,95 @@ function soireeDateFrom(ref: Date): string {
   return dateStr;
 }
 
+const STATUTS_ELIGIBLES = ["essai", "actif"];
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  return `${local.slice(0, 2)}***@${domain}`;
+}
+
+async function evaluerSoiree(
+  supabase: SupabaseClient,
+  etab: any,
+  evenements: any[],
+  rule: any,
+  dateSoireeStr: string,
+  debutISO: string,
+  finISO: string,
+) {
+  const { data: jaugeEtat, error: jaugeErr } = await supabase
+    .from("jauge_etat")
+    .select("entrees_billetterie, count_actuel")
+    .eq("etablissement_id", etab.id)
+    .eq("date_soiree", dateSoireeStr)
+    .eq("is_test", false)
+    .maybeSingle();
+  if (jaugeErr) throw jaugeErr;
+
+  let snapshotsMax: number | null = null;
+  if (jaugeEtat) {
+    const { data: snapshots, error: snapErr } = await supabase
+      .from("jauge_snapshots")
+      .select("count_actuel")
+      .eq("etablissement_id", etab.id)
+      .eq("date_soiree", dateSoireeStr);
+    if (snapErr) throw snapErr;
+    if (snapshots && snapshots.length > 0) {
+      snapshotsMax = Math.max(...snapshots.map((s: any) => s.count_actuel ?? 0));
+    }
+  }
+  const maxEnSalle = snapshotsMax ?? jaugeEtat?.count_actuel ?? 0;
+  const sourceMax = snapshotsMax !== null ? "snapshots" : jaugeEtat ? "repli_jauge_etat" : "aucune_donnee";
+
+  let visiteurs = 0;
+  if (etab.mode_jauge === "automatique") {
+    visiteurs = jaugeEtat?.entrees_billetterie ?? 0;
+  } else {
+    const { data: entrees, error: entreesErr } = await supabase
+      .from("jauge_actions")
+      .select("delta")
+      .eq("etablissement_id", etab.id)
+      .eq("action", "entree")
+      .gte("created_at", debutISO)
+      .lt("created_at", finISO);
+    if (entreesErr) throw entreesErr;
+    visiteurs = (entrees ?? []).reduce((sum: number, a: any) => sum + (a.delta ?? 0), 0);
+  }
+
+  const nbEvenements = evenements.length;
+  const envoyer = nbEvenements >= 1 || maxEnSalle > 1;
+  const motif = nbEvenements >= 1
+    ? "au moins 1 événement"
+    : maxEnSalle > 1 ? "max en salle > 1" : "aucune activité";
+
+  const destinataires = new Set<string>((rule.dest_emails_libres ?? []).filter(Boolean));
+  const fonctions: string[] = [];
+  if (rule.dest_direction) fonctions.push("Direction");
+  if (rule.dest_chef_de_poste) fonctions.push("Chef de Poste");
+  if (rule.dest_agent_securite) fonctions.push("Agent de Sécurité");
+  if (rule.dest_serveur) fonctions.push("Serveur");
+  if (fonctions.length > 0) {
+    const { data: roleUsers, error: usersErr } = await supabase
+      .from("managed_users")
+      .select("email")
+      .eq("etablissement_id", etab.id)
+      .in("fonction", fonctions);
+    if (usersErr) throw usersErr;
+    (roleUsers ?? []).forEach((u: any) => { if (u.email) destinataires.add(u.email); });
+  }
+
+  return {
+    nbEvenements,
+    maxEnSalle,
+    sourceMax,
+    visiteurs,
+    envoyer,
+    motif,
+    destinataires: Array.from(destinataires),
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -86,6 +175,7 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json().catch(() => ({}));
     const isTest = body?.test === true;
+    const dryRun = body?.dry_run === true;
 
     // Default: last completed soirée (yesterday). If body.date_soiree is provided, use it.
     let dateSoireeStr: string;
@@ -105,13 +195,16 @@ Deno.serve(async (req: Request) => {
     const debutSoiree = new Date(debutSoireeISO);
     const finSoiree = new Date(finSoireeISO);
 
-    const { data: etablissements, error: etabErr } = await supabase
+    const { data: tousEtablissements, error: etabErr } = await supabase
       .from("etablissements")
-      .select("id, nom, logo_url, effectif_public, mode_jauge")
-      .in("statut", ["essai", "actif"]);
+      .select("id, nom, logo_url, effectif_public, mode_jauge, statut");
 
     if (etabErr) throw etabErr;
-    if (!etablissements || etablissements.length === 0) {
+    const etablissements = (tousEtablissements ?? []).filter((e: any) => STATUTS_ELIGIBLES.includes(e.statut));
+    const statutsIgnores = (tousEtablissements ?? [])
+      .filter((e: any) => !STATUTS_ELIGIBLES.includes(e.statut))
+      .map((e: any) => ({ nom: e.nom, statut: e.statut }));
+    if (etablissements.length === 0) {
       return new Response(JSON.stringify({ message: "Aucun établissement actif", date: dateSoireeStr }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -121,6 +214,23 @@ Deno.serve(async (req: Request) => {
     const FIXED_RECIPIENT = "christopheinfo21@gmail.com";
 
     for (const etab of etablissements) {
+      const { data: rule, error: ruleErr } = await supabase
+        .from("email_rules")
+        .select("*")
+        .eq("type", "rapport_soiree")
+        .eq("etablissement_id", etab.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (ruleErr) {
+        results.push({ etab_id: etab.id, nom: etab.nom, skipped: `regle_error: ${ruleErr.message}` });
+        continue;
+      }
+      if (!rule?.active) {
+        results.push({ etab_id: etab.id, nom: etab.nom, skipped: "regle_inactive" });
+        continue;
+      }
+
       // Fetch evenements within the Paris 06:00 → 06:00 window
       const { data: evenements, error: evErr } = await supabase
         .from("evenements")
@@ -138,8 +248,21 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      if (!evenements || evenements.length === 0) {
-        results.push({ etab_id: etab.id, nom: etab.nom, skipped: "no_events" });
+      const evaluation = await evaluerSoiree(supabase, etab, evenements ?? [], rule, dateSoireeStr, debutSoireeISO, finSoireeISO);
+      if (dryRun || !evaluation.envoyer) {
+        results.push({
+          etab_id: etab.id,
+          nom: etab.nom,
+          date_soiree: dateSoireeStr,
+          nb_evenements: evaluation.nbEvenements,
+          max_en_salle: evaluation.maxEnSalle,
+          source_max: evaluation.sourceMax,
+          visiteurs: evaluation.visiteurs,
+          decision: evaluation.envoyer ? "envoyer" : "ne_pas_envoyer",
+          motif: evaluation.motif,
+          nb_destinataires: evaluation.destinataires.length,
+          destinataires: evaluation.destinataires.map(maskEmail),
+        });
         continue;
       }
 
@@ -435,6 +558,8 @@ Deno.serve(async (req: Request) => {
       date: dateSoireeStr,
       window: `${debutSoireeISO} → ${finSoireeISO}`,
       total_etablissements: etablissements.length,
+      dry_run: dryRun,
+      statuts_ignores: statutsIgnores,
       results,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
