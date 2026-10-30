@@ -15,6 +15,7 @@ import DocumentsPage from './pages/DocumentsPage';
 import PostesPage from './pages/PostesPage';
 import DashboardSignaturesPage from './pages/DashboardSignaturesPage';
 import RapportsPage from './pages/RapportsPage';
+import StatistiquesPage from './pages/StatistiquesPage';
 import RegistreSecuritePage from './pages/RegistreSecuritePage';
 import EmailsPage from './pages/EmailsPage';
 import EmailModelesPage from './pages/EmailModelesPage';
@@ -256,6 +257,7 @@ export default function App() {
             <Route path="/postes" element={<AdminRoute><PostesPage /></AdminRoute>} />
             <Route path="/dashboard-signatures" element={<AdminRoute><DashboardSignaturesPage /></AdminRoute>} />
             <Route path="/rapports" element={<AdminRoute><RapportsPage /></AdminRoute>} />
+            <Route path="/statistiques" element={<AdminRoute><StatistiquesPage /></AdminRoute>} />
             <Route path="/registre-securite" element={<AdminRoute><RegistreSecuritePage /></AdminRoute>} />
             <Route path="/emails" element={<AdminRoute><EmailsPage /></AdminRoute>} />
             <Route path="/emails/modeles" element={<SuperAdminRoute><EmailModelesPage /></SuperAdminRoute>} />

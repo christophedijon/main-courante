@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronDown, Briefcase, Clapperboard } from 'lucide-react';
+import { LogOut, Shield, LayoutDashboard, User, Building2, MapPin, Bot, ShieldAlert, Smartphone, FileText, PenLine, Menu, ClipboardList, BarChart2, Mail, Radio, Gauge, Users, ChevronDown, Briefcase, Clapperboard, TrendingUp } from 'lucide-react';
 import { useEntreprise } from '../hooks/useEntreprise';
 import { useAuth } from '../context/AuthContext';
 
@@ -40,6 +40,7 @@ const GROUPES = [
       { path: '/jauge/config',          label: 'Jauge',            icon: Gauge,           superOnly: false, adminOnly: true },
       { path: '/balises-rondes',        label: 'Balises & Rondes', icon: Radio,           superOnly: false, adminOnly: true },
       { path: '/rapports',              label: 'Rapports',         icon: BarChart2,       superOnly: false, adminOnly: true },
+      { path: '/statistiques',          label: 'Statistiques',     icon: TrendingUp,      superOnly: false, adminOnly: false, directionOnly: true },
       { path: '/emails',                label: 'Emails',           icon: Mail,            superOnly: false, adminOnly: true  },
     ],
   },
@@ -59,7 +60,7 @@ export default function AppHeader({ onSignOut }: Props) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { nom, logo_url } = useEntreprise();
-  const { isSuperAdmin, hasAdminAccess } = useAuth();
+  const { isSuperAdmin, hasAdminAccess, isDirection } = useAuth();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -89,6 +90,7 @@ export default function AppHeader({ onSignOut }: Props) {
     items: g.items.filter(item => {
       if (item.superOnly && !isSuperAdmin) return false;
       if (item.adminOnly && (!hasAdminAccess || isSuperAdmin)) return false;
+      if (item.directionOnly && (!isDirection || isSuperAdmin)) return false;
       return true;
     }),
   })).filter(g => g.items.length > 0);
