@@ -388,17 +388,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const isCronCall = authHeader === `Bearer ${serviceRoleKey}`;
-
-  if (!isCronCall) {
-    const authClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: { user } } = await authClient.auth.getUser();
-    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!serviceRoleKey || req.headers.get("Authorization") !== `Bearer ${serviceRoleKey}`) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
   try {
@@ -411,17 +402,19 @@ Deno.serve(async (req: Request) => {
     const dryRun = body?.dry_run === true;
     const force = body?.force === true;
     const testRecipients: string[] | null = body?.test_recipients !== undefined ? body.test_recipients : null;
+    const nowOverride: string | null = body?.now_override !== undefined ? body.now_override : null;
 
-    if ((force || testRecipients !== null) && !isCronCall) {
-      return jsonResponse({ error: "Réservé au service" }, 403);
+    if (nowOverride !== null && !dryRun) {
+      return jsonResponse({ error: "now_override réservé à dry_run" }, 400);
     }
+    const maintenant = nowOverride !== null ? new Date(nowOverride) : new Date();
+    if (Number.isNaN(maintenant.getTime())) return jsonResponse({ error: "now_override invalide" }, 400);
     if (testRecipients !== null) {
       const valides = Array.isArray(testRecipients) && testRecipients.length > 0 &&
         testRecipients.every((a) => DESTINATAIRES_TEST_AUTORISES.includes(a));
       if (!valides) return jsonResponse({ error: "Destinataires de test non autorisés" }, 400);
     }
 
-    const maintenant = new Date();
     let dateSoireeStr = ajouterJours(dateParis(maintenant), -1);
     if (body?.date_soiree !== undefined) {
       if (typeof body.date_soiree !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date_soiree)) {
@@ -435,8 +428,8 @@ Deno.serve(async (req: Request) => {
     const statsDebutISO = parisAtISO(dateSoireeStr, "06:00");
     const statsFinISO = parisAtISO(ajouterJours(dateSoireeStr, 1), "06:00");
 
-    const envoiReel = !dryRun && testRecipients === null && !force;
-    if (envoiReel && heureParis(maintenant) < HEURE_ENVOI_MIN) {
+    const gardeHoraire = testRecipients === null && !force && (!dryRun || nowOverride !== null);
+    if (gardeHoraire && heureParis(maintenant) < HEURE_ENVOI_MIN) {
       return jsonResponse({
         success: true,
         skipped: "trop_tot",
@@ -477,8 +470,10 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      if (envoiReel && !force) {
-        const { data: rapportExistant, error: existErr } = await supabase
+      let rapportExistant: { id: string } | null = null;
+      let reprise = false;
+      if (testRecipients === null && !dryRun) {
+        const { data: existant, error: existErr } = await supabase
           .from("rapports_soiree")
           .select("id")
           .eq("etablissement_id", etab.id)
@@ -488,9 +483,24 @@ Deno.serve(async (req: Request) => {
           results.push({ etab_id: etab.id, nom: etab.nom, skipped: `rapport_check_error: ${existErr.message}` });
           continue;
         }
-        if (rapportExistant) {
-          results.push({ etab_id: etab.id, nom: etab.nom, skipped: "rapport_deja_existant" });
-          continue;
+        rapportExistant = existant;
+        if (existant && !force) {
+          const { data: journal, error: journalErr } = await supabase
+            .from("rapport_envois")
+            .select("statut")
+            .eq("etablissement_id", etab.id)
+            .eq("date_soiree", dateSoireeStr)
+            .eq("test", false);
+          if (journalErr) {
+            results.push({ etab_id: etab.id, nom: etab.nom, skipped: `journal_error: ${journalErr.message}` });
+            continue;
+          }
+          const tentatives = journal ?? [];
+          if (tentatives.length === 0 || tentatives.some((j) => j.statut === "envoye")) {
+            results.push({ etab_id: etab.id, nom: etab.nom, skipped: "rapport_deja_existant" });
+            continue;
+          }
+          reprise = true;
         }
       }
 
@@ -587,7 +597,9 @@ Deno.serve(async (req: Request) => {
       });
 
       let rapportId: string | null = null;
-      if (testRecipients === null) {
+      if (reprise && rapportExistant) {
+        rapportId = rapportExistant.id;
+      } else if (testRecipients === null) {
         const { data: rapport, error: upsertErr } = await supabase
           .from("rapports_soiree")
           .upsert({
@@ -664,6 +676,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({
       success: true,
       date_soiree: dateSoireeStr,
+      heure_utilisee: maintenant.toISOString(),
       fenetre: { debut: debutISO, fin: finISO },
       dry_run: dryRun,
       test_recipients: testRecipients !== null,
