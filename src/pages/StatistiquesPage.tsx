@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { AlertTriangle, Activity, CalendarDays, Loader2, Minus, ShieldAlert, TrendingDown, TrendingUp, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import BarometreReseauCard from '../components/BarometreReseauCard';
 import {
   JOURS,
   availablePeriods,
@@ -418,6 +419,8 @@ export default function StatistiquesPage() {
             )}
           </>
         )}
+
+        <BarometreReseauCard />
       </div>
     </div>
   );
