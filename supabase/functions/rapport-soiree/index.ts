@@ -351,7 +351,7 @@ function construireHtml(p: {
   }).join("");
 
   const picValeur = p.stats.pic
-    ? `<span class="stat-range" style="font-size:18px;font-weight:700;color:#60a5fa;white-space:nowrap;">${p.stats.pic.plage}</span><div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${p.stats.pic.entrees} ${p.stats.pic.entrees > 1 ? "entrées" : "entrée"}</div>`
+    ? `<span class="stat-range" style="font-size:16px;font-weight:700;color:#60a5fa;white-space:nowrap;">${p.stats.pic.plage}</span><div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${p.stats.pic.entrees} ${p.stats.pic.entrees > 1 ? "entrées" : "entrée"}</div>`
     : "—";
   const logoHtml = p.etab.logo_url
     ? `<img src="${p.etab.logo_url}" style="height:44px;width:auto;border-radius:8px;margin-bottom:10px;display:block" alt="Logo">`
@@ -367,6 +367,12 @@ function construireHtml(p: {
               <div class="stat-value" style="font-size:22px;font-weight:700;color:${color};line-height:1.1;">${value}</div>${dessous}
               <div class="stat-label" style="font-size:11px;color:#6b7280;margin-top:5px;line-height:1.3;">${label}</div>
             </div>
+          </td>`;
+
+  const carteFrequentation = (value: string | number, label: string, color: string, dessous = "") => `
+          <td width="50%" valign="middle" style="width:50%;background:#ffffff;border-radius:10px;padding:12px 8px;text-align:center;">
+            <div class="stat-value" style="font-size:22px;font-weight:700;color:${color};line-height:1.1;">${value}</div>${dessous}
+            <div class="stat-label" style="font-size:11px;color:#6b7280;margin-top:5px;line-height:1.3;">${label}</div>
           </td>`;
 
   const capacite = Number(p.etab.effectif_public) > 0 ? Number(p.etab.effectif_public) : null;
@@ -421,10 +427,10 @@ function construireHtml(p: {
 
     <div style="background:#f1f5f9;padding:16px 12px 14px;border-bottom:1px solid #e2e8f0;">
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="4" border="0" style="width:100%;table-layout:fixed;border-collapse:separate;">
         <tr>
-          ${statCell(p.stats.totalVisiteurs, "Visiteurs", "#22c55e", "50%", visiteursTendance)}
-          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
+          ${carteFrequentation(p.stats.totalVisiteurs, "Visiteurs", "#4ade80", visiteursTendance)}
+          ${carteFrequentation(picValeur, "Pic d'arrivées", "#60a5fa")}
         </tr>
         ${jaugeCarte ? `<tr><td colspan="2" valign="top" style="padding:8px 2px 0;">${jaugeCarte}</td></tr>` : ""}
       </table>

@@ -449,7 +449,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const picValeur = pic
-        ? `<span class="stat-range" style="font-size:18px;font-weight:700;color:#60a5fa;white-space:nowrap;">${pic.plage}</span><div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${pic.entrees} ${pic.entrees > 1 ? "entrées" : "entrée"}</div>`
+        ? `<span class="stat-range" style="font-size:16px;font-weight:700;color:#60a5fa;white-space:nowrap;">${pic.plage}</span><div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${pic.entrees} ${pic.entrees > 1 ? "entrées" : "entrée"}</div>`
         : "—";
 
       // --- Date/heure labels in Paris TZ ---
@@ -508,6 +508,12 @@ Deno.serve(async (req: Request) => {
           </div>
         </td>`;
 
+      const carteFrequentation = (value: string | number, label: string, color: string, dessous = "") => `
+        <td width="50%" valign="middle" style="width:50%;background:#ffffff;border-radius:10px;padding:12px 8px;text-align:center;">
+          <div class="stat-value" style="font-size:22px;font-weight:700;color:${color};line-height:1.1;">${value}</div>${dessous}
+          <div class="stat-label" style="font-size:11px;color:#6b7280;margin-top:5px;line-height:1.3;">${label}</div>
+        </td>`;
+
       const capacite = Number(etab.effectif_public) > 0 ? Number(etab.effectif_public) : null;
       const jaugeValeur = jaugeMax
         ? `${jaugeMax.max}${capacite !== null ? ` / ${capacite}` : ""} <span style="font-size:13px;font-weight:600;">(${jaugeMax.heure})</span>`
@@ -562,10 +568,10 @@ Deno.serve(async (req: Request) => {
     <!-- Stats: Fréquentation (3 cartes) -->
     <div style="background:#f1f5f9;padding:16px 12px 14px;border-bottom:1px solid #e2e8f0;">
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="4" border="0" style="width:100%;table-layout:fixed;border-collapse:separate;">
         <tr>
-          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "50%", visiteursTendance)}
-          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
+          ${carteFrequentation(totalVisiteurs, "Visiteurs", "#4ade80", visiteursTendance)}
+          ${carteFrequentation(picValeur, "Pic d'arrivées", "#60a5fa")}
         </tr>
         ${jaugeCarte ? `<tr><td colspan="2" valign="top" style="padding:8px 2px 0;">${jaugeCarte}</td></tr>` : ""}
       </table>
