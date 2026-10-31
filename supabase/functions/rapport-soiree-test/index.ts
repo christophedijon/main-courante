@@ -234,7 +234,7 @@ function jourComparaison(dateStr: string): string {
 }
 
 function htmlTendanceVisiteurs(tendance: Tendance | null, dateSoiree: string): string {
-  if (!tendance) return `<div style="font-size:11px;color:#64748b;margin-top:6px;">Pas de comparaison</div>`;
+  if (!tendance) return `<div style="font-size:11px;color:#64748b;margin-top:6px;">vs ${jourComparaison(dateSoiree)} dernier : pas de donnée</div>`;
   const r = TENDANCE_RENDU[tendance];
   return `<div style="font-size:12px;font-weight:700;color:${r.couleur};margin-top:6px;">${r.symbole} ${r.libelle}</div><div style="font-size:11px;color:#64748b;margin-top:2px;">vs ${jourComparaison(dateSoiree)} dernier</div>`;
 }
@@ -449,7 +449,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const picValeur = pic
-        ? `${pic.plage}<div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${pic.entrees} ${pic.entrees > 1 ? "entrées" : "entrée"}</div>`
+        ? `<span class="stat-range" style="font-size:18px;font-weight:700;color:#60a5fa;white-space:nowrap;">${pic.plage}</span><div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">${pic.entrees} ${pic.entrees > 1 ? "entrées" : "entrée"}</div>`
         : "—";
 
       // --- Date/heure labels in Paris TZ ---
@@ -515,24 +515,31 @@ Deno.serve(async (req: Request) => {
       const jaugeDessous = jaugeMax
         ? `<div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">selon les sorties comptées ce soir-là</div>`
         : "";
-      const jaugeHtml = jaugeMax ? statCell(jaugeValeur, "Jauge maximale", "#f59e0b", "33%", jaugeDessous) : "";
+      const jaugeCarte = jaugeMax
+        ? `<div style="background:#ffffff;border-radius:10px;padding:12px 8px;text-align:center;">
+            <div class="stat-value" style="font-size:22px;font-weight:700;color:#f59e0b;line-height:1.1;white-space:nowrap;">${jaugeValeur}</div>${jaugeDessous}
+            <div class="stat-label" style="font-size:11px;color:#6b7280;margin-top:5px;line-height:1.3;">Jauge maximale</div>
+          </div>`
+        : "";
       const capaciteLigne = capacite !== null
         ? `<p style="font-size:11px;color:#64748b;margin:8px 0 0;text-align:right;">Capacité autorisée : ${capacite}</p>`
         : "";
       const jaugeDepassement = jaugeMax && capacite !== null && jaugeMax.max > capacite
         ? `<p style="font-size:12px;color:#b91c1c;background:#fee2e2;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Jauge maximale supérieure à la capacité autorisée d'après les données enregistrées</p>`
         : "";
-      const largeurFrequentation = jaugeMax ? "33%" : "50%";
 
       const contenuHtml = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <style>
     @media (min-width: 600px) {
       .stat-value { font-size: 28px !important; }
       .stat-label { font-size: 12px !important; }
+      .stat-range { font-size: 22px !important; }
     }
   </style>
   <title>Rapport de soirée — ${dateSoireeLabel}</title>
@@ -555,12 +562,12 @@ Deno.serve(async (req: Request) => {
     <!-- Stats: Fréquentation (3 cartes) -->
     <div style="background:#f1f5f9;padding:16px 12px 14px;border-bottom:1px solid #e2e8f0;">
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;">
         <tr>
-          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", largeurFrequentation, visiteursTendance)}
-          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", largeurFrequentation)}
-          ${jaugeHtml}
+          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "50%", visiteursTendance)}
+          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
         </tr>
+        ${jaugeCarte ? `<tr><td colspan="2" valign="top" style="padding:8px 2px 0;">${jaugeCarte}</td></tr>` : ""}
       </table>
       ${capaciteLigne}
       ${jaugeDepassement}
