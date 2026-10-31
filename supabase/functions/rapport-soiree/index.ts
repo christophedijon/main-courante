@@ -429,7 +429,7 @@ function construireHtml(p: {
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="4" border="0" style="width:100%;table-layout:fixed;border-collapse:separate;">
         <tr>
-          ${carteFrequentation(p.stats.totalVisiteurs, "Visiteurs", "#4ade80", visiteursTendance)}
+          ${carteFrequentation(p.stats.totalVisiteurs, "Visiteurs", "#16a34a", visiteursTendance)}
           ${carteFrequentation(picValeur, "Pic d'arrivées", "#60a5fa")}
         </tr>
         ${jaugeCarte ? `<tr><td colspan="2" valign="top" style="padding:8px 2px 0;">${jaugeCarte}</td></tr>` : ""}

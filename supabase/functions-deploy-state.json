@@ -59,11 +59,11 @@
     },
     "rapport-soiree": {
       "hasChanged": false,
-      "hash": "580ad04f873953bab75dcef367be3096b375605fca019368476e96f290675809"
+      "hash": "886f2308c6388a420bfd58fbf3b30c73cd5f880a2479cb706b13a1c6c43166ea"
     },
     "rapport-soiree-test": {
       "hasChanged": false,
-      "hash": "2e92a9fba6079f7ad034813b7449e0167bb8e5895106b10cc285ccf95c53589c"
+      "hash": "51fdf83a89de47ddd3ab37dd908d29addc6fe41bc58ee348db9c6c67889c5f9e"
     },
     "resend-invitation": {
       "hasChanged": false,
