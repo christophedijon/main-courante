@@ -168,6 +168,71 @@ async function evaluerSoiree(
   };
 }
 
+type Tendance = "hausse" | "stable" | "baisse";
+type TendancesSoiree = { etablissement: Tendance | null; reseau: Tendance | null };
+
+const TENDANCES_VALIDES: string[] = ["hausse", "stable", "baisse"];
+const TENDANCE_RENDU: Record<Tendance, { symbole: string; libelle: string; couleur: string }> = {
+  hausse: { symbole: "▲", libelle: "Hausse", couleur: "#15803d" },
+  stable: { symbole: "▶", libelle: "Stable", couleur: "#475569" },
+  baisse: { symbole: "▼", libelle: "Baisse", couleur: "#c2410c" },
+};
+
+function valideTendancesSimulees(valeur: any): boolean {
+  if (!valeur || typeof valeur !== "object" || Array.isArray(valeur)) return false;
+  return Object.entries(valeur).every(([cle, v]) =>
+    (cle === "etablissement" || cle === "reseau") && TENDANCES_VALIDES.includes(v as string)
+  );
+}
+
+function jourComparaison(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - 7)).toLocaleDateString("fr-FR", { weekday: "long", timeZone: "UTC" });
+}
+
+function htmlTendanceVisiteurs(tendance: Tendance | null, dateSoiree: string): string {
+  if (!tendance) return `<div style="font-size:11px;color:#64748b;margin-top:6px;">Pas de comparaison</div>`;
+  const r = TENDANCE_RENDU[tendance];
+  return `<div style="font-size:12px;font-weight:700;color:${r.couleur};margin-top:6px;">${r.symbole} ${r.libelle}</div><div style="font-size:11px;color:#64748b;margin-top:2px;">vs ${jourComparaison(dateSoiree)} dernier</div>`;
+}
+
+function htmlTendanceReseau(tendance: Tendance | null, desactive: boolean): string {
+  if (desactive) return `<p style="font-size:11px;color:#64748b;margin:10px 0 0;">Comparatif réseau désactivé</p>`;
+  if (!tendance) return "";
+  const r = TENDANCE_RENDU[tendance];
+  return `<p style="font-size:12px;font-weight:700;color:${r.couleur};margin:10px 0 0;">Réseau ${r.symbole} ${r.libelle}</p>`;
+}
+
+async function calculerTendances(
+  supabase: SupabaseClient,
+  etabId: string,
+  dateSoiree: string,
+  simulees: Partial<TendancesSoiree> | null,
+): Promise<{ tendances: TendancesSoiree; erreur: string | null }> {
+  const aucune: TendancesSoiree = { etablissement: null, reseau: null };
+  const { error: calculErr } = await supabase.rpc("compute_stats_soiree", {
+    p_etablissement_id: etabId,
+    p_date_soiree: dateSoiree,
+  });
+  if (calculErr) return { tendances: aucune, erreur: `compute_stats_soiree: ${calculErr.message}` };
+
+  const [etabRes, reseauRes] = await Promise.all([
+    supabase.rpc("tendance_etablissement", { p_etablissement_id: etabId, p_date_soiree: dateSoiree }),
+    supabase.rpc("tendance_reseau", { p_etablissement_id: etabId, p_date_soiree: dateSoiree }),
+  ]);
+  const erreurs: string[] = [];
+  if (etabRes.error) erreurs.push(`tendance_etablissement: ${etabRes.error.message}`);
+  if (reseauRes.error) erreurs.push(`tendance_reseau: ${reseauRes.error.message}`);
+
+  return {
+    tendances: {
+      etablissement: simulees?.etablissement ?? (etabRes.error ? null : (etabRes.data as Tendance | null)),
+      reseau: simulees?.reseau ?? (reseauRes.error ? null : (reseauRes.data as Tendance | null)),
+    },
+    erreur: erreurs.length > 0 ? erreurs.join(" ; ") : null,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -200,6 +265,12 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const isTest = body?.test === true;
     const dryRun = body?.dry_run === true;
+    const tendancesSimulees = body?.tendances_simulees ?? null;
+    if (tendancesSimulees !== null && (!isCronCall || !valideTendancesSimulees(tendancesSimulees))) {
+      return new Response(JSON.stringify({ error: "tendances_simulees non autorisé ou invalide" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Default: last completed soirée (yesterday). If body.date_soiree is provided, use it.
     let dateSoireeStr: string;
@@ -217,11 +288,10 @@ Deno.serve(async (req: Request) => {
     const debutSoireeISO = parisStartISO(dateSoireeStr);
     const finSoireeISO = parisEndISO(dateSoireeStr);
     const debutSoiree = new Date(debutSoireeISO);
-    const finSoiree = new Date(finSoireeISO);
 
     const { data: tousEtablissements, error: etabErr } = await supabase
       .from("etablissements")
-      .select("id, nom, logo_url, effectif_public, mode_jauge, statut");
+      .select("id, nom, logo_url, effectif_public, mode_jauge, statut, barometre_participe");
 
     if (etabErr) throw etabErr;
     const etablissements = (tousEtablissements ?? []).filter((e: any) => STATUTS_ELIGIBLES.includes(e.statut));
@@ -288,6 +358,8 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
+      const { tendances, erreur: tendancesErreur } = await calculerTendances(supabase, etab.id, dateSoireeStr, tendancesSimulees);
+
       const agentIds = [...new Set(evenements.map((e: any) => e.created_by).filter(Boolean))];
       const { data: profiles } = agentIds.length > 0 ? await supabase
         .from("user_profiles")
@@ -338,8 +410,6 @@ Deno.serve(async (req: Request) => {
       const dateSoireeLabel = debutSoiree.toLocaleDateString("fr-FR", {
         weekday: "long", day: "2-digit", month: "long", year: "numeric", ...parisOpts,
       });
-      const heureDebut = debutSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", ...parisOpts });
-      const heureFin = finSoiree.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", ...parisOpts });
 
       // --- Event cards (one div per event, mobile-friendly) ---
       const cartesEvenements = evenements.map((e: any) => {
@@ -380,10 +450,13 @@ Deno.serve(async (req: Request) => {
       const nomEntreprise = etab.nom ?? "Rapport de soirée";
 
       // --- Statistics: 3 cards per row ---
-      const statCell = (value: string | number, label: string, color: string, width: string) => `
+      const visiteursTendance = htmlTendanceVisiteurs(tendances.etablissement, dateSoireeStr);
+      const reseauLigne = htmlTendanceReseau(tendances.reseau, etab.barometre_participe === false);
+
+      const statCell = (value: string | number, label: string, color: string, width: string, dessous = "") => `
         <td width="${width}" valign="top" style="width:${width};padding:0 2px;">
           <div style="background:#ffffff;border-radius:10px;padding:12px 4px;text-align:center;">
-            <div class="stat-value" style="font-size:22px;font-weight:700;color:${color};line-height:1.1;">${value}</div>
+            <div class="stat-value" style="font-size:22px;font-weight:700;color:${color};line-height:1.1;">${value}</div>${dessous}
             <div class="stat-label" style="font-size:11px;color:#6b7280;margin-top:5px;line-height:1.3;">${label}</div>
           </div>
         </td>`;
@@ -414,7 +487,6 @@ Deno.serve(async (req: Request) => {
     <!-- Sous-titre soirée -->
     <div style="background:#1e293b;padding:14px 24px;">
       <p style="color:#e2e8f0;font-size:16px;font-weight:700;margin:0 0 4px">Soirée du ${dateSoireeLabel}</p>
-      <p style="color:#475569;font-size:12px;margin:0">${heureDebut} → ${heureFin} (heure de Paris)</p>
     </div>
 
     <!-- Stats: Fréquentation (3 cartes) -->
@@ -422,10 +494,11 @@ Deno.serve(async (req: Request) => {
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
         <tr>
-          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "50%")}
+          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "50%", visiteursTendance)}
           ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
         </tr>
       </table>
+      ${reseauLigne}
       ${noteSaut ? `<p style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Relevé billetterie interrompu puis rétabli vers ${noteSaut}, le rythme d'arrivées avant cette heure peut être sous-estimé.</p>` : ""}
     </div>
 
@@ -486,6 +559,7 @@ Deno.serve(async (req: Request) => {
         totalVisiteurs,
         pic,
         noteSaut,
+        tendances_erreur: tendancesErreur,
       });
     }
 
