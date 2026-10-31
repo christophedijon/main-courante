@@ -11,6 +11,8 @@ const corsHeaders = {
  * Convert a Paris-local date string (YYYY-MM-DD) to a UTC Date at 06:00 Paris.
  * Uses Intl to compute the correct offset (CEST +02:00 or CET +01:00).
  */
+const DESTINATAIRES_TEST_AUTORISES = ["christopheinfo21@gmail.com", "christophelemesnil@gmail.com"];
+
 function parisStartISO(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const noonUTC = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
@@ -102,6 +104,47 @@ function detecterSaut(points: { t: number; e: number }[]): string | null {
     }
   }
   return null;
+}
+
+function heureParisHhMm(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const h = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const m = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${h}h${m}`;
+}
+
+async function calculerJaugeMaximale(
+  supabase: SupabaseClient,
+  etab: any,
+  dateSoireeStr: string,
+): Promise<{ max: number; heure: string } | null> {
+  const { data: jaugeEtat, error: jaugeErr } = await supabase
+    .from("jauge_etat")
+    .select("sorties_boutons")
+    .eq("etablissement_id", etab.id)
+    .eq("date_soiree", dateSoireeStr)
+    .eq("is_test", false)
+    .maybeSingle();
+  if (jaugeErr) throw jaugeErr;
+  if ((jaugeEtat?.sorties_boutons ?? 0) <= 1) return null;
+
+  const { data: snapshots, error: snapErr } = await supabase
+    .from("jauge_snapshots")
+    .select("snapshot_at, count_actuel")
+    .eq("etablissement_id", etab.id)
+    .eq("date_soiree", dateSoireeStr)
+    .order("snapshot_at", { ascending: true });
+  if (snapErr) throw snapErr;
+
+  let meilleur: { count: number; at: string } | null = null;
+  for (const s of (snapshots ?? []) as any[]) {
+    if (s.count_actuel == null) continue;
+    if (!meilleur || s.count_actuel > meilleur.count) meilleur = { count: s.count_actuel, at: s.snapshot_at };
+  }
+  if (!meilleur) return null;
+  return { max: meilleur.count, heure: heureParisHhMm(meilleur.at) };
 }
 
 async function evaluerSoiree(
@@ -261,6 +304,17 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const testRecipients: string[] | null = body?.test_recipients ?? null;
+    if (testRecipients !== null) {
+      const valides = Array.isArray(testRecipients) && testRecipients.length > 0 &&
+        testRecipients.every((a) => DESTINATAIRES_TEST_AUTORISES.includes(a));
+      if (!valides) {
+        return new Response(JSON.stringify({ error: "Destinataires de test non autorisés" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Default: last completed soirée (yesterday). If body.date_soiree is provided, use it.
     let dateSoireeStr: string;
     if (body?.date_soiree) {
@@ -295,6 +349,7 @@ Deno.serve(async (req: Request) => {
 
     const results: any[] = [];
     const FIXED_RECIPIENT = "christopheinfo21@gmail.com";
+
 
     for (const etab of etablissements) {
       const { data: rule, error: ruleErr } = await supabase
@@ -332,6 +387,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const evaluation = await evaluerSoiree(supabase, etab, evenements ?? [], rule, dateSoireeStr, debutSoireeISO, finSoireeISO);
+      const jaugeMax = await calculerJaugeMaximale(supabase, etab, dateSoireeStr);
       if (dryRun || !evaluation.envoyer) {
         results.push({
           etab_id: etab.id,
@@ -343,6 +399,8 @@ Deno.serve(async (req: Request) => {
           motif: evaluation.motif,
           nb_destinataires: evaluation.destinataires.length,
           destinataires: evaluation.destinataires.map(maskEmail),
+          jauge_maximale: jaugeMax,
+          capacite_autorisee: Number(etab.effectif_public) > 0 ? Number(etab.effectif_public) : null,
         });
         continue;
       }
@@ -450,6 +508,22 @@ Deno.serve(async (req: Request) => {
           </div>
         </td>`;
 
+      const capacite = Number(etab.effectif_public) > 0 ? Number(etab.effectif_public) : null;
+      const jaugeValeur = jaugeMax
+        ? `${jaugeMax.max}${capacite !== null ? ` / ${capacite}` : ""} <span style="font-size:13px;font-weight:600;">(${jaugeMax.heure})</span>`
+        : "";
+      const jaugeDessous = jaugeMax
+        ? `<div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">selon les sorties comptées ce soir-là</div>`
+        : "";
+      const jaugeHtml = jaugeMax ? statCell(jaugeValeur, "Jauge maximale", "#f59e0b", "33%", jaugeDessous) : "";
+      const capaciteLigne = capacite !== null
+        ? `<p style="font-size:11px;color:#64748b;margin:8px 0 0;text-align:right;">Capacité autorisée : ${capacite}</p>`
+        : "";
+      const jaugeDepassement = jaugeMax && capacite !== null && jaugeMax.max > capacite
+        ? `<p style="font-size:12px;color:#b91c1c;background:#fee2e2;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Jauge maximale supérieure à la capacité autorisée d'après les données enregistrées</p>`
+        : "";
+      const largeurFrequentation = jaugeMax ? "33%" : "50%";
+
       const contenuHtml = `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -483,10 +557,13 @@ Deno.serve(async (req: Request) => {
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
         <tr>
-          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", "50%", visiteursTendance)}
-          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
+          ${statCell(totalVisiteurs, "Visiteurs", "#22c55e", largeurFrequentation, visiteursTendance)}
+          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", largeurFrequentation)}
+          ${jaugeHtml}
         </tr>
       </table>
+      ${capaciteLigne}
+      ${jaugeDepassement}
       ${reseauLigne}
       ${noteSaut ? `<p style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Relevé billetterie interrompu puis rétabli vers ${noteSaut}, le rythme d'arrivées avant cette heure peut être sous-estimé.</p>` : ""}
     </div>
@@ -523,12 +600,13 @@ Deno.serve(async (req: Request) => {
 
       // --- Send email to the fixed test recipient only (no DB write) ---
       let emailSent = false;
+      const destinataires = testRecipients ?? [FIXED_RECIPIENT];
       try {
         const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
         const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@send.maincourante.eu";
         await resend.emails.send({
           from: FROM_EMAIL,
-          to: FIXED_RECIPIENT,
+          to: destinataires,
           replyTo: "contact@maincourante.eu",
           subject: `[TEST] Rapport de soirée — ${nomEntreprise} — ${dateSoireeLabel}`,
           html: contenuHtml,
@@ -544,7 +622,8 @@ Deno.serve(async (req: Request) => {
         nb_evenements: evenements.length,
         nb_agents: agentIds.length,
         email_sent: emailSent,
-        recipient: FIXED_RECIPIENT,
+        recipient: destinataires.map(maskEmail),
+        jauge_maximale: jaugeMax,
         totalVisiteurs,
         pic,
         noteSaut,

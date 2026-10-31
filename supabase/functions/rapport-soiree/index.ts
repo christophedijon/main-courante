@@ -152,6 +152,47 @@ async function resoudreDestinataires(supabase: SupabaseClient, etab: any, rule: 
   return Array.from(destinataires);
 }
 
+function heureParisHhMm(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const h = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const m = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${h}h${m}`;
+}
+
+async function calculerJaugeMaximale(
+  supabase: SupabaseClient,
+  etab: any,
+  dateSoireeStr: string,
+): Promise<{ max: number; heure: string } | null> {
+  const { data: jaugeEtat, error: jaugeErr } = await supabase
+    .from("jauge_etat")
+    .select("sorties_boutons")
+    .eq("etablissement_id", etab.id)
+    .eq("date_soiree", dateSoireeStr)
+    .eq("is_test", false)
+    .maybeSingle();
+  if (jaugeErr) throw jaugeErr;
+  if ((jaugeEtat?.sorties_boutons ?? 0) <= 1) return null;
+
+  const { data: snapshots, error: snapErr } = await supabase
+    .from("jauge_snapshots")
+    .select("snapshot_at, count_actuel")
+    .eq("etablissement_id", etab.id)
+    .eq("date_soiree", dateSoireeStr)
+    .order("snapshot_at", { ascending: true });
+  if (snapErr) throw snapErr;
+
+  let meilleur: { count: number; at: string } | null = null;
+  for (const s of (snapshots ?? []) as any[]) {
+    if (s.count_actuel == null) continue;
+    if (!meilleur || s.count_actuel > meilleur.count) meilleur = { count: s.count_actuel, at: s.snapshot_at };
+  }
+  if (!meilleur) return null;
+  return { max: meilleur.count, heure: heureParisHhMm(meilleur.at) };
+}
+
 async function calculerStatistiques(
   supabase: SupabaseClient,
   etab: any,
@@ -278,6 +319,7 @@ function construireHtml(p: {
   tendances: TendancesSoiree;
   reseauDesactive: boolean;
   stats: Statistiques;
+  jaugeMax: { max: number; heure: string } | null;
 }): string {
   const cartesEvenements = p.evenements.map((e: any) => {
     const heure = heureCourte(e.date_evenement);
@@ -327,6 +369,23 @@ function construireHtml(p: {
             </div>
           </td>`;
 
+  const capacite = Number(p.etab.effectif_public) > 0 ? Number(p.etab.effectif_public) : null;
+  const jaugeMax = p.jaugeMax;
+  const jaugeValeur = jaugeMax
+    ? `${jaugeMax.max}${capacite !== null ? ` / ${capacite}` : ""} <span style="font-size:13px;font-weight:600;">(${jaugeMax.heure})</span>`
+    : "";
+  const jaugeDessous = jaugeMax
+    ? `<div style="font-size:11px;font-weight:500;color:#64748b;margin-top:4px;">selon les sorties comptées ce soir-là</div>`
+    : "";
+  const jaugeHtml = jaugeMax ? statCell(jaugeValeur, "Jauge maximale", "#f59e0b", "33%", jaugeDessous) : "";
+  const capaciteLigne = capacite !== null
+    ? `<p style="font-size:11px;color:#64748b;margin:8px 0 0;text-align:right;">Capacité autorisée : ${capacite}</p>`
+    : "";
+  const jaugeDepassement = jaugeMax && capacite !== null && jaugeMax.max > capacite
+    ? `<p style="font-size:12px;color:#b91c1c;background:#fee2e2;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Jauge maximale supérieure à la capacité autorisée d'après les données enregistrées</p>`
+    : "";
+  const largeurFrequentation = jaugeMax ? "33%" : "50%";
+
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -357,10 +416,13 @@ function construireHtml(p: {
       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;">Fréquentation</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
         <tr>
-          ${statCell(p.stats.totalVisiteurs, "Visiteurs", "#22c55e", "50%", visiteursTendance)}
-          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", "50%")}
+          ${statCell(p.stats.totalVisiteurs, "Visiteurs", "#22c55e", largeurFrequentation, visiteursTendance)}
+          ${statCell(picValeur, "Pic d'arrivées", "#60a5fa", largeurFrequentation)}
+          ${jaugeHtml}
         </tr>
       </table>
+      ${capaciteLigne}
+      ${jaugeDepassement}
       ${reseauLigne}
       ${p.stats.noteSaut ? `<p style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin:10px 0 0;">Relevé billetterie interrompu puis rétabli vers ${p.stats.noteSaut}, le rythme d'arrivées avant cette heure peut être sous-estimé.</p>` : ""}
     </div>
@@ -562,6 +624,7 @@ Deno.serve(async (req: Request) => {
       const evenements = evenementsBruts ?? [];
 
       const stats = await calculerStatistiques(supabase, etab, dateSoireeStr, statsDebutISO, statsFinISO);
+      const jaugeMax = await calculerJaugeMaximale(supabase, etab, dateSoireeStr);
       const regle = evaluerRegle(evenements.length, stats.totalVisiteurs);
       if (!regle.envoyer && !dryRun) {
         results.push({
@@ -598,6 +661,7 @@ Deno.serve(async (req: Request) => {
           tendances_erreur: tendancesErreur,
           pic: stats.pic,
           note_saut: stats.noteSaut,
+          jauge_maximale: jaugeMax,
           rapport: decisionRapport,
           nb_destinataires: destinataires.length,
           destinataires: destinataires.map(maskEmail),
@@ -643,6 +707,7 @@ Deno.serve(async (req: Request) => {
         nbPersonnes: evenements.filter((e: any) => e.type !== "ssi").length,
         nbAgents: agentIds.length,
         stats,
+        jaugeMax,
       });
 
       let rapportId: string | null = null;
