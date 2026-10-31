@@ -239,21 +239,10 @@ Deno.serve(async (req: Request) => {
   }
 
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const isCronCall = authHeader === `Bearer ${serviceRoleKey}`;
-
-  if (!isCronCall) {
-    const authClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: { user } } = await authClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  if (!serviceRoleKey || req.headers.get("Authorization") !== `Bearer ${serviceRoleKey}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -266,7 +255,7 @@ Deno.serve(async (req: Request) => {
     const isTest = body?.test === true;
     const dryRun = body?.dry_run === true;
     const tendancesSimulees = body?.tendances_simulees ?? null;
-    if (tendancesSimulees !== null && (!isCronCall || !valideTendancesSimulees(tendancesSimulees))) {
+    if (tendancesSimulees !== null && !valideTendancesSimulees(tendancesSimulees)) {
       return new Response(JSON.stringify({ error: "tendances_simulees non autorisé ou invalide" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
