@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Filter, X, ChevronUp as ChevronUpIcon, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Filter, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useEntreprise } from '../../hooks/useEntreprise';
 import { soireeDate, soireeDateOf, soireeStartISOForDate, soireeEndISOForDate, formatSoireeLabel } from '../../lib/jaugeDate';
@@ -52,9 +52,12 @@ function getSoireeDateRange(filters: Filters, drillDate: string | null) {
       return { fromISO: soireeStartISOForDate(startStr), toISO: soireeEndISOForDate(sd), fromDate: startStr, toDate: sd };
     }
     case 'custom': {
-      const from = filters.dateFrom || sd;
-      const to = filters.dateTo || sd;
-      return { fromISO: soireeStartISOForDate(from), toISO: soireeEndISOForDate(to), fromDate: from, toDate: to };
+      return {
+        fromISO: filters.dateFrom ? soireeStartISOForDate(filters.dateFrom) : '',
+        toISO: filters.dateTo ? soireeEndISOForDate(filters.dateTo) : '',
+        fromDate: filters.dateFrom,
+        toDate: filters.dateTo,
+      };
     }
     default: {
       return { fromISO: '', toISO: '', fromDate: '', toDate: '' };
@@ -73,6 +76,9 @@ export default function HistoryEvenementsPage() {
   const [loading, setLoading] = useState(false);
   const [tableRows, setTableRows] = useState<TableRow[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
+  const [listError, setListError] = useState(false);
+  const [tableError, setTableError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const showTable = drillDate === null && filters.type === 'all' && filters.date !== 'today';
 
@@ -80,49 +86,66 @@ export default function HistoryEvenementsPage() {
     if (showTable) return;
     (async () => {
       setLoading(true);
+      setListError(false);
       const { fromISO, toISO } = getSoireeDateRange(filters, drillDate);
       let q = supabase
         .from('evenements')
         .select('id, numero, type, espace_nom, zone_nom, niveau_label, date_evenement, created_by_email')
         .order('date_evenement', { ascending: false })
         .limit(100);
-      if (fromISO) {
-        q = q.gte('date_evenement', fromISO);
-        q = q.lt('date_evenement', toISO);
-        if (filters.type !== 'all') q = q.eq('type', filters.type);
-      } else {
-        if (filters.type !== 'all') q = q.eq('type', filters.type);
+      if (fromISO) q = q.gte('date_evenement', fromISO);
+      if (toISO) q = q.lt('date_evenement', toISO);
+      if (filters.type !== 'all') q = q.eq('type', filters.type);
+      try {
+        const { data, error } = await q;
+        if (error) throw error;
+        setEvents((data ?? []) as EventItem[]);
+      } catch {
+        setEvents([]);
+        setListError(true);
+      } finally {
+        setLoading(false);
       }
-      const { data } = await q;
-      setEvents((data ?? []) as EventItem[]);
-      setLoading(false);
     })();
-  }, [filters, showTable, drillDate]);
+  }, [filters, showTable, drillDate, reloadToken]);
 
   useEffect(() => {
     if (!showTable || !etabId) return;
     (async () => {
       setTableLoading(true);
+      setTableError(false);
       const { fromISO, toISO, fromDate, toDate } = getSoireeDateRange(filters, null);
-      const [jaugeRes, evRes] = await Promise.all([
-        supabase.from('jauge_etat').select('date_soiree, count_actuel').eq('etablissement_id', etabId).eq('is_test', false).gte('date_soiree', fromDate).lte('date_soiree', toDate),
-        supabase.from('evenements').select('date_evenement, type').eq('etablissement_id', etabId).gte('date_evenement', fromISO).lt('date_evenement', toISO),
-      ]);
-      const jaugeByDate: Record<string, number> = {};
-      for (const row of jaugeRes.data ?? []) { const d = row.date_soiree as string; jaugeByDate[d] = Math.max(jaugeByDate[d] ?? 0, (row.count_actuel as number) ?? 0); }
-      const evByDate: Record<string, { ssi: number; personnes: number }> = {};
-      for (const row of evRes.data ?? []) {
-        const d = soireeDateOf(row.date_evenement as string);
-        if (!evByDate[d]) evByDate[d] = { ssi: 0, personnes: 0 };
-        if (row.type === 'ssi') evByDate[d].ssi++;
-        if (row.type === 'securite_personnes') evByDate[d].personnes++;
+      let jaugeQ = supabase.from('jauge_etat').select('date_soiree, count_actuel').eq('etablissement_id', etabId).eq('is_test', false);
+      if (fromDate) jaugeQ = jaugeQ.gte('date_soiree', fromDate);
+      if (toDate) jaugeQ = jaugeQ.lte('date_soiree', toDate);
+      let evQ = supabase.from('evenements').select('date_evenement, type').eq('etablissement_id', etabId);
+      if (fromISO) evQ = evQ.gte('date_evenement', fromISO);
+      if (toISO) evQ = evQ.lt('date_evenement', toISO);
+      try {
+        const [jaugeRes, evRes] = await Promise.all([jaugeQ, evQ]);
+        if (jaugeRes.error || evRes.error) throw new Error('chargement historique');
+        const jaugeByDate: Record<string, number> = {};
+        for (const row of jaugeRes.data ?? []) { const d = row.date_soiree as string; jaugeByDate[d] = Math.max(jaugeByDate[d] ?? 0, (row.count_actuel as number) ?? 0); }
+        const evByDate: Record<string, { ssi: number; personnes: number }> = {};
+        for (const row of evRes.data ?? []) {
+          const d = soireeDateOf(row.date_evenement as string);
+          if (!evByDate[d]) evByDate[d] = { ssi: 0, personnes: 0 };
+          if (row.type === 'ssi') evByDate[d].ssi++;
+          if (row.type === 'securite_personnes') evByDate[d].personnes++;
+        }
+        const allDates = new Set([...Object.keys(jaugeByDate), ...Object.keys(evByDate)]);
+        const rows: TableRow[] = Array.from(allDates).sort((a, b) => b.localeCompare(a)).map((date) => ({ date, entrees_max: jaugeByDate[date] ?? 0, nb_ssi: evByDate[date]?.ssi ?? 0, nb_personnes: evByDate[date]?.personnes ?? 0 }));
+        setTableRows(rows);
+      } catch {
+        setTableRows([]);
+        setTableError(true);
+      } finally {
+        setTableLoading(false);
       }
-      const allDates = new Set([...Object.keys(jaugeByDate), ...Object.keys(evByDate)]);
-      const rows: TableRow[] = Array.from(allDates).sort((a, b) => b.localeCompare(a)).map((date) => ({ date, entrees_max: jaugeByDate[date] ?? 0, nb_ssi: evByDate[date]?.ssi ?? 0, nb_personnes: evByDate[date]?.personnes ?? 0 }));
-      setTableRows(rows);
-      setTableLoading(false);
     })();
-  }, [filters, etabId, showTable]);
+  }, [filters, etabId, showTable, reloadToken]);
+
+  const reload = () => setReloadToken((t) => t + 1);
 
   const activeFiltersCount =
     Number(filters.type !== 'all') + Number(filters.date !== 'today') + Number(!!filters.dateFrom || !!filters.dateTo);
@@ -163,9 +186,10 @@ export default function HistoryEvenementsPage() {
 
         {showTable ? (
           <>
-            {tableLoading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
-            {!tableLoading && tableRows.length === 0 && <EmptyState text="Aucune donnée" hint="Aucun événement ni entrée de jauge sur cette période" />}
-            {!tableLoading && tableRows.length > 0 && (
+            {(tableLoading || !etabId) && !tableError && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
+            {tableError && <LoadError onRetry={reload} />}
+            {!tableLoading && etabId && !tableError && tableRows.length === 0 && <EmptyState text="Aucune donnée" hint="Aucun événement ni entrée de jauge sur cette période" />}
+            {!tableLoading && etabId && !tableError && tableRows.length > 0 && (
               <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-[13px]">
@@ -202,7 +226,8 @@ export default function HistoryEvenementsPage() {
         ) : (
           <div className="space-y-2.5">
             {loading && <p className="text-slate-500 text-sm text-center py-8">Chargement…</p>}
-            {!loading && events.length === 0 && <EmptyState text="Aucun événement trouvé" hint={drillDate ? `Aucun événement pour la ${formatSoireeLabel(drillDate)}` : "Essayez d'ajuster vos filtres"} />}
+            {!loading && listError && <LoadError onRetry={reload} />}
+            {!loading && !listError && events.length === 0 && <EmptyState text="Aucun événement trouvé" hint={drillDate ? `Aucun événement pour la ${formatSoireeLabel(drillDate)}` : "Essayez d'ajuster vos filtres"} />}
             {events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
           </div>
         )}
@@ -238,6 +263,15 @@ export default function HistoryEvenementsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LoadError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-5 text-center">
+      <p className="text-red-300 font-semibold text-sm">Impossible de charger l'historique, réessayez</p>
+      <button type="button" onClick={onRetry} className="mt-3 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm font-medium hover:bg-slate-700 transition-colors">Recharger</button>
     </div>
   );
 }
