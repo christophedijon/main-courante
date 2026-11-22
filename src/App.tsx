@@ -69,6 +69,7 @@ import StepSsiZone from './mobile/saisie/StepSsiZone';
 import StepSsiMotifs from './mobile/saisie/StepSsiMotifs';
 import { RoleRoute } from './mobile/components/RoleRoute';
 import UnsignedDocsBanner from './components/UnsignedDocsBanner';
+import AlerteBraceletPopup from './components/AlerteBraceletPopup';
 
 function EditorAccessBanner() {
   const { session } = useAuth();
@@ -240,6 +241,7 @@ export default function App() {
           <EditorSessionGuard />
           <OfflineSignatureSync />
           <UnsignedDocsBanner />
+          <AlerteBraceletPopup />
           <Routes>
             <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
