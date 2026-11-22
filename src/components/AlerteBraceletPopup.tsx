@@ -36,26 +36,52 @@ function styleFor(code: string | null): AlerteStyle {
   return { bg: 'bg-orange-500', ring: 'ring-orange-300', blink: false, label: c || 'ALERTE', annulation: false };
 }
 
-function beep(times: number) {
+function créerContexteAudio(): AudioContext | null {
   try {
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     void ctx.resume();
-    for (let i = 0; i < times; i++) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const start = ctx.currentTime + i * 0.6;
-      osc.type = 'square';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.25, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.5);
-    }
-    setTimeout(() => void ctx.close(), times * 600 + 1000);
+    return ctx;
   } catch {
     // le son est bloqué avant la première interaction navigateur : l'alerte reste visible
+    return null;
+  }
+}
+
+function bipAnnulation() {
+  const ctx = créerContexteAudio();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 880;
+  gain.gain.setValueAtTime(0.25, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.5);
+  setTimeout(() => void ctx.close(), 1000);
+}
+
+// Un cycle d'alarme type FR-Alert : 2 s son, 0,5 s silence, 1 s son, 0,5 s silence, 1 s son, puis 1 s de silence (6 s au total)
+function jouerCycleAlarme(ctx: AudioContext) {
+  const segments: Array<[number, boolean]> = [[2, true], [0.5, false], [1, true], [0.5, false], [1, true]];
+  let t = ctx.currentTime + 0.05;
+  for (const [durée, actif] of segments) {
+    if (actif) {
+      for (const fréquence of [853, 960]) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = fréquence;
+        gain.gain.setValueAtTime(0.5, t);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + durée);
+      }
+    }
+    t += durée;
   }
 }
 
@@ -89,14 +115,38 @@ export default function AlerteBraceletPopup() {
   const etabIdRef = useRef(etabId);
   etabIdRef.current = etabId;
 
+  const alarmeCtxRef = useRef<AudioContext | null>(null);
+  const alarmeTimerRef = useRef<number | null>(null);
+
+  const arrêterAlarme = useCallback(() => {
+    if (alarmeTimerRef.current !== null) {
+      clearInterval(alarmeTimerRef.current);
+      alarmeTimerRef.current = null;
+    }
+    if (alarmeCtxRef.current) {
+      void alarmeCtxRef.current.close();
+      alarmeCtxRef.current = null;
+    }
+  }, []);
+
+  const démarrerAlarme = useCallback(() => {
+    arrêterAlarme();
+    const ctx = créerContexteAudio();
+    if (!ctx) return;
+    alarmeCtxRef.current = ctx;
+    jouerCycleAlarme(ctx);
+    alarmeTimerRef.current = window.setInterval(() => jouerCycleAlarme(ctx), 6000);
+  }, [arrêterAlarme]);
+
   const fermer = useCallback((id: string) => {
     setAlertes((list) => list.filter((a) => a.id !== id));
   }, []);
 
   const prendreEnCharge = useCallback(async (a: Alerte) => {
+    arrêterAlarme();
     await supabase.from('alertes_bracelet').update({ statut: 'prise en charge' }).eq('id', a.id);
     fermer(a.id);
-  }, [fermer]);
+  }, [fermer, arrêterAlarme]);
 
   const handleInsert = useCallback((row: Alerte) => {
     if (etabIdRef.current && row) {
@@ -109,7 +159,8 @@ export default function AlerteBraceletPopup() {
           }
           return [{ ...row }, ...list.filter((o) => !memeBracelet.some((m) => m.id === o.id))];
         });
-        beep(1);
+        bipAnnulation();
+        arrêterAlarme();
       } else {
         setAlertes((list) => [{ ...row }, ...list.filter((o) => o.id !== row.id)]);
       }
@@ -129,20 +180,17 @@ export default function AlerteBraceletPopup() {
     return () => {
       supabase.removeChannel(channel);
       setAlertes([]);
+      arrêterAlarme();
     };
-  }, [session, etabId, handleInsert]);
+  }, [session, etabId, handleInsert, arrêterAlarme]);
 
   const sonRépété = alertes.some((a) => !styleFor(a.code).annulation);
 
-  const nbAlertes = alertes.length;
-
   useEffect(() => {
-    if (nbAlertes === 0) return;
-    beep(sonRépété ? 2 : 1);
     if (!sonRépété) return;
-    const interval = setInterval(() => beep(2), 3000);
-    return () => clearInterval(interval);
-  }, [nbAlertes, sonRépété]);
+    démarrerAlarme();
+    return () => arrêterAlarme();
+  }, [sonRépété, démarrerAlarme, arrêterAlarme]);
 
   if (!session || !etabId || alertes.length === 0) return null;
 
