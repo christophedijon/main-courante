@@ -59,6 +59,29 @@ function beep(times: number) {
   }
 }
 
+function BoutonVu({ id, fermer }: { id: string; fermer: (id: string) => void }) {
+  const [restant, setRestant] = useState(15);
+
+  useEffect(() => {
+    if (restant <= 0) {
+      fermer(id);
+      return;
+    }
+    const t = setTimeout(() => setRestant((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [restant, id, fermer]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => fermer(id)}
+      className="mt-5 w-full py-3 rounded-2xl bg-white/95 text-slate-900 font-bold flex items-center justify-center gap-2 hover:bg-white transition-colors"
+    >
+      VU <span className="text-slate-500 font-semibold">({restant} s)</span>
+    </button>
+  );
+}
+
 export default function AlerteBraceletPopup() {
   const { session } = useAuth();
   const { id: etabId } = useEntreprise();
@@ -144,13 +167,17 @@ export default function AlerteBraceletPopup() {
                 <span>Batterie : {a.batterie !== null ? `${a.batterie} %` : '—'}</span>
                 <span className="col-span-2">{new Date(a.created_at).toLocaleTimeString('fr-FR')}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => void prendreEnCharge(a)}
-                className="mt-5 w-full py-3 rounded-2xl bg-white/95 text-slate-900 font-bold flex items-center justify-center gap-2 hover:bg-white transition-colors"
-              >
-                <Hand className="w-5 h-5" /> Prendre en charge
-              </button>
+              {st.annulation ? (
+                <BoutonVu id={a.id} fermer={fermer} />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void prendreEnCharge(a)}
+                  className="mt-5 w-full py-3 rounded-2xl bg-white/95 text-slate-900 font-bold flex items-center justify-center gap-2 hover:bg-white transition-colors"
+                >
+                  <Hand className="w-5 h-5" /> Prendre en charge
+                </button>
+              )}
             </div>
           );
         })}
